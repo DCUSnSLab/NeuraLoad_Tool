@@ -4,14 +4,12 @@
 #include <QMainWindow>
 #include <QListWidget>
 #include <QLineEdit>
-#include <QTimer>
 
-class MainWindow : public QMainWindow
-{
+class MainWindow : public QMainWindow {
     Q_OBJECT
 
 public:
-    MainWindow(QWidget *parent = nullptr);
+    explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
 private slots:
@@ -19,12 +17,17 @@ private slots:
     void startRealTimeData();
 
 private:
+    // Device-specific data
     QListWidget *deviceData1;
     QListWidget *deviceData2;
     QListWidget *deviceData3;
     QListWidget *deviceData4;
     QListWidget *deviceData5;
+
+    // General real-time data
     QListWidget *generalDataList;
+
+    // Load label input
     QLineEdit *loadInput;
 };
 
