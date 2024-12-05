@@ -3,9 +3,9 @@
 #include <QHBoxLayout>
 #include <QPushButton>
 #include <QLabel>
+#include <QTimer>
 
-MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
-{
+MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     // Main widget and layout
     QWidget *centralWidget = new QWidget(this);
     QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
@@ -23,7 +23,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     QLabel *deviceLabel5 = new QLabel("Device 5", this);
     deviceData5 = new QListWidget(this);
 
-    // Add device-specific labels and data widgets to layout
     deviceLayout->addWidget(deviceLabel1);
     deviceLayout->addWidget(deviceData1);
     deviceLayout->addWidget(deviceLabel2);
@@ -45,13 +44,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     loadInput = new QLineEdit(this);
     QPushButton *applyLoadButton = new QPushButton("Apply Load Label", this);
 
-    // Sensor control buttons
     QPushButton *stopResumeButton = new QPushButton("Stop/Resume", this);
     QPushButton *extractYamlButton = new QPushButton("Extract YAML", this);
     QPushButton *saveDataButton = new QPushButton("Save Data", this);
     QPushButton *trackChangesButton = new QPushButton("Track Changes", this);
 
-    // Add widgets to control layout
     controlLayout->addWidget(label);
     controlLayout->addWidget(loadInput);
     controlLayout->addWidget(applyLoadButton);
@@ -60,26 +57,46 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
     controlLayout->addWidget(saveDataButton);
     controlLayout->addWidget(trackChangesButton);
 
-    // Add layouts to main layout
-    mainLayout->addLayout(deviceLayout); // Add device section first
+    mainLayout->addLayout(deviceLayout);
     mainLayout->addWidget(generalDataLabel);
-    mainLayout->addWidget(generalDataList); // Add general data list
-    mainLayout->addLayout(controlLayout); // Add controls at the bottom
+    mainLayout->addWidget(generalDataList);
+    mainLayout->addLayout(controlLayout);
 
-    // Set central widget
     setCentralWidget(centralWidget);
+
+    // Connect signals to slots
+    connect(applyLoadButton, &QPushButton::clicked, this, &MainWindow::applyLoadLabel);
 
     // Simulate real-time data
     startRealTimeData();
 }
 
-MainWindow::~MainWindow()
-{
-    // Cleanup if necessary
+MainWindow::~MainWindow() {}
+
+void MainWindow::applyLoadLabel() {
+    QString loadLabel = loadInput->text();
+    if (!loadLabel.isEmpty() && generalDataList->currentItem()) {
+        generalDataList->currentItem()->setText(
+            generalDataList->currentItem()->text() + " (" + loadLabel + ")");
+    }
 }
 
-void MainWindow::applyLoadLabel()
-{
-    QString loadLabel = loadInput->text();
-    if (!loadLabel.isEmpty() && !generalDataList->currentItem()->text().isEmpty()) {
-        generalDataList
+void MainWindow::startRealTimeData() {
+    QTimer *timer = new QTimer(this);
+    connect(timer, &QTimer::timeout, this, [this]() {
+        static int count = 1;
+
+        // Update device-specific data
+        deviceData1->addItem("Device 1 - Data " + QString::number(count));
+        deviceData2->addItem("Device 2 - Data " + QString::number(count));
+        deviceData3->addItem("Device 3 - Data " + QString::number(count));
+        deviceData4->addItem("Device 4 - Data " + QString::number(count));
+        deviceData5->addItem("Device 5 - Data " + QString::number(count));
+
+        // Update general real-time data
+        generalDataList->addItem("General Data " + QString::number(count));
+        ++count;
+    });
+
+    timer->start(1000); // Update every second
+}
