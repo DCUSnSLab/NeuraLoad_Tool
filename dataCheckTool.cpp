@@ -3,35 +3,33 @@
 #include <QHBoxLayout>
 #include <QPushButton>
 #include <QLabel>
-#include <QTimer>
+#include <QFile>
+#include <QTextStream>
+#include <QMessageBox>
+#include <yaml-cpp/yaml.h>
 
-MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
-    // Main widget and layout
+MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), isUpdating(true) {
+    // UI 설정
     QWidget *centralWidget = new QWidget(this);
     QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
 
-    // Top section: Device-specific data
+    // Device-specific 데이터 설정
     QHBoxLayout *deviceLayout = new QHBoxLayout();
-    QLabel *deviceLabel1 = new QLabel("Device 1", this);
     deviceData1 = new QListWidget(this);
-    QLabel *deviceLabel2 = new QLabel("Device 2", this);
     deviceData2 = new QListWidget(this);
-    QLabel *deviceLabel3 = new QLabel("Device 3", this);
     deviceData3 = new QListWidget(this);
-    QLabel *deviceLabel4 = new QLabel("Device 4", this);
     deviceData4 = new QListWidget(this);
-    QLabel *deviceLabel5 = new QLabel("Device 5", this);
     deviceData5 = new QListWidget(this);
 
-    deviceLayout->addWidget(deviceLabel1);
+    deviceLayout->addWidget(new QLabel("Device 1", this));
     deviceLayout->addWidget(deviceData1);
-    deviceLayout->addWidget(deviceLabel2);
+    deviceLayout->addWidget(new QLabel("Device 2", this));
     deviceLayout->addWidget(deviceData2);
-    deviceLayout->addWidget(deviceLabel3);
+    deviceLayout->addWidget(new QLabel("Device 3", this));
     deviceLayout->addWidget(deviceData3);
-    deviceLayout->addWidget(deviceLabel4);
+    deviceLayout->addWidget(new QLabel("Device 4", this));
     deviceLayout->addWidget(deviceData4);
-    deviceLayout->addWidget(deviceLabel5);
+    deviceLayout->addWidget(new QLabel("Device 5", this));
     deviceLayout->addWidget(deviceData5);
 
     // Bottom section: General real-time data
@@ -44,10 +42,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
     loadInput = new QLineEdit(this);
     QPushButton *applyLoadButton = new QPushButton("Apply Load Label", this);
 
-    QPushButton *stopResumeButton = new QPushButton("Stop/Resume", this);
-    QPushButton *extractYamlButton = new QPushButton("Extract YAML", this);
-    QPushButton *saveDataButton = new QPushButton("Save Data", this);
-    QPushButton *trackChangesButton = new QPushButton("Track Changes", this);
+    stopResumeButton = new QPushButton("Stop/Resume", this);
+    extractYamlButton = new QPushButton("Extract YAML", this);
+    saveDataButton = new QPushButton("Save Data", this);
+    trackChangesButton = new QPushButton("Track Changes", this);
 
     controlLayout->addWidget(label);
     controlLayout->addWidget(loadInput);
@@ -64,14 +62,19 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
     setCentralWidget(centralWidget);
 
+    // SerialComm 객체 초기화
+    serialComm = new SerialComm(this);
+    
     // Connect signals to slots
     connect(applyLoadButton, &QPushButton::clicked, this, &MainWindow::applyLoadLabel);
 
-    // Simulate real-time data
+    // Start the data collection
     startRealTimeData();
 }
 
-MainWindow::~MainWindow() {}
+MainWindow::~MainWindow() {
+    delete serialComm;  // 리소스 해제
+}
 
 void MainWindow::applyLoadLabel() {
     QString loadLabel = loadInput->text();
@@ -86,17 +89,24 @@ void MainWindow::startRealTimeData() {
     connect(timer, &QTimer::timeout, this, [this]() {
         static int count = 1;
 
-        // Update device-specific data
-        deviceData1->addItem("Device 1 - Data " + QString::number(count));
-        deviceData2->addItem("Device 2 - Data " + QString::number(count));
-        deviceData3->addItem("Device 3 - Data " + QString::number(count));
-        deviceData4->addItem("Device 4 - Data " + QString::number(count));
-        deviceData5->addItem("Device 5 - Data " + QString::number(count));
+        // SerialComm 객체를 통해 데이터 받기
+        QString sensorData1 = serialComm->getDataFromDevice(1);
+        QString sensorData2 = serialComm->getDataFromDevice(2);
+        QString sensorData3 = serialComm->getDataFromDevice(3);
+        QString sensorData4 = serialComm->getDataFromDevice(4);
+        QString sensorData5 = serialComm->getDataFromDevice(5);
 
-        // Update general real-time data
+        // Device-specific data 업데이트
+        deviceData1->addItem("Device 1 - Data: " + sensorData1);
+        deviceData2->addItem("Device 2 - Data: " + sensorData2);
+        deviceData3->addItem("Device 3 - Data: " + sensorData3);
+        deviceData4->addItem("Device 4 - Data: " + sensorData4);
+        deviceData5->addItem("Device 5 - Data: " + sensorData5);
+
+        // General real-time data 업데이트
         generalDataList->addItem("General Data " + QString::number(count));
         ++count;
     });
 
-    timer->start(1000); // Update every second
+    timer->start(1000); // 1초마다 데이터 갱신
 }
