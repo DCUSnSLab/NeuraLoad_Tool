@@ -6,6 +6,7 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QTimer>
+#include <QStringList>
 #include "SerialComm.h"  // 센서 데이터 받는 클래스를 포함
 
 class MainWindow : public QMainWindow {
@@ -16,12 +17,12 @@ public:
     ~MainWindow();
 
 private slots:
-    void applyLoadLabel();        // Load label을 적용
-    void startRealTimeData();     // 실시간 데이터 받기
-    void stopOrResumeUpdates();   // 데이터 업데이트 중지/재개
-    void saveDataToFile();        // 데이터를 파일로 저장
-    void extractToYaml();         // 데이터를 YAML로 추출
-    void trackDataChanges();      // 데이터 변화 추적
+    void applyLoadLabel(QListWidget *deviceData);        // Load label을 적용
+    void startRealTimeData();                            // 실시간 데이터 받기
+    void stopRealTimeData();                             // 데이터 업데이트 중지
+    void saveDataToFile();                               // 데이터를 파일로 저장
+    void extractToYaml();                                // 데이터를 YAML로 추출
+    void trackDataChanges();                             // 데이터 변화 추적
 
 private:
     // Device-specific data
@@ -37,8 +38,9 @@ private:
     // Load label input
     QLineEdit *loadInput;
 
-    // 추가된 멤버들
-    QPushButton *stopResumeButton;
+    // Buttons
+    QPushButton *startButton;
+    QPushButton *stopButton;
     QPushButton *extractYamlButton;
     QPushButton *saveDataButton;
     QPushButton *trackChangesButton;
@@ -46,6 +48,8 @@ private:
     QTimer *dataUpdateTimer;      // 실시간 데이터 업데이트 타이머
     SerialComm *serialComm;       // 센서 데이터 통신 객체
     bool isUpdating;              // 데이터 업데이트 상태
+
+    QStringList savedData;        // 이전 데이터를 저장하여 변화 추적
 };
 
 #endif // DATACHECKTOOL_H
