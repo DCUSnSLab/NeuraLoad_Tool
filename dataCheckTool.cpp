@@ -1,231 +1,138 @@
-#include "mainwindow.h"
-#include "ui_mainwindow.h"
+#include "dataCheckTool.h"
+#include "SerialComm.h"  // 센서 데이터 통신 클래스
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QWidget>
+#include <QTimer>
+#include <QListWidget>
+#include <QLineEdit>
+#include <QPushButton>
 #include <QFile>
 #include <QTextStream>
-#include <QDateTime>
-#include <QFileDialog>
 #include <QMessageBox>
-#include <QDir>
+#include <QDebug>
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent)
-    , ui(new Ui::MainWindow)
+    : QMainWindow(parent), isUpdating(false), serialComm(new SerialComm(this))
 {
-    ui->setupUi(this);
+    // 메인 위젯과 레이아웃 설정
+    QWidget *centralWidget = new QWidget(this);
+    QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
+    QHBoxLayout *buttonLayout = new QHBoxLayout();
 
-    // Initialize serial communication
-    serialComm = new SerialComm(this);
+    // 리스트 위젯 초기화
+    deviceData1 = new QListWidget(this);
+    deviceData2 = new QListWidget(this);
+    deviceData3 = new QListWidget(this);
+    deviceData4 = new QListWidget(this);
+    deviceData5 = new QListWidget(this);
+    generalDataList = new QListWidget(this);
 
-    // Connect buttons to their respective slots
-    connect(ui->startButton, &QPushButton::clicked, this, &MainWindow::startRealTimeData);
-    connect(ui->stopButton, &QPushButton::clicked, this, &MainWindow::stopRealTimeData);
-    connect(ui->saveDataButton, &QPushButton::clicked, this, &MainWindow::saveDataToFile);
-    connect(ui->extractYamlButton, &QPushButton::clicked, this, &MainWindow::extractToYaml);
-    connect(ui->trackChangesButton, &QPushButton::clicked, this, &MainWindow::trackDataChanges);
+    // 라인 입력과 버튼 초기화
+    loadInput = new QLineEdit(this);
+    stopResumeButton = new QPushButton("Stop/Resume", this);
+    extractYamlButton = new QPushButton("Extract YAML", this);
+    saveDataButton = new QPushButton("Save Data", this);
+    trackChangesButton = new QPushButton("Track Changes", this);
 
-    // Initialize file list widget
-    loadSavedFiles();
+    // 버튼 레이아웃 구성
+    buttonLayout->addWidget(stopResumeButton);
+    buttonLayout->addWidget(extractYamlButton);
+    buttonLayout->addWidget(saveDataButton);
+    buttonLayout->addWidget(trackChangesButton);
+
+    // 메인 레이아웃 구성
+    mainLayout->addWidget(loadInput);
+    mainLayout->addWidget(deviceData1);
+    mainLayout->addWidget(deviceData2);
+    mainLayout->addWidget(deviceData3);
+    mainLayout->addWidget(deviceData4);
+    mainLayout->addWidget(deviceData5);
+    mainLayout->addWidget(generalDataList);
+    mainLayout->addLayout(buttonLayout);
+
+    // 메인 위젯 설정
+    setCentralWidget(centralWidget);
+
+    // 타이머 초기화
+    dataUpdateTimer = new QTimer(this);
+
+    // 시그널과 슬롯 연결
+    connect(stopResumeButton, &QPushButton::clicked, this, &MainWindow::stopOrResumeUpdates);
+    connect(extractYamlButton, &QPushButton::clicked, this, &MainWindow::extractToYaml);
+    connect(saveDataButton, &QPushButton::clicked, this, &MainWindow::saveDataToFile);
+    connect(trackChangesButton, &QPushButton::clicked, this, &MainWindow::trackDataChanges);
 }
 
-MainWindow::~MainWindow()
-{
-    delete ui;
+MainWindow::~MainWindow() {
+    delete serialComm;
 }
 
-void MainWindow::startRealTimeData()
-{
-    // Start generating real-time data
-    dataTimer = new QTimer(this);
-    connect(dataTimer, &QTimer::timeout, this, &MainWindow::updateRealTimeData);
-    dataTimer->start(1000); // Update every second
-}
-
-void MainWindow::stopRealTimeData()
-{
-    if (dataTimer) {
-        dataTimer->stop();
-        delete dataTimer;
-        dataTimer = nullptr;
+void MainWindow::applyLoadLabel() {
+    QString label = loadInput->text();
+    if (!label.isEmpty()) {
+        generalDataList->addItem("Load Label: " + label);
+    } else {
+        generalDataList->addItem("Load Label: (Nan)");
     }
 }
 
-void MainWindow::updateRealTimeData()
-{
-    static int count = 0;
-    count++;
-
-    // Simulated data update
-    ui->deviceData1->addItem("Device 1 - Data " + QString::number(count));
-    ui->deviceData2->addItem("Device 2 - Data " + QString::number(count));
-    ui->deviceData3->addItem("Device 3 - Data " + QString::number(count));
-    ui->deviceData4->addItem("Device 4 - Data " + QString::number(count));
-    ui->deviceData5->addItem("Device 5 - Data " + QString::number(count));
-
-    applyLoadLabel(ui->deviceData1);
-    applyLoadLabel(ui->deviceData2);
-    applyLoadLabel(ui->deviceData3);
-    applyLoadLabel(ui->deviceData4);
-    applyLoadLabel(ui->deviceData5);
-}
-
-void MainWindow::applyLoadLabel(QListWidget *deviceData)
-{
-    if (deviceData->count() > 0) {
-        QListWidgetItem *lastItem = deviceData->item(deviceData->count() - 1);
-        QString dataText = lastItem->text();
-
-        // Example processing to append load label
-        dataText += " (Nan)";
-        lastItem->setText(dataText);
+void MainWindow::startRealTimeData() {
+    if (!dataUpdateTimer->isActive()) {
+        connect(dataUpdateTimer, &QTimer::timeout, this, [this]() {
+            QString data = serialComm->readData();
+            generalDataList->addItem(data);
+        });
+        dataUpdateTimer->start(1000);  // 1초 간격
+        isUpdating = true;
     }
 }
 
-void MainWindow::saveDataToFile()
-{
-    QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HH");
-    QString fileName = timestamp + ".txt";
+void MainWindow::stopOrResumeUpdates() {
+    if (isUpdating) {
+        dataUpdateTimer->stop();
+        isUpdating = false;
+    } else {
+        dataUpdateTimer->start(1000);  // 다시 시작
+        isUpdating = true;
+    }
+}
 
-    QFile file(fileName);
+void MainWindow::saveDataToFile() {
+    QFile file("output.txt");
     if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
         QTextStream out(&file);
-
-        // Save all data from device lists
-        out << "Device 1:\n";
-        for (int i = 0; i < ui->deviceData1->count(); ++i)
-            out << ui->deviceData1->item(i)->text() << "\n";
-
-        out << "Device 2:\n";
-        for (int i = 0; i < ui->deviceData2->count(); ++i)
-            out << ui->deviceData2->item(i)->text() << "\n";
-
-        out << "Device 3:\n";
-        for (int i = 0; i < ui->deviceData3->count(); ++i)
-            out << ui->deviceData3->item(i)->text() << "\n";
-
-        out << "Device 4:\n";
-        for (int i = 0; i < ui->deviceData4->count(); ++i)
-            out << ui->deviceData4->item(i)->text() << "\n";
-
-        out << "Device 5:\n";
-        for (int i = 0; i < ui->deviceData5->count(); ++i)
-            out << ui->deviceData5->item(i)->text() << "\n";
-
+        for (int i = 0; i < generalDataList->count(); ++i) {
+            out << generalDataList->item(i)->text() << "\n";
+        }
         file.close();
-
-        // Reload file list in UI
-        loadSavedFiles();
-    }
-}
-
-void MainWindow::loadSavedFiles()
-{
-    QDir dir;
-    QStringList files = dir.entryList(QStringList("*.txt"), QDir::Files);
-    ui->fileListWidget->clear();
-    ui->fileListWidget->addItems(files);
-}
-
-void MainWindow::extractToYaml()
-{
-    QListWidgetItem *selectedItem = ui->fileListWidget->currentItem();
-    if (!selectedItem) {
-        QMessageBox::warning(this, "No File Selected", "Please select a file to extract to YAML.");
-        return;
-    }
-
-    QString fileName = selectedItem->text();
-    QFile inputFile(fileName);
-    if (!inputFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-        QMessageBox::critical(this, "File Error", "Could not open file.");
-        return;
-    }
-
-    QString yamlFileName = fileName.split(".").first() + ".yaml";
-    QFile yamlFile(yamlFileName);
-    if (yamlFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        QTextStream in(&inputFile);
-        QTextStream out(&yamlFile);
-
-        // Convert file content to YAML format
-        while (!in.atEnd()) {
-            QString line = in.readLine();
-            out << "- " << line << "\n";
-        }
-
-        inputFile.close();
-        yamlFile.close();
-
-        QMessageBox::information(this, "YAML Created", "YAML file created successfully.");
-    }
-}
-
-void MainWindow::trackDataChanges()
-{
-    if (savedData.isEmpty()) {
-        savedData = {
-            extractDeviceData(ui->deviceData1),
-            extractDeviceData(ui->deviceData2),
-            extractDeviceData(ui->deviceData3),
-            extractDeviceData(ui->deviceData4),
-            extractDeviceData(ui->deviceData5)
-        };
+        QMessageBox::information(this, "Save Data", "Data saved to output.txt");
     } else {
-        QStringList currentData = {
-            extractDeviceData(ui->deviceData1),
-            extractDeviceData(ui->deviceData2),
-            extractDeviceData(ui->deviceData3),
-            extractDeviceData(ui->deviceData4),
-            extractDeviceData(ui->deviceData5)
-        };
+        QMessageBox::critical(this, "Save Data", "Failed to save data.");
+    }
+}
 
-        for (int i = 0; i < currentData.size(); ++i) {
-            QString diff = calculateDifference(savedData[i], currentData[i]);
-            QListWidget *deviceList = getDeviceListWidget(i);
-            if (deviceList && deviceList->count() > 0) {
-                QListWidgetItem *lastItem = deviceList->item(deviceList->count() - 1);
-                QString updatedText = lastItem->text() + " [" + diff + "]";
-                lastItem->setText(updatedText);
-            }
+void MainWindow::extractToYaml() {
+    QFile file("output.yaml");
+    if (file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QTextStream out(&file);
+        out << "general_data:\n";
+        for (int i = 0; i < generalDataList->count(); ++i) {
+            out << "  - " << generalDataList->item(i)->text() << "\n";
         }
-
-        savedData = currentData;
+        file.close();
+        QMessageBox::information(this, "Extract YAML", "Data saved to output.yaml");
+    } else {
+        QMessageBox::critical(this, "Extract YAML", "Failed to extract YAML.");
     }
 }
 
-QString MainWindow::extractDeviceData(QListWidget *deviceData)
-{
-    QStringList dataList;
-    for (int i = 0; i < deviceData->count(); ++i) {
-        dataList << deviceData->item(i)->text().split(":").last().trimmed();
+void MainWindow::trackDataChanges() {
+    // 간단히 변화된 데이터를 시뮬레이션하는 예제
+    for (int i = 0; i < generalDataList->count(); ++i) {
+        QString originalText = generalDataList->item(i)->text();
+        QString updatedText = originalText + " [Updated]";
+        generalDataList->item(i)->setText(updatedText);
     }
-    return dataList.join(",");
-}
-
-QString MainWindow::calculateDifference(const QString &saved, const QString &current)
-{
-    QStringList savedList = saved.split(",");
-    QStringList currentList = current.split(",");
-
-    QStringList diffList;
-    for (int i = 0; i < savedList.size(); ++i) {
-        bool ok;
-        int savedValue = savedList[i].toInt(&ok);
-        int currentValue = currentList[i].toInt(&ok);
-
-        int diff = currentValue - savedValue;
-        diffList << "기준:[" + QString::number(savedValue) + "], 차이:" + QString::number(diff);
-    }
-    return diffList.join("; ");
-}
-
-QListWidget* MainWindow::getDeviceListWidget(int index)
-{
-    switch (index) {
-        case 0: return ui->deviceData1;
-        case 1: return ui->deviceData2;
-        case 2: return ui->deviceData3;
-        case 3: return ui->deviceData4;
-        case 4: return ui->deviceData5;
-        default: return nullptr;
-    }
+    QMessageBox::information(this, "Track Changes", "Data changes tracked and updated.");
 }
