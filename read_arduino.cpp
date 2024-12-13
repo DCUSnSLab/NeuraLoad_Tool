@@ -1,6 +1,10 @@
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <string>
+#include <cstdlib>
+#include <regex>
+#include <filesystem>
 #include <chrono>
 #include <thread>
 #include <ctime>
@@ -8,7 +12,50 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <termios.h>
-#include <sstream>
+
+// Function to detect Arduino port
+std::string detectArduinoPort() {
+    std::string basePath = "/dev/";
+    std::string detectedPort;
+
+    // Iterate through /dev/ directory to find ttyACM* devices
+    for (const auto& entry : std::filesystem::directory_iterator(basePath)) {
+        if (entry.path().string().find("ttyACM") != std::string::npos) {
+            std::string portName = entry.path().string();
+            std::cout << "Checking port: " << portName << std::endl;
+
+            // Run udevadm info to check for Arduino attributes
+            std::ostringstream command;
+            command << "udevadm info -a -n " << portName << " 2>/dev/null";
+
+            FILE* pipe = popen(command.str().c_str(), "r");
+            if (!pipe) {
+                std::cerr << "Error: Unable to execute udevadm for " << portName << std::endl;
+                continue;
+            }
+
+            char buffer[256];
+            std::string output;
+
+            // Read the output of the command
+            while (fgets(buffer, sizeof(buffer), pipe) != nullptr) {
+                output += buffer;
+            }
+            pclose(pipe);
+
+            // Check for Arduino-specific attributes in the output
+            std::regex vendorRegex(R"(ATTRS\{idVendor\}==\"2341\")");  // Arduino vendor ID
+            std::regex productRegex(R"(ATTRS\{idProduct\}==\"0043\")"); // Arduino Uno product ID
+
+            if (std::regex_search(output, vendorRegex) && std::regex_search(output, productRegex)) {
+                detectedPort = portName;
+                break;
+            }
+        }
+    }
+
+    return detectedPort;
+}
 
 // Initialize the serial port
 int initializeSerialPort(const std::string& portName, int baudRate) {
@@ -29,8 +76,8 @@ int initializeSerialPort(const std::string& portName, int baudRate) {
     tty.c_iflag &= ~IGNBRK;
     tty.c_lflag = 0;
     tty.c_oflag = 0;
-    tty.c_cc[VMIN] = 1;
-    tty.c_cc[VTIME] = 1;
+    tty.c_cc[VMIN] = 0;  // Allow non-blocking reads
+    tty.c_cc[VTIME] = 1; // 0.1 second timeout
     tty.c_iflag &= ~(IXON | IXOFF | IXANY);
     tty.c_cflag |= (CLOCAL | CREAD);
     tty.c_cflag &= ~(PARENB | PARODD);
@@ -46,15 +93,17 @@ int initializeSerialPort(const std::string& portName, int baudRate) {
 
 // Read data from the serial port line by line
 std::string readFromSerialPort(int serialPort) {
-    std::string result;
-    char buffer;
-    while (read(serialPort, &buffer, 1) > 0) {
-        if (buffer == '\n') {
-            break;
+    static std::string buffer; // Buffer to store partial data
+    char ch;
+    while (read(serialPort, &ch, 1) > 0) {
+        buffer += ch;
+        if (ch == '\n') { // When a newline is encountered
+            std::string result = buffer;
+            buffer.clear(); // Clear buffer for next line
+            return result;  // Return the complete line
         }
-        result += buffer;
     }
-    return result;
+    return ""; // Return an empty string if no complete line is available
 }
 
 // Get the current timestamp
@@ -68,8 +117,17 @@ std::string getCurrentTimestamp() {
 }
 
 int main() {
-    const std::string portName = "/dev/ttyACM0";
-    const int baudRate = B9600;
+    // Detect Arduino port
+    std::string portName = detectArduinoPort();
+
+    if (portName.empty()) {
+        std::cerr << "No Arduino detected on /dev/ttyACM*" << std::endl;
+        return -1;
+    }
+
+    std::cout << "Arduino detected on port: " << portName << std::endl;
+
+    const int baudRate = B115200; // Match Arduino baud rate
 
     int serialPort = initializeSerialPort(portName, baudRate);
     if (serialPort == -1) {
@@ -91,7 +149,6 @@ int main() {
             outFile << timestamp << ", " << data << std::endl;
             outFile.flush();
         }
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 
     outFile.close();
