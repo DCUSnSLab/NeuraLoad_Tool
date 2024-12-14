@@ -12,7 +12,8 @@ class SerialComm{
 		int receiveData();
 		std::string str_receiveData();
 		bool isDataAvailable();
-		void saveToFile(const std::string& data, const int portNumber);
+		void saveToFile(const std::string& data, const int portNumber, const std::string& label);
+//		std::string applyLabel(const std::string& data, const std::string& label);
 	private:
 		int fd; //file discriptor
 		unsigned long baud;

@@ -42,7 +42,7 @@ std::string SerialComm::str_receiveData(){
 	std::string str_data = "";
 	int portNumber = 1;
 	while(true){
-		if(isDataAvailable()){	
+		if(isDataAvailable()){
 			data = serialGetchar(fd);
 			if(data == -1){
 				break;
@@ -52,7 +52,7 @@ std::string SerialComm::str_receiveData(){
 				std::time_t time = std::chrono::system_clock::to_time_t(now);
 				auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
 				std::cout << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S") << "." << millis.count() << std::endl;	
-				saveToFile(str_data, portNumber);
+//				saveToFile(str_data, portNumber, "0");
 				break;
 			}
 			else if(data != '\0'){
@@ -67,12 +67,12 @@ bool SerialComm::isDataAvailable(){
 	return serialDataAvail(fd);
 }
 
-void SerialComm::saveToFile(const std::string& data, const int portNumber){
+void SerialComm::saveToFile(const std::string& data, const int portNumber, const std::string& label){
 	namespace fs = std::filesystem;
 
 	auto now = std::chrono::system_clock::now();
 	std::time_t time = std::chrono::system_clock::to_time_t(now);
-	
+
 	std::ostringstream folderStream;
 	folderStream << std::put_time(std::localtime(&time), "%Y-%m-%d");
 	std::string folderName = folderStream.str();
@@ -89,19 +89,24 @@ void SerialComm::saveToFile(const std::string& data, const int portNumber){
 	}
 	std::string filePath = folderName + "/" + fileName;
 
-	std::ostringstream timestampStream;	
-	
+	std::ostringstream timestampStream;
 	timestampStream << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S");
 	auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
 	timestampStream << "." << millis.count();
 	std::string timestamp = timestampStream.str();
-	
 	std::ofstream fout(filePath, std::ios::app);
 	if(!fout.is_open()){
 		std::cerr << "Error opening file: " << filePath << std::endl;
 		return;
 	}
 	fout << "timestamp: \"" << timestamp << "\"";
-	fout << ", laser_data_port_"<< portNumber << ": \"" << data << "\"" << std::endl;
+	fout << ", Data_port_"<< portNumber << ": " << data << ", load: " << label << std::endl;
+
 	fout.close();
 }
+
+//std::string SerialComm::applyLabel(const std::string&data, const std::string& label){
+//	std::ostringstream labelData;
+//	labelData << data << ", Load: " << label;
+//	return labelData.str();
+//}
