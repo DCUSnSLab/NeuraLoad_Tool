@@ -96,12 +96,12 @@ std::string readFromSerialPort(int serialPort) {
     static std::string buffer; // Buffer to store partial data
     char ch;
     while (read(serialPort, &ch, 1) > 0) {
-        buffer += ch;
         if (ch == '\n') { // When a newline is encountered
             std::string result = buffer;
             buffer.clear(); // Clear buffer for next line
             return result;  // Return the complete line
         }
+        buffer += ch;
     }
     return ""; // Return an empty string if no complete line is available
 }
@@ -118,7 +118,8 @@ std::string getCurrentTimestamp() {
 
 int main() {
     // Detect Arduino port
-    std::string portName = detectArduinoPort();
+    //std::string portName = detectArduinoPort();
+    std::string portName = "/dev/ttyACM0";
 
     if (portName.empty()) {
         std::cerr << "No Arduino detected on /dev/ttyACM*" << std::endl;
