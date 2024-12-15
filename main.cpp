@@ -19,14 +19,11 @@ char getKeyPress(){
 }
 
 int main(){
-	SerialComm SerialComm1("/dev/ttyACM0", 9600);
-	SerialComm SerialComm2("/dev/ttyACM1", 9600);
-	SerialComm SerialComm3("/dev/ttyACM2", 9600);
-	SerialComm SerialComm4("/dev/ttyACM3", 9600);
-	if (!SerialComm1.setup()) || !SerialComm2.setup()) || !SerialComm3.setup()|| !SerialComm4.setup()){
-		std::cout<<"setup_error" << std::endl;
-		return 0;
-	}
+	SerialComm SerialComm1("/dev/SerialComm1", 9600);
+	SerialComm SerialComm2("/dev/SerialComm2", 9600);
+	SerialComm SerialComm3("/dev/SerialComm3", 9600);
+	SerialComm SerialComm4("/dev/SerialComm4", 9600);
+
 	std::atomic<bool> paused(false);
 	bool running = true;
 	std::string labelInput;
@@ -46,6 +43,9 @@ int main(){
 	});
 
 	while(running){
+		if (!SerialComm1.setup() || !SerialComm2.setup() || !SerialComm3.setup()|| !SerialComm4.setup()){
+			SerialComm SerialComm1("/dev/SerialComm1", 9600);
+		}
 		if(!paused){
 			std::string Serial1_data = SerialComm1.str_receiveData();
 			std::string Serial2_data = SerialComm2.str_receiveData();
@@ -66,6 +66,7 @@ int main(){
 			if(!Serial4_data.empty()){
 				std::cout << "Received Arduino[4]_(Load: "<<labelInput << ") data: " << Serial4_data << std::endl;
 				SerialComm4.saveToFile(Serial4_data, 4, labelInput);
+			}
 		}
 		else{
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));

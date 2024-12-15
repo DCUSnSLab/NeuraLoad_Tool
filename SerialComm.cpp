@@ -20,15 +20,15 @@ SerialComm::~SerialComm(){
 }
 
 bool SerialComm::setup(){
-	std::cout << "Raspberry Startup!" << std::endl;
+//	std::cout << "Raspberry Startup!" << std::endl;
 
 	if ((fd = serialOpen(device, baud)) < 0){
-		std::cerr << "Unable to open serial device: " << strerror(errno) << std::endl;
+//		std::cerr << "Unable to open serial device: " << strerror(errno) << std::endl;
 		return false;
 	}
 
 	if (wiringPiSetup() == -1){
-		std::cerr << " Unable to start wiringPi: " << strerror(errno) << std::endl;
+//		std::cerr << " Unable to start wiringPi: " << strerror(errno) << std::endl;
 		return false;
 	}
 
@@ -96,7 +96,7 @@ void SerialComm::saveToFile(const std::string& data, const int portNumber, const
 	std::string timestamp = timestampStream.str();
 	std::ofstream fout(filePath, std::ios::app);
 	if(!fout.is_open()){
-		std::cerr << "Error opening file: " << filePath << std::endl;
+//		std::cerr << "Error opening file: " << filePath << std::endl;
 		return;
 	}
 	fout << "timestamp: \"" << timestamp << "\"";
