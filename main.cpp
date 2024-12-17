@@ -23,7 +23,22 @@ int main(){
 	SerialComm SerialComm2("/dev/SerialComm2", 9600);
 	SerialComm SerialComm3("/dev/SerialComm3", 9600);
 	SerialComm SerialComm4("/dev/SerialComm4", 9600);
-
+	if (!SerialComm1.setup()){
+		SerialComm SerialComm1("/dev/SerialComm1", 9600);
+		std::cerr<<"NotSerialComm1"<<std::endl;
+	}
+	if (!SerialComm2.setup()){
+		SerialComm SerialComm2("/dev/SerialComm2", 9600);
+		std::cerr<<"NotSerialComm2"<<std::endl;
+	}
+	if (!SerialComm3.setup()){
+		SerialComm SerialComm3("/dev/SerialComm3", 9600);
+		std::cerr<<"NotSerialComm3"<<std::endl;
+	}
+	if (!SerialComm4.setup()){
+		SerialComm SerialComm4("/dev/SerialComm4", 9600);
+		std::cerr<<"NotSerialComm4"<<std::endl;
+	}
 	std::atomic<bool> paused(false);
 	bool running = true;
 	std::string labelInput;
@@ -43,8 +58,17 @@ int main(){
 	});
 
 	while(running){
-		if (!SerialComm1.setup() || !SerialComm2.setup() || !SerialComm3.setup()|| !SerialComm4.setup()){
+		if (!SerialComm1.setup()){
 			SerialComm SerialComm1("/dev/SerialComm1", 9600);
+		}
+		if (!SerialComm2.setup()){
+			SerialComm SerialComm2("/dev/SerialComm2", 9600);
+		}
+		if (!SerialComm3.setup()){
+			SerialComm SerialComm3("/dev/SerialComm3", 9600);
+		}
+		if (!SerialComm4.setup()){
+			SerialComm SerialComm4("/dev/SerialComm4", 9600);
 		}
 		if(!paused){
 			std::string Serial1_data = SerialComm1.str_receiveData();
