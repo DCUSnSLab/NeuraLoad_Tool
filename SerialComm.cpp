@@ -100,7 +100,7 @@ void SerialComm::saveToFile(const std::string& data, const int portNumber, const
 		return;
 	}
 	fout << "timestamp: \"" << timestamp << "\"";
-	fout << ", Data_port_"<< portNumber << ": " << data << ", load: " << label << std::endl;
+	fout << ", Data_port_"<< portNumber << ": " << data << ", load: " << label;
 
 	fout.close();
 }
