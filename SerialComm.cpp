@@ -59,6 +59,10 @@ std::string SerialComm::str_receiveData(){
 				str_data += static_cast<char>(data);
 			}
 		}
+		 else {
+		    // paused 상태일 때 버퍼에 데이터가 쌓이지 않도록 대기
+		    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		}
 	}
 	return str_data;
 }
