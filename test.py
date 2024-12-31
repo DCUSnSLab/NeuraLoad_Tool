@@ -1,18 +1,18 @@
 import sys
 import serial
 from PyQt5.QtWidgets import *
-from PyQt5.QtCore import *
+from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal
 
+
+# 시리얼 데이터를 수신하는 쓰레드 클래스
 class SerialThread(QThread):
-    # 시그널 생성
-    data_received = pyqtSignal(str)
+    data_received = pyqtSignal(str)  # 시그널 생성
 
     def __init__(self, port, baudrate):
         super().__init__()
-        self.port = port # 포트
-        self.baudrate = baudrate # 보트레이트
-        self.is_running = True # 쓰레드 실행 상태
-        self.list_data = []
+        self.port = port
+        self.baudrate = baudrate
+        self.is_running = True
 
     def run(self):
         try:
@@ -22,8 +22,7 @@ class SerialThread(QThread):
             while self.is_running:
                 if self.ser.in_waiting > 0:
                     data = self.ser.readline().decode('utf-8').strip()
-                    self.data_received.emit(data) # 시그널 방출, 함수에 데이터 전달
-                    self.list_data = data.split(',')
+                    self.data_received.emit(data)  # 시그널로 데이터 전송
 
         except serial.SerialException as e:
             print(f"오류: {e}")
@@ -33,11 +32,11 @@ class SerialThread(QThread):
         self.ser.close()
         self.quit()
 
+
 class MyApp(QWidget):
 
     def __init__(self):
         super().__init__()
-        self.current_row = 0
         self.initUI()
         self.setupUI()
         self.setup()
@@ -45,25 +44,23 @@ class MyApp(QWidget):
 
     def initUI(self):
         self.setWindowTitle('과적 테스트')
-        self.resize(900, 800)
+        self.resize(850, 800)
         self.show()
 
     def setupUI(self):
         self.table = QTableWidget()
         self.table.setColumnCount(5)
-        self.table.setRowCount(4)
+        self.table.setRowCount(2)
         for i in range(5):
             self.table.setHorizontalHeaderItem(i, QTableWidgetItem(f'sensor{i+1}'))
-        self.table.setVerticalHeaderLabels(['Laser', 'IMU[x]', 'IMU[y]', 'IMU[z]'])
-        self.table.setMaximumHeight(225)
-        self.table.setMaximumWidth(825)
+        self.table.setVerticalHeaderLabels(['Laser', 'IMU'])
+        self.table.setMaximumHeight(135)
+        self.table.setMaximumWidth(820)
 
         self.logging = QTableWidget()
         self.logging.setColumnCount(1)
         self.logging.setHorizontalHeaderLabels(['로그 출력'])
-        self.logging.setColumnWidth(0, 500)
         self.logging.setMinimumHeight(300)
-        self.logging.setMinimumWidth(500)
 
         self.stop_btn = QPushButton('정지', self)
         self.stop_btn.clicked.connect(self.stop)
@@ -87,31 +84,23 @@ class MyApp(QWidget):
 
         self.save_file_box_log = QLabel('저장된 파일')
 
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_table)
-
     def startSerialThread(self):
+        # 시리얼 스레드 시작
         self.serial_thread = SerialThread('COM3', 9600)
         self.serial_thread.data_received.connect(self.handle_serial_data)
         self.serial_thread.start()
 
     def handle_serial_data(self, data):
+        print(f"Received: {data}")
         self.logging.insertRow(self.logging.rowCount())
         self.logging.setItem(self.logging.rowCount() - 1, 0, QTableWidgetItem(data))
-        self.data = self.serial_thread.list_data
-
-        if len(self.data) == 4:
-            #값은 z, x, y로 들어감
-            self.table.setItem(0, 0, QTableWidgetItem(self.data[0]))
-            self.table.setItem(1, 0, QTableWidgetItem(self.data[-1]))
-            self.table.setItem(2, 0, QTableWidgetItem(self.data[-2]))
-            self.table.setItem(3, 0, QTableWidgetItem(self.data[-3]))
 
     def stop(self):
-        print("데이터 통신 일시 중지")
+        self.serial_thread.stop()
 
     def restart(self):
-        print("데이터 통신 재시작")
+        self.serial_thread.stop()
+        self.startSerialThread()
 
     def tracking(self):
         pass
@@ -121,16 +110,6 @@ class MyApp(QWidget):
 
     def save(self):
         pass
-
-    def update_table(self):
-        if self.current_row < len(self.data):
-            row_data = self.data[self.current_row]
-            row_position = self.table.rowCount()
-            self.table.insertRow(row_position)
-            self.table.setItem(row_position, 0, QTableWidgetItem(row_data))
-            self.current_row += 1
-        else:
-            self.timer.stop()
 
     def setup(self):
         weight_input_layout1 = QHBoxLayout()
@@ -175,7 +154,8 @@ class MyApp(QWidget):
         self.serial_thread.stop()
         event.accept()
 
+
 if __name__ == '__main__':
-   app = QApplication(sys.argv)
-   ex = MyApp()
-   sys.exit(app.exec_())
+    app = QApplication(sys.argv)
+    ex = MyApp()
+    sys.exit(app.exec_())
