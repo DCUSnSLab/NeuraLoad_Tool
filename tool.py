@@ -60,13 +60,13 @@ class MyApp(QWidget):
 
     def setupUI(self):
         self.table = QTableWidget()
-        self.table.setColumnCount(5)
+        self.table.setColumnCount(4)
         self.table.setRowCount(4)
         for i in range(5):
             self.table.setHorizontalHeaderItem(i, QTableWidgetItem(f'sensor{i+1}'))
         self.table.setVerticalHeaderLabels(['Laser', 'IMU[x]', 'IMU[y]', 'IMU[z]'])
         self.table.setMaximumHeight(225)
-        self.table.setMaximumWidth(825)
+        self.table.setMaximumWidth(680)
 
         self.logging = QTableWidget()
         self.logging.setColumnCount(3)
