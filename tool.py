@@ -2,6 +2,7 @@ import sys
 import serial
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
+from datetime import datetime
 
 class SerialThread(QThread):
     # 시그널 생성
@@ -12,7 +13,9 @@ class SerialThread(QThread):
         self.port = port # 포트
         self.baudrate = baudrate # 보트레이트
         self.is_running = True # 쓰레드 실행 상태
+        self.is_paused = False # 쓰레드 일시 중지 상태
         self.list_data = []
+        self.data_all = []
 
     def run(self):
         try:
@@ -20,23 +23,33 @@ class SerialThread(QThread):
             print("연결되었습니다.")
 
             while self.is_running:
+                if self.is_paused:
+                    QThread.msleep(100)
+                    continue
+
                 if self.ser.in_waiting > 0:
                     data = self.ser.readline().decode('utf-8').strip()
                     self.data_received.emit(data) # 시그널 방출, 함수에 데이터 전달
                     self.list_data = data.split(',')
+                    self.data_all.append(self.list_data)
 
         except serial.SerialException as e:
             print(f"오류: {e}")
 
-    def stop(self):
-        self.is_running = False
-        self.ser.close()
-        self.quit()
+    def pause(self):
+        self.is_paused = True
+        print("데이터 통신 일시 중지")
+
+    def resume(self):
+        self.ser.flushInput()
+        self.is_paused = False
+        print("데이터 통신 재시작")
 
 class MyApp(QWidget):
 
     def __init__(self):
         super().__init__()
+        self.weight_text = "0"
         self.current_row = 0
         self.initUI()
         self.setupUI()
@@ -59,11 +72,11 @@ class MyApp(QWidget):
         self.table.setMaximumWidth(825)
 
         self.logging = QTableWidget()
-        self.logging.setColumnCount(1)
-        self.logging.setHorizontalHeaderLabels(['로그 출력'])
-        self.logging.setColumnWidth(0, 500)
+        self.logging.setColumnCount(2)
+        self.logging.setHorizontalHeaderLabels(['무게', '로그'])
         self.logging.setMinimumHeight(300)
         self.logging.setMinimumWidth(500)
+        self.logging.horizontalHeader().setStretchLastSection(True)
 
         self.stop_btn = QPushButton('정지', self)
         self.stop_btn.clicked.connect(self.stop)
@@ -81,26 +94,37 @@ class MyApp(QWidget):
 
         self.weight_btn = QPushButton('입력', self)
         self.weight_btn.clicked.connect(self.weight)
+        self.weight_input.returnPressed.connect(self.weight)
 
         self.save_btn = QPushButton('저장', self)
         self.save_btn.clicked.connect(self.save)
 
-        self.save_file_box_log = QLabel('저장된 파일')
+        self.save_file_box_log = QTableWidget()
+        self.save_file_box_log.setColumnCount(1)
+        self.save_file_box_log.setHorizontalHeaderLabels(['저장된 파일'])
+        self.save_file_box_log.setMinimumHeight(100)
+        self.save_file_box_log.setMinimumWidth(300)
+        self.save_file_box_log.horizontalHeader().setStretchLastSection(True)
+        self.save_file_box_log.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_table)
 
     def startSerialThread(self):
-        self.serial_thread = SerialThread('COM3', 9600)
+        self.serial_thread = SerialThread('COM6', 9600)
         self.serial_thread.data_received.connect(self.handle_serial_data)
         self.serial_thread.start()
 
     def handle_serial_data(self, data):
-        self.logging.insertRow(self.logging.rowCount())
-        self.logging.setItem(self.logging.rowCount() - 1, 0, QTableWidgetItem(data))
-        self.data = self.serial_thread.list_data
+        if len(data) >= 3:
+            current_row_count = self.logging.rowCount()
+            self.logging.insertRow(current_row_count)
 
-        if len(self.data) == 4:
+            self.logging.setItem(current_row_count, 0, QTableWidgetItem(self.weight_text))
+            self.logging.setItem(current_row_count, 1, QTableWidgetItem(data))
+
+        self.data = self.serial_thread.list_data
+        if len(self.data) >= 4:
             #값은 z, x, y로 들어감
             self.table.setItem(0, 0, QTableWidgetItem(self.data[0]))
             self.table.setItem(1, 0, QTableWidgetItem(self.data[-1]))
@@ -108,19 +132,45 @@ class MyApp(QWidget):
             self.table.setItem(3, 0, QTableWidgetItem(self.data[-3]))
 
     def stop(self):
-        print("데이터 통신 일시 중지")
+        self.serial_thread.pause()
 
     def restart(self):
-        print("데이터 통신 재시작")
+        self.serial_thread.resume()
 
     def tracking(self):
         pass
 
     def weight(self):
-        pass
+        self.weight_text = self.weight_input.text().strip()
+        if self.weight_text:
+            current_row_count = self.logging.rowCount()
+            self.logging.setItem(current_row_count, 0, QTableWidgetItem(f"{self.weight_text}"))
+            print(f"무게 추가: {self.weight_text}")
 
     def save(self):
-        pass
+        try:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            file_name = f"{timestamp}.txt"
+
+            with open(file_name, 'w', encoding='utf-8') as file:
+                row_count = self.logging.rowCount()
+                column_count = self.logging.columnCount()
+
+                headers = [self.logging.horizontalHeaderItem(c).text() for c in range(column_count)]
+                file.write("\t".join(headers) + "\n")
+
+                for row in range(row_count):
+                    row_data = [
+                        self.logging.item(row, col).text() if self.logging.item(row, col) else ""
+                        for col in range(column_count)
+                    ]
+                    file.write("\t".join(row_data) + "\n")
+
+            row_position = self.save_file_box_log.rowCount()
+            self.save_file_box_log.insertRow(row_position)
+            self.save_file_box_log.setItem(row_position, 0, QTableWidgetItem(file_name))
+        except Exception as e:
+            QMessageBox.critical(self, "저장 실패", f"오류 발생: {str(e)}", QMessageBox.Ok)
 
     def update_table(self):
         if self.current_row < len(self.data):
@@ -149,17 +199,12 @@ class MyApp(QWidget):
         layout_btn1.addWidget(self.stop_btn)
         layout_btn1.addWidget(self.restart_btn)
 
-        save_file_box = QGroupBox('저장된 파일')
-        save_file_layout = QHBoxLayout()
-        save_file_layout.addWidget(self.save_file_box_log)
-        save_file_box.setLayout(save_file_layout)
-
         layout_btn2 = QVBoxLayout()
         layout_btn2.addLayout(layout_btn1)
         layout_btn2.addWidget(self.tracking_btn)
         layout_btn2.addWidget(weight_box)
         layout_btn2.addWidget(self.save_btn)
-        layout_btn2.addWidget(save_file_box)
+        layout_btn2.addWidget(self.save_file_box_log)
 
         layout1 = QHBoxLayout()
         layout1.addWidget(self.logging)
