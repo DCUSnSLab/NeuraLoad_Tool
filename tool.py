@@ -3,6 +3,7 @@ import serial
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from datetime import datetime
+import pyqtgraph as pg
 
 class SerialThread(QThread):
     data_received = pyqtSignal(str, str)
@@ -55,7 +56,7 @@ class MyApp(QWidget):
 
     def initUI(self):
         self.setWindowTitle('과적 테스트')
-        self.resize(900, 800)
+        self.resize(1500, 800)
         self.show()
 
     def setupUI(self):
@@ -65,8 +66,8 @@ class MyApp(QWidget):
         for i in range(5):
             self.table.setHorizontalHeaderItem(i, QTableWidgetItem(f'sensor{i+1}'))
         self.table.setVerticalHeaderLabels(['Laser', 'IMU[x]', 'IMU[y]', 'IMU[z]'])
-        self.table.setMaximumHeight(225)
-        self.table.setMaximumWidth(680)
+        self.table.setMaximumHeight(300)
+        self.table.setMaximumWidth(1000)
 
         self.logging = QTableWidget()
         self.logging.setColumnCount(3)
@@ -101,6 +102,8 @@ class MyApp(QWidget):
         self.save_file_box_log.horizontalHeader().setStretchLastSection(True)
         self.save_file_box_log.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
+        self.graph = pg.PlotWidget()
+
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_table)
 
@@ -115,7 +118,9 @@ class MyApp(QWidget):
     def handle_serial_data(self, port, data):
         parsed_data = data.split(',')
 
-        if len(parsed_data) >= 4:
+        if len(parsed_data) >= 6:
+            sensor_data = parsed_data[1:]
+
             current_row_count = self.logging.rowCount()
             self.logging.insertRow(current_row_count)
             self.logging.setItem(current_row_count, 0, QTableWidgetItem(self.weight_text))
@@ -124,25 +129,25 @@ class MyApp(QWidget):
 
             # 값은 z, x, y로 들어감
             if port == 'COM3':
-                self.table.setItem(0, 0, QTableWidgetItem(parsed_data[0]))
-                self.table.setItem(1, 0, QTableWidgetItem(parsed_data[-2]))
-                self.table.setItem(2, 0, QTableWidgetItem(parsed_data[-1]))
-                self.table.setItem(3, 0, QTableWidgetItem(parsed_data[-3]))
+                self.table.setItem(0, 0, QTableWidgetItem(sensor_data[0]))
+                self.table.setItem(1, 0, QTableWidgetItem(sensor_data[-2]))
+                self.table.setItem(2, 0, QTableWidgetItem(sensor_data[-1]))
+                self.table.setItem(3, 0, QTableWidgetItem(sensor_data[-3]))
             elif port == 'COM6':
-                self.table.setItem(0, 1, QTableWidgetItem(parsed_data[0]))
-                self.table.setItem(1, 1, QTableWidgetItem(parsed_data[-2]))
-                self.table.setItem(2, 1, QTableWidgetItem(parsed_data[-1]))
-                self.table.setItem(3, 1, QTableWidgetItem(parsed_data[-3]))
+                self.table.setItem(0, 1, QTableWidgetItem(sensor_data[0]))
+                self.table.setItem(1, 1, QTableWidgetItem(sensor_data[-2]))
+                self.table.setItem(2, 1, QTableWidgetItem(sensor_data[-1]))
+                self.table.setItem(3, 1, QTableWidgetItem(sensor_data[-3]))
             elif port == 'COM7':
-                self.table.setItem(0, 2, QTableWidgetItem(parsed_data[0]))
-                self.table.setItem(1, 2, QTableWidgetItem(parsed_data[-2]))
-                self.table.setItem(2, 2, QTableWidgetItem(parsed_data[-1]))
-                self.table.setItem(3, 2, QTableWidgetItem(parsed_data[-3]))
+                self.table.setItem(0, 2, QTableWidgetItem(sensor_data[0]))
+                self.table.setItem(1, 2, QTableWidgetItem(sensor_data[-2]))
+                self.table.setItem(2, 2, QTableWidgetItem(sensor_data[-1]))
+                self.table.setItem(3, 2, QTableWidgetItem(sensor_data[-3]))
             elif port == 'COM8':
-                self.table.setItem(0, 3, QTableWidgetItem(parsed_data[0]))
-                self.table.setItem(1, 3, QTableWidgetItem(parsed_data[-2]))
-                self.table.setItem(2, 3, QTableWidgetItem(parsed_data[-1]))
-                self.table.setItem(3, 3, QTableWidgetItem(parsed_data[-3]))
+                self.table.setItem(0, 3, QTableWidgetItem(sensor_data[0]))
+                self.table.setItem(1, 3, QTableWidgetItem(sensor_data[-2]))
+                self.table.setItem(2, 3, QTableWidgetItem(sensor_data[-1]))
+                self.table.setItem(3, 3, QTableWidgetItem(sensor_data[-3]))
 
     def stop(self):
         for thread in self.threads:
@@ -160,22 +165,26 @@ class MyApp(QWidget):
 
     def save(self):
         try:
+            # 파일 이름 생성
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             file_name = f"{timestamp}.txt"
 
             with open(file_name, 'w', encoding='utf-8') as file:
-                row_count = self.logging.rowCount()
-                column_count = self.logging.columnCount()
-
-                headers = [self.logging.horizontalHeaderItem(c).text() for c in range(column_count)]
+                headers = ['Logged Time', '무게', '포트', '로그']
                 file.write("\t".join(headers) + "\n")
 
+                row_count = self.logging.rowCount()
                 for row in range(row_count):
-                    row_data = [
-                        self.logging.item(row, col).text() if self.logging.item(row, col) else ""
-                        for col in range(column_count)
-                    ]
-                    file.write("\t".join(row_data) + "\n")
+                    log_data = self.logging.item(row, 2).text() if self.logging.item(row, 2) else ""
+                    parsed_data = log_data.split(',')
+
+                    logged_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+
+                    weight = self.logging.item(row, 0).text() if self.logging.item(row, 0) else ""
+                    port = self.logging.item(row, 1).text() if self.logging.item(row, 1) else ""
+                    log_content = ",".join(parsed_data[1:]) if len(parsed_data) > 1 else ""
+
+                    file.write(f"{logged_time}\t{weight}\t{port}\t{log_content}\n")
 
             row_position = self.save_file_box_log.rowCount()
             self.save_file_box_log.insertRow(row_position)
@@ -224,7 +233,11 @@ class MyApp(QWidget):
         layout2.addWidget(self.table)
         layout2.addLayout(layout1)
 
-        self.setLayout(layout2)
+        layout3 = QHBoxLayout()
+        layout3.addLayout(layout2)
+        layout3.addWidget(self.graph)
+
+        self.setLayout(layout3)
 
     def closeEvent(self, event):
         for thread in self.threads:
