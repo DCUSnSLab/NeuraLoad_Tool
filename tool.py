@@ -5,8 +5,7 @@ from PyQt5.QtCore import *
 from datetime import datetime
 
 class SerialThread(QThread):
-    # 시그널 생성
-    data_received = pyqtSignal(str)
+    data_received = pyqtSignal(str, str)
 
     def __init__(self, port, baudrate):
         super().__init__()
@@ -20,7 +19,6 @@ class SerialThread(QThread):
     def run(self):
         try:
             self.ser = serial.Serial(self.port, self.baudrate, timeout=1)
-            print("연결되었습니다.")
 
             while self.is_running:
                 if self.is_paused:
@@ -29,7 +27,7 @@ class SerialThread(QThread):
 
                 if self.ser.in_waiting > 0:
                     data = self.ser.readline().decode('utf-8').strip()
-                    self.data_received.emit(data) # 시그널 방출, 함수에 데이터 전달
+                    self.data_received.emit(self.port, data) # 시그널 방출, 함수에 데이터 전달
                     self.list_data = data.split(',')
                     self.data_all.append(self.list_data)
 
@@ -38,17 +36,16 @@ class SerialThread(QThread):
 
     def pause(self):
         self.is_paused = True
-        print("데이터 통신 일시 중지")
 
     def resume(self):
         self.ser.flushInput()
         self.is_paused = False
-        print("데이터 통신 재시작")
 
 class MyApp(QWidget):
 
     def __init__(self):
         super().__init__()
+        self.threads = []
         self.weight_text = "0"
         self.current_row = 0
         self.initUI()
@@ -72,8 +69,8 @@ class MyApp(QWidget):
         self.table.setMaximumWidth(825)
 
         self.logging = QTableWidget()
-        self.logging.setColumnCount(2)
-        self.logging.setHorizontalHeaderLabels(['무게', '로그'])
+        self.logging.setColumnCount(3)
+        self.logging.setHorizontalHeaderLabels(['무게', '포트', '로그'])
         self.logging.setMinimumHeight(300)
         self.logging.setMinimumWidth(500)
         self.logging.horizontalHeader().setStretchLastSection(True)
@@ -83,9 +80,6 @@ class MyApp(QWidget):
 
         self.restart_btn = QPushButton('재시작', self)
         self.restart_btn.clicked.connect(self.restart)
-
-        self.tracking_btn = QPushButton('변화추적', self)
-        self.tracking_btn.clicked.connect(self.tracking)
 
         self.weight_input = QLineEdit()
         self.weight_input.setStyleSheet("background-color: white")
@@ -102,8 +96,8 @@ class MyApp(QWidget):
         self.save_file_box_log = QTableWidget()
         self.save_file_box_log.setColumnCount(1)
         self.save_file_box_log.setHorizontalHeaderLabels(['저장된 파일'])
-        self.save_file_box_log.setMinimumHeight(100)
-        self.save_file_box_log.setMinimumWidth(300)
+        self.save_file_box_log.setMaximumHeight(500)
+        self.save_file_box_log.setMaximumWidth(300)
         self.save_file_box_log.horizontalHeader().setStretchLastSection(True)
         self.save_file_box_log.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
@@ -111,41 +105,58 @@ class MyApp(QWidget):
         self.timer.timeout.connect(self.update_table)
 
     def startSerialThread(self):
-        self.serial_thread = SerialThread('COM6', 9600)
-        self.serial_thread.data_received.connect(self.handle_serial_data)
-        self.serial_thread.start()
+        ports = ['COM3', 'COM6', 'COM7', 'COM8']  # 실제 연결된 포트로 변경
+        for port in ports:
+            thread = SerialThread(port, 9600)
+            thread.data_received.connect(self.handle_serial_data)
+            self.threads.append(thread)
+            thread.start()
 
-    def handle_serial_data(self, data):
-        if len(data) >= 3:
+    def handle_serial_data(self, port, data):
+        parsed_data = data.split(',')
+
+        if len(parsed_data) >= 4:
             current_row_count = self.logging.rowCount()
             self.logging.insertRow(current_row_count)
-
             self.logging.setItem(current_row_count, 0, QTableWidgetItem(self.weight_text))
-            self.logging.setItem(current_row_count, 1, QTableWidgetItem(data))
+            self.logging.setItem(current_row_count, 1, QTableWidgetItem(port))
+            self.logging.setItem(current_row_count, 2, QTableWidgetItem(data))
 
-        self.data = self.serial_thread.list_data
-        if len(self.data) >= 4:
-            #값은 z, x, y로 들어감
-            self.table.setItem(0, 0, QTableWidgetItem(self.data[0]))
-            self.table.setItem(1, 0, QTableWidgetItem(self.data[-1]))
-            self.table.setItem(2, 0, QTableWidgetItem(self.data[-2]))
-            self.table.setItem(3, 0, QTableWidgetItem(self.data[-3]))
+            # 값은 z, x, y로 들어감
+            if port == 'COM3':
+                self.table.setItem(0, 0, QTableWidgetItem(parsed_data[0]))
+                self.table.setItem(1, 0, QTableWidgetItem(parsed_data[-2]))
+                self.table.setItem(2, 0, QTableWidgetItem(parsed_data[-1]))
+                self.table.setItem(3, 0, QTableWidgetItem(parsed_data[-3]))
+            elif port == 'COM6':
+                self.table.setItem(0, 1, QTableWidgetItem(parsed_data[0]))
+                self.table.setItem(1, 1, QTableWidgetItem(parsed_data[-2]))
+                self.table.setItem(2, 1, QTableWidgetItem(parsed_data[-1]))
+                self.table.setItem(3, 1, QTableWidgetItem(parsed_data[-3]))
+            elif port == 'COM7':
+                self.table.setItem(0, 2, QTableWidgetItem(parsed_data[0]))
+                self.table.setItem(1, 2, QTableWidgetItem(parsed_data[-2]))
+                self.table.setItem(2, 2, QTableWidgetItem(parsed_data[-1]))
+                self.table.setItem(3, 2, QTableWidgetItem(parsed_data[-3]))
+            elif port == 'COM8':
+                self.table.setItem(0, 3, QTableWidgetItem(parsed_data[0]))
+                self.table.setItem(1, 3, QTableWidgetItem(parsed_data[-2]))
+                self.table.setItem(2, 3, QTableWidgetItem(parsed_data[-1]))
+                self.table.setItem(3, 3, QTableWidgetItem(parsed_data[-3]))
 
     def stop(self):
-        self.serial_thread.pause()
+        for thread in self.threads:
+            thread.pause()
 
     def restart(self):
-        self.serial_thread.resume()
-
-    def tracking(self):
-        pass
+        for thread in self.threads:
+            thread.resume()
 
     def weight(self):
         self.weight_text = self.weight_input.text().strip()
         if self.weight_text:
             current_row_count = self.logging.rowCount()
             self.logging.setItem(current_row_count, 0, QTableWidgetItem(f"{self.weight_text}"))
-            print(f"무게 추가: {self.weight_text}")
 
     def save(self):
         try:
@@ -201,7 +212,6 @@ class MyApp(QWidget):
 
         layout_btn2 = QVBoxLayout()
         layout_btn2.addLayout(layout_btn1)
-        layout_btn2.addWidget(self.tracking_btn)
         layout_btn2.addWidget(weight_box)
         layout_btn2.addWidget(self.save_btn)
         layout_btn2.addWidget(self.save_file_box_log)
@@ -217,7 +227,8 @@ class MyApp(QWidget):
         self.setLayout(layout2)
 
     def closeEvent(self, event):
-        self.serial_thread.stop()
+        for thread in self.threads:
+            thread.stop()
         event.accept()
 
 if __name__ == '__main__':
