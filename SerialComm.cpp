@@ -1,3 +1,4 @@
+#include <thread>
 #include <iostream>
 #include <errno.h>
 #include <cstring>
@@ -14,7 +15,6 @@ SerialComm::SerialComm(const char* device, unsigned long baud)
 
 SerialComm::~SerialComm(){
 	if (fd >= 0){
-
 		serialClose(fd);
 	}
 }
@@ -23,16 +23,23 @@ bool SerialComm::setup(){
 //	std::cout << "Raspberry Startup!" << std::endl;
 
 	if ((fd = serialOpen(device, baud)) < 0){
-//		std::cerr << "Unable to open serial device: " << strerror(errno) << std::endl;
+		std::cerr << "Unable to open serial device: " << strerror(errno) << std::endl;
 		return false;
 	}
 
 	if (wiringPiSetup() == -1){
-//		std::cerr << " Unable to start wiringPi: " << strerror(errno) << std::endl;
+		std::cerr << " Unable to start wiringPi: " << strerror(errno) << std::endl;
 		return false;
 	}
 
 	return true;
+}
+
+
+void SerialComm::flushBuffer(){
+	while(serialDataAvail(fd)){
+		serialGetchar(fd);
+	}
 }
 
 void SerialComm::sendData(const char* data){ }
@@ -59,9 +66,8 @@ std::string SerialComm::str_receiveData(){
 				str_data += static_cast<char>(data);
 			}
 		}
-		 else {
-		    // paused 상태일 때 버퍼에 데이터가 쌓이지 않도록 대기
-		    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		else{
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		}
 	}
 	return str_data;
@@ -70,7 +76,7 @@ std::string SerialComm::str_receiveData(){
 bool SerialComm::isDataAvailable(){
 	return serialDataAvail(fd);
 }
-
+/**
 void SerialComm::saveToFile(const std::string& data, const int portNumber, const std::string& label){
 	namespace fs = std::filesystem;
 
@@ -104,13 +110,49 @@ void SerialComm::saveToFile(const std::string& data, const int portNumber, const
 		return;
 	}
 	fout << "timestamp: \"" << timestamp << "\"";
-	fout << ", Data_port_"<< portNumber << ": " << data << ", load: " << label;
+	fout << ", Data_port_"<< portNumber << ": " << data << ", load: " << label << std::endl;
 
 	fout.close();
 }
 
-//std::string SerialComm::applyLabel(const std::string&data, const std::string& label){
-//	std::ostringstream labelData;
-//	labelData << data << ", Load: " << label;
-//	return labelData.str();
-//}
+**/
+
+
+void SerialComm::saveToFile(const std::string& data, const int portNumber, const std::string& label){
+	namespace fs = std::filesystem;
+
+	auto now = std::chrono::system_clock::now();
+	std::time_t time = std::chrono::system_clock::to_time_t(now);
+
+	std::ostringstream folderStream;
+	folderStream << std::put_time(std::localtime(&time), "%Y-%m-%d");
+	std::string folderName = folderStream.str();
+
+
+	std::ostringstream filename_stream;
+	filename_stream << std::put_time(std::localtime(&time), "%Y%m%d_%H") << ".yaml";
+	std::string fileName = filename_stream.str();
+
+	if (!fs::exists(folderName)){
+		if (!fs::create_directory(folderName)){
+			return;
+		}
+	}
+	std::string filePath = folderName + "/" + fileName;
+
+	std::ofstream fout(filePath, std::ios::app);
+	if (!fout.is_open()){
+		std::cerr << "Error opening file: " << filePath << std::endl;
+		return;
+	}
+
+	std::ostringstream timestampStream;
+	timestampStream << std::put_time(std::localtime(&time), "%Y-%m-%d %H:%M:%S");
+	auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+	timestampStream << "." << millis.count();
+	std::string timestamp = timestampStream.str();
+	fout << "timestamp: \"" << timestamp << "\"";
+	fout << ", Data_port_"<< portNumber << ": " << data << ", load: " << label << std::endl;
+
+	fout.close();
+}

@@ -6,6 +6,7 @@
 #include <string>
 #include "SerialComm.h"
 
+
 char getKeyPress(){
 	struct termios oldt, newt;
 	char ch;
@@ -42,6 +43,7 @@ int main(){
 	std::atomic<bool> paused(false);
 	bool running = true;
 	std::string labelInput;
+
 	std::thread inputThread([&](){
 		while (running){
 			char key = getKeyPress();
@@ -58,9 +60,10 @@ int main(){
 	});
 
 	while(running){
-		if (!SerialComm1.setup()){
-			SerialComm SerialComm1("/dev/SerialComm1", 9600);
-		}
+/**
+//		if (!SerialComm1.setup()){
+//			SerialComm SerialComm1("/dev/SerialComm1", 9600);
+//		}
 		if (!SerialComm2.setup()){
 			SerialComm SerialComm2("/dev/SerialComm2", 9600);
 		}
@@ -70,7 +73,9 @@ int main(){
 		if (!SerialComm4.setup()){
 			SerialComm SerialComm4("/dev/SerialComm4", 9600);
 		}
+**/
 		if(!paused){
+
 			std::string Serial1_data = SerialComm1.str_receiveData();
 			std::string Serial2_data = SerialComm2.str_receiveData();
 			std::string Serial3_data = SerialComm3.str_receiveData();
@@ -93,6 +98,11 @@ int main(){
 			}
 		}
 		else{
+			SerialComm1.flushBuffer();
+			SerialComm2.flushBuffer();
+			SerialComm3.flushBuffer();
+			SerialComm4.flushBuffer();
+
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		}
 	}
