@@ -1,6 +1,5 @@
 import sys
 import serial
-from PyQt5.QtGui import QKeyEvent
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from datetime import datetime
@@ -116,8 +115,8 @@ class MyApp(QWidget):
         self.weight_table.setMinimumHeight(250)
         self.weight_table.setMaximumWidth(1000)
         self.weight_table.setMinimumWidth(500)
-        self.weight_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.weight_table.installEventFilter(self)
+        self.weight_table.cellChanged.connect(self.onCellChanged)
 
         for row in range(3):
             for col in range(3):
@@ -161,7 +160,7 @@ class MyApp(QWidget):
 
             current_row_count = self.logging.rowCount()
             self.logging.insertRow(current_row_count)
-            self.logging.setItem(current_row_count, 0, QTableWidgetItem(self.weight_a))
+            self.logging.setItem(current_row_count, 0, QTableWidgetItem(str(self.weight_a)))
             self.logging.setItem(current_row_count, 1, QTableWidgetItem(port))
             self.logging.setItem(current_row_count, 2, QTableWidgetItem(data))
 
@@ -242,6 +241,10 @@ class MyApp(QWidget):
                 self.weight_table.setItem(row, col, val)
                 self.count += 1
 
+    def onCellChanged(self, row, col):
+        new_value = self.weight_table.item(row, col).text()
+        self.weight_a[row * 3 + col] = int(new_value) if new_value else 0
+
     def eventFilter(self, source, event):
         if event.type() == QEvent.KeyPress:
             if event.key() == Qt.Key_P:
@@ -281,6 +284,7 @@ class MyApp(QWidget):
             row_position = self.save_file_box_log.rowCount()
             self.save_file_box_log.insertRow(row_position)
             self.save_file_box_log.setItem(row_position, 0, QTableWidgetItem(file_name))
+
         except Exception as e:
             QMessageBox.critical(self, "저장 실패", f"오류 발생: {str(e)}", QMessageBox.Ok)
 
