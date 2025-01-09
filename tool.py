@@ -27,7 +27,7 @@ class SerialThread(QThread):
                     continue
 
                 if self.ser.in_waiting > 0:
-                    data = self.ser.readline().decode('utf-8').strip()
+                    data = self.ser.readline().decode('utf-8', errors='ignore').strip()
                     self.data_received.emit(self.port, data) # 시그널 방출, 함수에 데이터 전달
                     self.list_data = data.split(',')
                     self.data_all.append(self.list_data)
@@ -82,22 +82,22 @@ class MyApp(QWidget):
         self.logging.setMinimumWidth(500)
         self.logging.horizontalHeader().setStretchLastSection(True)
 
-        self.stop_btn = QPushButton('정지', self)
+        self.stop_btn = QPushButton('정지(Q)', self)
         self.stop_btn.clicked.connect(self.stop)
 
-        self.restart_btn = QPushButton('재시작', self)
+        self.restart_btn = QPushButton('재시작(W)', self)
         self.restart_btn.clicked.connect(self.restart)
 
-        self.weight_btn_p = QPushButton('+', self)
+        self.weight_btn_p = QPushButton('+(A)', self)
         self.weight_btn_p.clicked.connect(self.weightP)
 
-        self.weight_btn_m = QPushButton('-', self)
+        self.weight_btn_m = QPushButton('-(S)', self)
         self.weight_btn_m.clicked.connect(self.weightM)
 
-        self.weight_btn_z = QPushButton('리셋', self)
+        self.weight_btn_z = QPushButton('리셋(D)', self)
         self.weight_btn_z.clicked.connect(self.weightZ)
 
-        self.save_btn = QPushButton('저장', self)
+        self.save_btn = QPushButton('저장(Z)', self)
         self.save_btn.clicked.connect(self.save)
 
         self.save_file_box_log = QTableWidget()
@@ -156,13 +156,15 @@ class MyApp(QWidget):
         parsed_data = data.split(',')
 
         if len(parsed_data) >= 6:
-            sensor_data = parsed_data[1:]
+            sensor_data = parsed_data[0:]
 
             current_row_count = self.logging.rowCount()
             self.logging.insertRow(current_row_count)
             self.logging.setItem(current_row_count, 0, QTableWidgetItem(str(self.weight_a)))
             self.logging.setItem(current_row_count, 1, QTableWidgetItem(port))
             self.logging.setItem(current_row_count, 2, QTableWidgetItem(data))
+
+            self.logging.scrollToBottom()
 
             # 값은 z, x, y로 들어감
             if port == 'COM3':
@@ -242,21 +244,20 @@ class MyApp(QWidget):
                 self.count += 1
 
     def onCellChanged(self, row, col):
-        new_value = self.weight_table.item(row, col).text()
-        self.weight_a[row * 3 + col] = int(new_value) if new_value else 0
+        try:
+            item = self.weight_table.item(row, col)
+            if item is None:
+                return
 
-    def eventFilter(self, source, event):
-        if event.type() == QEvent.KeyPress:
-            if event.key() == Qt.Key_P:
-                self.weightP()
-                return True
-            elif event.key() == Qt.Key_M:
-                self.weightM()
-                return True
-            elif event.key() == Qt.Key_Z:
-                self.weightZ()
-                return True
-        return super().eventFilter(source, event)
+            new_value = item.text()
+
+            if new_value.isdigit():
+                self.weight_a[row * 3 + col] = int(new_value)
+            else:
+                prev_value = self.weight_a[row * 3 + col]
+                item.setText(str(prev_value))
+        except Exception as e:
+            pass
 
     def save(self):
         try:
@@ -284,6 +285,7 @@ class MyApp(QWidget):
             row_position = self.save_file_box_log.rowCount()
             self.save_file_box_log.insertRow(row_position)
             self.save_file_box_log.setItem(row_position, 0, QTableWidgetItem(file_name))
+            self.save_file_box_log.scrollToBottom()
 
         except Exception as e:
             QMessageBox.critical(self, "저장 실패", f"오류 발생: {str(e)}", QMessageBox.Ok)
@@ -297,6 +299,13 @@ class MyApp(QWidget):
             self.current_row += 1
         else:
             self.timer.stop()
+
+    def restart_arduino(self):
+        for thread in self.threads:
+            if hasattr(thread, 'ser') and thread.ser.is_open:
+                thread.ser.dtr = False
+                QThread.msleep(100)
+                thread.ser.dtr = True
 
     def setup(self):
 
@@ -344,6 +353,25 @@ class MyApp(QWidget):
         layout3.addLayout(graph3)
 
         self.setLayout(layout3)
+
+    def eventFilter(self, source, event):
+        if event.type() == QEvent.KeyPress:
+            if event.key() == Qt.Key_A:
+                self.weightP()
+            elif event.key() == Qt.Key_S:
+                self.weightM()
+            elif event.key() == Qt.Key_D:
+                self.weightZ()
+            elif event.key() == Qt.Key_Z:
+                self.save()
+            elif event.key() == Qt.Key_Escape:
+                self.restart_arduino()
+            elif event.key() == Qt.Key_Q:
+                self.stop()
+            elif event.key() == Qt.Key_W:
+                self.restart()
+            return True
+        return super().eventFilter(source, event)
 
     def closeEvent(self, event):
         for thread in self.threads:
