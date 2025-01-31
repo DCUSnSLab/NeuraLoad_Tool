@@ -14,7 +14,6 @@ class SerialComm{
 		bool isDataAvailable();
 		void saveToFile(const std::string& data, const int portNumber, const std::string& label);
 		void flushBuffer();
-
 //		std::string applyLabel(const std::string& data, const std::string& label);
 	private:
 		int fd; //file discriptor

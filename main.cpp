@@ -22,7 +22,7 @@ char getKeyPress(){
 int main(){
 	SerialComm SerialComm1("/dev/SerialComm1", 9600);
 	SerialComm SerialComm2("/dev/SerialComm2", 9600);
-	SerialComm SerialComm3("/dev/ttyACM0", 9600);
+	SerialComm SerialComm3("/dev/SerialComm3", 9600);
 	SerialComm SerialComm4("/dev/SerialComm4", 9600);
 	if (!SerialComm1.setup()){
 		SerialComm SerialComm1("/dev/SerialComm1", 9600);
