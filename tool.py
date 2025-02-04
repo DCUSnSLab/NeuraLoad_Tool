@@ -75,22 +75,22 @@ class MyApp(QWidget):
         self.logging.setMinimumWidth(500)
         self.logging.horizontalHeader().setStretchLastSection(True)
 
-        self.stop_btn = QPushButton('정지(Q)', self)
+        self.stop_btn = QPushButton('정지(K)', self)
         self.stop_btn.clicked.connect(self.stop)
 
-        self.restart_btn = QPushButton('재시작(W)', self)
+        self.restart_btn = QPushButton('재시작(L)', self)
         self.restart_btn.clicked.connect(self.restart)
 
-        self.weight_btn_p = QPushButton('+(A)', self)
+        self.weight_btn_p = QPushButton('+(P)', self)
         self.weight_btn_p.clicked.connect(self.weightP)
 
-        self.weight_btn_m = QPushButton('-(S)', self)
+        self.weight_btn_m = QPushButton('-(O)', self)
         self.weight_btn_m.clicked.connect(self.weightM)
 
-        self.weight_btn_z = QPushButton('리셋(D)', self)
+        self.weight_btn_z = QPushButton('리셋(I)', self)
         self.weight_btn_z.clicked.connect(self.weightZ)
 
-        self.save_btn = QPushButton('저장(Z)', self)
+        self.save_btn = QPushButton('저장(M)', self)
         self.save_btn.clicked.connect(self.save)
 
         self.save_file_box_log = QTableWidget()
@@ -406,21 +406,38 @@ class MyApp(QWidget):
 
     def eventFilter(self, source, event):
         if event.type() == QEvent.KeyPress:
-            if event.key() == Qt.Key_A:
-                self.weightP()
-            elif event.key() == Qt.Key_S:
-                self.weightM()
-            elif event.key() == Qt.Key_D:
-                self.weightZ()
-            elif event.key() == Qt.Key_Z:
-                self.save()
-            elif event.key() == Qt.Key_Escape:
-                self.restart_arduino()
-            elif event.key() == Qt.Key_Q:
-                self.stop()
-            elif event.key() == Qt.Key_W:
-                self.restart()
-            return True
+            key = event.key()
+
+            function_keys = {
+                Qt.Key_P: self.weightP,
+                Qt.Key_O: self.weightM,
+                Qt.Key_I: self.weightZ,
+                Qt.Key_M: self.save,
+                Qt.Key_K: self.stop,
+                Qt.Key_L: self.restart
+            }
+
+            if key in function_keys:
+                function_keys[key]()
+                return True
+
+            key_to_cell = {
+                Qt.Key_Q: (0, 0), Qt.Key_W: (0, 1), Qt.Key_E: (0, 2),
+                Qt.Key_A: (1, 0), Qt.Key_S: (1, 1), Qt.Key_D: (1, 2),
+                Qt.Key_Z: (2, 0), Qt.Key_X: (2, 1), Qt.Key_C: (2, 2)
+            }
+
+            if key in key_to_cell:
+                row, col = key_to_cell[key]
+                self.weight_table.setFocus()
+                self.weight_table.setCurrentCell(row, col)
+                return True
+
+            if key in [Qt.Key_Return, Qt.Key_Enter]:
+                self.weight_table.clearFocus()
+                self.setFocus()
+                return True
+
         return super().eventFilter(source, event)
 
     def closeEvent(self, event):
