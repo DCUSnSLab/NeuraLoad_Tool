@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from datetime import datetime
 import pyqtgraph as pg
+from collections import deque
 
 class SerialThread(QThread):
     data_received = pyqtSignal(str, str)
@@ -14,24 +15,17 @@ class SerialThread(QThread):
         self.baudrate = baudrate # 보트레이트
         self.is_running = True # 쓰레드 실행 상태
         self.is_paused = False # 쓰레드 일시 중지 상태
-        self.list_data = []
-        self.data_all = []
 
     def run(self):
         try:
             self.ser = serial.Serial(self.port, self.baudrate, timeout=1)
-
             while self.is_running:
                 if self.is_paused:
                     QThread.msleep(100)
                     continue
-
                 if self.ser.in_waiting > 0:
                     data = self.ser.readline().decode('utf-8', errors='ignore').strip()
                     self.data_received.emit(self.port, data) # 시그널 방출, 함수에 데이터 전달
-                    self.list_data = data.split(',')
-                    self.data_all.append(self.list_data)
-
         except serial.SerialException as e:
             print(f"오류: {e}")
 
@@ -43,7 +37,6 @@ class SerialThread(QThread):
         self.is_paused = False
 
 class MyApp(QWidget):
-
     def __init__(self):
         super().__init__()
         self.threads = []
@@ -125,27 +118,69 @@ class MyApp(QWidget):
                 self.weight_table.setItem(row, col, val)
                 self.count += 1
 
-        self.graph1 = pg.PlotWidget()
-        self.graph1.setTitle("Laser")
-        self.graph1.setLabel("bottom", "Time")
-
-        self.graph2 = pg.PlotWidget()
-        self.graph2.setTitle("IMU[x]")
-        self.graph2.setLabel("bottom", "Time")
-
-        self.graph3 = pg.PlotWidget()
-        self.graph3.setTitle("IMU[y]")
-        self.graph3.setLabel("bottom", "Time")
-
-        self.graph4 = pg.PlotWidget()
-        self.graph4.setTitle("IMU[z]")
-        self.graph4.setLabel("bottom", "Time")
-
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_table)
 
+        self.main_layout = QHBoxLayout()
+        self.left_layout = QVBoxLayout()
+        self.right_layout = QVBoxLayout()
+
+        self.graphWidgets = {}
+        self.curves = {}
+
+        self.port_colors = {
+            'COM3': 'r',
+            'COM6': 'b',
+            'COM4': 'g',
+            'COM8': 'orange'
+        }
+
+        sensor_titles = ["Laser", "IMU[x]", "IMU[y]", "IMU[z]"]
+
+        self.graph_value = pg.PlotWidget()
+        self.graph_value.setTitle("Laser Change")
+        self.graph_value.setLabel("left", "Change")
+        self.graph_value.setLabel("bottom", "Time")
+        self.graph_value.setMinimumWidth(800)
+        self.graph_value.addLegend(offset=(30, 30))
+
+        self.curves["Laser Change"] = {}
+
+        for port, color in self.port_colors.items():
+            curve = self.graph_value.plot(pen=color, name=f"{port}")
+            self.curves["Laser Change"][port] = curve
+
+        self.right_layout.addWidget(self.graph_value)
+
+        for sensor in sensor_titles:
+            graph = pg.PlotWidget()
+            graph.setTitle(sensor)
+            graph.setLabel("left", "Value")
+            graph.setLabel("bottom", "Time")
+
+            self.graphWidgets[sensor] = graph
+
+            self.curves[sensor] = {}
+
+            for port, color in self.port_colors.items():
+                curve = graph.plot(pen=color)
+                self.curves[sensor][port] = curve
+
+            self.left_layout.addWidget(graph)
+
     def startSerialThread(self):
-        ports = ['COM3', 'COM6', 'COM7', 'COM8']  # 실제 연결된 포트로 변경
+        self.data_x = {port: deque(maxlen=300) for port in self.port_colors}
+        self.data_y = {
+            "Laser": {port: deque(maxlen=300) for port in self.port_colors},
+            "IMU[x]": {port: deque(maxlen=300) for port in self.port_colors},
+            "IMU[y]": {port: deque(maxlen=300) for port in self.port_colors},
+            "IMU[z]": {port: deque(maxlen=300) for port in self.port_colors},
+        }
+
+        self.laser_changes = {port: deque(maxlen=300) for port in self.port_colors}
+        self.prev_laser_values = {port: None for port in self.port_colors}
+
+        ports = list(self.port_colors.keys())
         for port in ports:
             thread = SerialThread(port, 9600)
             thread.data_received.connect(self.handle_serial_data)
@@ -155,39 +190,66 @@ class MyApp(QWidget):
     def handle_serial_data(self, port, data):
         parsed_data = data.split(',')
 
-        if len(parsed_data) >= 6:
-            sensor_data = parsed_data[0:]
+        if len(parsed_data) < 4:
+            return
 
-            current_row_count = self.logging.rowCount()
-            self.logging.insertRow(current_row_count)
-            self.logging.setItem(current_row_count, 0, QTableWidgetItem(str(self.weight_a)))
-            self.logging.setItem(current_row_count, 1, QTableWidgetItem(port))
-            self.logging.setItem(current_row_count, 2, QTableWidgetItem(data))
+        try:
+            sensor_data = [float(x) if x.replace('.', '', 1).isdigit() else 0 for x in parsed_data]
+        except ValueError:
+            return
 
-            self.logging.scrollToBottom()
+        if not self.data_x[port]:
+            self.data_x[port].append(0)
+        else:
+            self.data_x[port].append(self.data_x[port][-1] + 1)
 
-            # 값은 z, x, y로 들어감
-            if port == 'COM3':
-                self.table.setItem(0, 0, QTableWidgetItem(sensor_data[0]))
-                self.table.setItem(1, 0, QTableWidgetItem(sensor_data[-2]))
-                self.table.setItem(2, 0, QTableWidgetItem(sensor_data[-1]))
-                self.table.setItem(3, 0, QTableWidgetItem(sensor_data[-3]))
+        self.data_y["Laser"][port].append(sensor_data[0])
+        self.data_y["IMU[x]"][port].append(sensor_data[-3])
+        self.data_y["IMU[y]"][port].append(sensor_data[-1])
+        self.data_y["IMU[z]"][port].append(sensor_data[-2])
 
-            elif port == 'COM6':
-                self.table.setItem(0, 1, QTableWidgetItem(sensor_data[0]))
-                self.table.setItem(1, 1, QTableWidgetItem(sensor_data[-2]))
-                self.table.setItem(2, 1, QTableWidgetItem(sensor_data[-1]))
-                self.table.setItem(3, 1, QTableWidgetItem(sensor_data[-3]))
-            elif port == 'COM7':
-                self.table.setItem(0, 2, QTableWidgetItem(sensor_data[0]))
-                self.table.setItem(1, 2, QTableWidgetItem(sensor_data[-2]))
-                self.table.setItem(2, 2, QTableWidgetItem(sensor_data[-1]))
-                self.table.setItem(3, 2, QTableWidgetItem(sensor_data[-3]))
-            elif port == 'COM8':
-                self.table.setItem(0, 3, QTableWidgetItem(sensor_data[0]))
-                self.table.setItem(1, 3, QTableWidgetItem(sensor_data[-2]))
-                self.table.setItem(2, 3, QTableWidgetItem(sensor_data[-1]))
-                self.table.setItem(3, 3, QTableWidgetItem(sensor_data[-3]))
+        if self.prev_laser_values[port] is not None:
+            change = sensor_data[0] - self.prev_laser_values[port]
+        else:
+            change = 0
+
+        self.laser_changes[port].append(change)
+        self.prev_laser_values[port] = sensor_data[0]  # 현재 값을 다음 비교를 위해 저장
+
+        port_index = list(self.port_colors.keys()).index(port)
+        self.table.setItem(0, port_index, QTableWidgetItem(str(sensor_data[0])))  # Laser
+        self.table.setItem(1, port_index, QTableWidgetItem(str(sensor_data[-3])))  # IMU[x]
+        self.table.setItem(2, port_index, QTableWidgetItem(str(sensor_data[-1])))  # IMU[y]
+        self.table.setItem(3, port_index, QTableWidgetItem(str(sensor_data[-2])))  # IMU[z]
+
+        for sensor in ["Laser", "IMU[x]", "IMU[y]", "IMU[z]"]:
+            x_data = list(self.data_x[port])
+            y_data = list(self.data_y[sensor][port])
+
+            min_length = min(len(x_data), len(y_data))
+            if min_length > 0:
+                self.curves[sensor][port].setData(x_data[-min_length:], y_data[-min_length:])
+
+            if len(x_data) > 30:
+                self.graphWidgets[sensor].setXRange(x_data[-20], x_data[-1])
+
+        x_data = list(self.data_x[port])
+        y_data = list(self.laser_changes[port])
+
+        min_length = min(len(x_data), len(y_data))
+        if min_length > 0:
+            self.curves["Laser Change"][port].setData(x_data[-min_length:], y_data[-min_length:])
+
+        if len(x_data) > 30:
+            self.graph_value.setXRange(x_data[-20], x_data[-1])
+
+        current_row_count = self.logging.rowCount()
+        self.logging.insertRow(current_row_count)
+        self.logging.setItem(current_row_count, 0, QTableWidgetItem(str(self.weight_a)))
+        self.logging.setItem(current_row_count, 1, QTableWidgetItem(port))
+        self.logging.setItem(current_row_count, 2, QTableWidgetItem(data))
+
+        self.logging.scrollToBottom()
 
     def stop(self):
         for thread in self.threads:
@@ -208,7 +270,7 @@ class MyApp(QWidget):
                     col = val.column()
 
                     index = row * 3 + col
-                    self.weight_a[index] = (current_value + 5)
+                    self.weight_a[index] = (current_value + 20)
                     val.setText(str(self.weight_a[index]))
                 except ValueError:
                     continue
@@ -228,7 +290,7 @@ class MyApp(QWidget):
                         self.weight_a[index] = 0
                         val.setText(str(self.weight_a[index]))
                     else:
-                        self.weight_a[index] = (current_value - 5)
+                        self.weight_a[index] = (current_value - 20)
                         val.setText(str(self.weight_a[index]))
                 except ValueError:
                     continue
@@ -328,18 +390,6 @@ class MyApp(QWidget):
         layout1.addWidget(self.logging)
         layout1.addLayout(layout_btn2)
 
-        graph1 = QHBoxLayout()
-        graph1.addWidget(self.graph1)
-        graph1.addWidget(self.graph2)
-
-        graph2 = QHBoxLayout()
-        graph2.addWidget(self.graph3)
-        graph2.addWidget(self.graph4)
-
-        graph3 = QVBoxLayout()
-        graph3.addLayout(graph1)
-        graph3.addLayout(graph2)
-
         table_layout = QHBoxLayout()
         table_layout.addWidget(self.table)
         table_layout.addWidget(self.weight_table)
@@ -350,8 +400,8 @@ class MyApp(QWidget):
 
         layout3 = QHBoxLayout()
         layout3.addLayout(layout2)
-        layout3.addLayout(graph3)
-
+        layout3.addLayout(self.left_layout, stretch=3)
+        layout3.addLayout(self.right_layout, stretch=1)
         self.setLayout(layout3)
 
     def eventFilter(self, source, event):
