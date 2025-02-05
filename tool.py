@@ -5,6 +5,7 @@ from PyQt5.QtCore import *
 from datetime import datetime
 import pyqtgraph as pg
 from collections import deque
+import serial.serialutil
 
 class SerialThread(QThread):
     data_received = pyqtSignal(str, str)
@@ -26,7 +27,7 @@ class SerialThread(QThread):
                 if self.ser.in_waiting > 0:
                     data = self.ser.readline().decode('utf-8', errors='ignore').strip()
                     self.data_received.emit(self.port, data) # 시그널 방출, 함수에 데이터 전달
-        except serial.SerialException as e:
+        except serial.serialutil.SerialException as e:
             print(f"오류: {e}")
 
     def pause(self):
@@ -35,6 +36,10 @@ class SerialThread(QThread):
     def resume(self):
         self.ser.flushInput()
         self.is_paused = False
+
+    def stop(self):
+        self.is_running = False
+        self.wait()
 
 class MyApp(QWidget):
     def __init__(self):
@@ -123,16 +128,15 @@ class MyApp(QWidget):
 
         self.main_layout = QHBoxLayout()
         self.left_layout = QVBoxLayout()
-        self.right_layout = QVBoxLayout()
 
         self.graphWidgets = {}
         self.curves = {}
 
         self.port_colors = {
             'COM3': 'r',
-            'COM6': 'b',
-            'COM4': 'g',
-            'COM8': 'orange'
+            'COM4': 'b',
+            'COM5': 'g',
+            'COM6': 'orange'
         }
 
         sensor_titles = ["Laser", "IMU[x]", "IMU[y]", "IMU[z]"]
@@ -141,7 +145,6 @@ class MyApp(QWidget):
         self.graph_value.setTitle("Laser Change")
         self.graph_value.setLabel("left", "Change")
         self.graph_value.setLabel("bottom", "Time")
-        self.graph_value.setMinimumWidth(800)
         self.graph_value.addLegend(offset=(30, 30))
 
         self.curves["Laser Change"] = {}
@@ -150,7 +153,7 @@ class MyApp(QWidget):
             curve = self.graph_value.plot(pen=color, name=f"{port}")
             self.curves["Laser Change"][port] = curve
 
-        self.right_layout.addWidget(self.graph_value)
+        self.left_layout.addWidget(self.graph_value)
 
         for sensor in sensor_titles:
             graph = pg.PlotWidget()
@@ -254,6 +257,7 @@ class MyApp(QWidget):
     def stop(self):
         for thread in self.threads:
             thread.pause()
+        QCoreApplication.processEvents()
 
     def restart(self):
         for thread in self.threads:
@@ -401,7 +405,6 @@ class MyApp(QWidget):
         layout3 = QHBoxLayout()
         layout3.addLayout(layout2)
         layout3.addLayout(self.left_layout, stretch=3)
-        layout3.addLayout(self.right_layout, stretch=1)
         self.setLayout(layout3)
 
     def eventFilter(self, source, event):
