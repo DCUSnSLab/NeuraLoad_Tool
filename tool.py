@@ -56,6 +56,10 @@ class MyApp(QWidget):
 
         self.installEventFilter(self)
 
+        self.auto_save_timer = QTimer()
+        self.auto_save_timer.timeout.connect(self.auto_save)
+        self.auto_save_timer.start(30000)
+
     def initUI(self):
         self.setWindowTitle('과적 테스트')
         self.resize(2000, 800)
@@ -326,6 +330,37 @@ class MyApp(QWidget):
             pass
 
     def save(self):
+        try:
+            # 파일 이름 생성
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            file_name = f"{timestamp}.txt"
+
+            with open(file_name, 'w', encoding='utf-8') as file:
+                headers = ['Logged Time', '무게', '포트', '로그']
+                file.write("\t".join(headers) + "\n")
+
+                row_count = self.logging.rowCount()
+                for row in range(row_count):
+                    log_data = self.logging.item(row, 2).text() if self.logging.item(row, 2) else ""
+                    parsed_data = log_data.split(',')
+
+                    logged_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+
+                    weight = self.logging.item(row, 0).text() if self.logging.item(row, 0) else ""
+                    port = self.logging.item(row, 1).text() if self.logging.item(row, 1) else ""
+                    log_content = ",".join(parsed_data[1:]) if len(parsed_data) > 1 else ""
+
+                    file.write(f"{logged_time}\t{weight}\t{port}\t{log_content}\n")
+
+            row_position = self.save_file_box_log.rowCount()
+            self.save_file_box_log.insertRow(row_position)
+            self.save_file_box_log.setItem(row_position, 0, QTableWidgetItem(file_name))
+            self.save_file_box_log.scrollToBottom()
+
+        except Exception as e:
+            QMessageBox.critical(self, "저장 실패", f"오류 발생: {str(e)}", QMessageBox.Ok)
+
+    def auto_save(self):
         try:
             # 파일 이름 생성
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
