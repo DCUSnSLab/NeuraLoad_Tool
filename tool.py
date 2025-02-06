@@ -58,7 +58,7 @@ class MyApp(QWidget):
 
         self.auto_save_timer = QTimer()
         self.auto_save_timer.timeout.connect(self.auto_save)
-        self.auto_save_timer.start(30000)
+        self.auto_save_timer.start(10000)
 
     def initUI(self):
         self.setWindowTitle('과적 테스트')
