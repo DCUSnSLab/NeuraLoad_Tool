@@ -7,6 +7,7 @@ import pyqtgraph as pg
 from collections import deque
 import serial.serialutil
 import os
+# 무게 추정
 from Estimation_mass_algorithm import LaserDataProcessor
 
 class SerialThread(QThread):

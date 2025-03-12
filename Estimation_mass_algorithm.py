@@ -29,6 +29,7 @@ class LaserDataProcessor:
 
         return closest_indices
 
+# tool.py 안으로 이동
 # # 예시 실행 코드
 # if __name__ == '__main__':
 #     # LaserDataProcessor 객체 생성
