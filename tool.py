@@ -6,6 +6,8 @@ from datetime import datetime
 import pyqtgraph as pg
 from collections import deque
 import serial.serialutil
+import os
+from Estimation_mass_algorithm import LaserDataProcessor
 
 class SerialThread(QThread):
     data_received = pyqtSignal(str, str)
@@ -58,7 +60,7 @@ class MyApp(QWidget):
 
         self.auto_save_timer = QTimer()
         self.auto_save_timer.timeout.connect(self.auto_save)
-        self.auto_save_timer.start(10000)
+        self.auto_save_timer.start(600000)
 
     def initUI(self):
         self.setWindowTitle('과적 테스트')
@@ -143,7 +145,7 @@ class MyApp(QWidget):
             'COM6': 'orange'
         }
 
-        sensor_titles = ["Laser", "IMU[x]", "IMU[y]", "IMU[z]"]
+        sensor_titles = ["Laser"]
 
         self.graph_value = pg.PlotWidget()
         self.graph_value.setTitle("Laser Change")
@@ -175,6 +177,44 @@ class MyApp(QWidget):
 
             self.left_layout.addWidget(graph)
 
+        label_titles = ["평균값을 통한 무게 측정 결과:", "최빈값을 통한 무게 측정 결과:", "중앙값을 통한 무게 측정 결과:"]
+        predicted_weights = self.PredictedWeight()
+
+        for i, label_text in enumerate(label_titles):
+            row_layout = QHBoxLayout()
+
+            label = QLabel(label_text)
+            font = label.font()
+            font.setBold(True)
+            font.setPointSize(30)
+            label.setFont(font)
+
+            value_label = QLabel(str(predicted_weights[i]))
+            value_label.setFont(font)
+
+            kg = QLabel("KG")
+            kg.setFont(font)
+
+            row_layout.addWidget(label)
+            row_layout.addWidget(value_label)
+            row_layout.addWidget(kg)
+            row_layout.addStretch()
+
+            self.left_layout.addLayout(row_layout)
+
+    def PredictedWeight(self):
+        laser_processor = LaserDataProcessor()
+        # 각 포트에 대해 주어진 변화량 처리
+        laser_processor.process_data(0, 1.4)  # 전방좌측 센서에 대한 변화량
+        laser_processor.process_data(1, 1.48)  # 후방좌측 센서에 대한 변화량
+        laser_processor.process_data(2, 1.42)  # 전방우측 센서에 대한 변화량
+        laser_processor.process_data(3, 1.44)  # 후방우측 센서에 대한 변화량
+
+        # 4개 포트의 데이터 처리 후 근사치 인덱스 출력
+        closest_indices = laser_processor.calculate_weight_estimation([0, 1, 2, 3])
+
+        return [closest_indices["mean"], closest_indices["mode"], closest_indices["median"]]
+
     def startSerialThread(self):
         self.data_x = {port: deque(maxlen=300) for port in self.port_colors}
         self.data_y = {
@@ -197,7 +237,7 @@ class MyApp(QWidget):
     def handle_serial_data(self, port, data):
         parsed_data = data.split(',')
 
-        if len(parsed_data) < 4:
+        if len(parsed_data) < 12:
             return
 
         try:
@@ -237,18 +277,12 @@ class MyApp(QWidget):
             if min_length > 0:
                 self.curves[sensor][port].setData(x_data[-min_length:], y_data[-min_length:])
 
-            if len(x_data) > 30:
-                self.graphWidgets[sensor].setXRange(x_data[-20], x_data[-1])
-
         x_data = list(self.data_x[port])
         y_data = list(self.laser_changes[port])
 
         min_length = min(len(x_data), len(y_data))
         if min_length > 0:
             self.curves["Laser Change"][port].setData(x_data[-min_length:], y_data[-min_length:])
-
-        if len(x_data) > 30:
-            self.graph_value.setXRange(x_data[-20], x_data[-1])
 
         current_row_count = self.logging.rowCount()
         self.logging.insertRow(current_row_count)
@@ -348,7 +382,7 @@ class MyApp(QWidget):
 
                     weight = self.logging.item(row, 0).text() if self.logging.item(row, 0) else ""
                     port = self.logging.item(row, 1).text() if self.logging.item(row, 1) else ""
-                    log_content = ",".join(parsed_data[1:]) if len(parsed_data) > 1 else ""
+                    log_content = ",".join(parsed_data[0:]) if len(parsed_data) > 1 else ""
 
                     file.write(f"{logged_time}\t{weight}\t{port}\t{log_content}\n")
 
@@ -362,11 +396,16 @@ class MyApp(QWidget):
 
     def auto_save(self):
         try:
-            # 파일 이름 생성
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            file_name = f"{timestamp}.txt"
+            date_str = datetime.now().strftime("%Y%m%d")
+            folder_path = os.path.join("log", date_str)
+            os.makedirs(folder_path, exist_ok=True)  # 폴더 없으면 생성
 
-            with open(file_name, 'w', encoding='utf-8') as file:
+            # 파일 이름 생성 (HHMMSS.txt)
+            time_str = datetime.now().strftime("%H%M%S")
+            file_name = f"{time_str}.txt"
+            file_path = os.path.join(folder_path, file_name)
+
+            with open(file_path, 'w', encoding='utf-8') as file:
                 headers = ['Logged Time', '무게', '포트', '로그']
                 file.write("\t".join(headers) + "\n")
 
@@ -379,17 +418,18 @@ class MyApp(QWidget):
 
                     weight = self.logging.item(row, 0).text() if self.logging.item(row, 0) else ""
                     port = self.logging.item(row, 1).text() if self.logging.item(row, 1) else ""
-                    log_content = ",".join(parsed_data[1:]) if len(parsed_data) > 1 else ""
+                    log_content = ",".join(parsed_data) if parsed_data else ""
 
                     file.write(f"{logged_time}\t{weight}\t{port}\t{log_content}\n")
 
+            # 저장된 파일을 UI에 추가
             row_position = self.save_file_box_log.rowCount()
             self.save_file_box_log.insertRow(row_position)
-            self.save_file_box_log.setItem(row_position, 0, QTableWidgetItem(file_name))
+            self.save_file_box_log.setItem(row_position, 0, QTableWidgetItem(file_path))
             self.save_file_box_log.scrollToBottom()
 
         except Exception as e:
-            QMessageBox.critical(self, "저장 실패", f"오류 발생: {str(e)}", QMessageBox.Ok)
+            print(f"Error while saving: {e}")
 
     def update_table(self):
         if self.current_row < len(self.data):
