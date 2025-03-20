@@ -7,6 +7,8 @@ import pyqtgraph as pg
 from collections import deque
 import serial.serialutil
 import os
+import numpy as np
+# 무게 추정
 from Estimation_mass_algorithm import LaserDataProcessor
 
 class SerialThread(QThread):
@@ -46,6 +48,12 @@ class SerialThread(QThread):
 class MyApp(QWidget):
     def __init__(self):
         super().__init__()
+
+        self.changes = {}
+
+        self.laser_changes = {port: deque(maxlen=300) for port in ['COM3', 'COM4', 'COM6', 'COM8']}
+        self.prev_laser_values = {port: None for port in ['COM3', 'COM4', 'COM6', 'COM8']}
+
         self.threads = []
         self.weight_text = "0"
         self.current_row = 0
@@ -60,15 +68,14 @@ class MyApp(QWidget):
 
         self.auto_save_timer = QTimer()
         self.auto_save_timer.timeout.connect(self.auto_save)
-        self.auto_save_timer.start(600000) #10분(ms)
+        self.auto_save_timer.start(600000)
 
     def initUI(self):
         self.setWindowTitle('과적 테스트')
-        self.resize(1000, 800)
+        self.resize(2000, 800)
         self.show()
 
     def setupUI(self):
-        # 센서값(왼쪽 상단 테이블)
         self.table = QTableWidget()
         self.table.setColumnCount(4)
         self.table.setRowCount(4)
@@ -80,7 +87,6 @@ class MyApp(QWidget):
         self.table.setMaximumWidth(1000)
         self.table.setMinimumWidth(700)
 
-        # 로그창(왼쪽 하단 공간)
         self.logging = QTableWidget()
         self.logging.setColumnCount(3)
         self.logging.setHorizontalHeaderLabels(['무게', '포트', '로그'])
@@ -88,31 +94,24 @@ class MyApp(QWidget):
         self.logging.setMinimumWidth(500)
         self.logging.horizontalHeader().setStretchLastSection(True)
 
-        #정지 버튼
         self.stop_btn = QPushButton('정지(K)', self)
         self.stop_btn.clicked.connect(self.stop)
 
-        # 재시작 버튼
         self.restart_btn = QPushButton('재시작(L)', self)
         self.restart_btn.clicked.connect(self.restart)
 
-        # 무게 추가 버튼
         self.weight_btn_p = QPushButton('+(P)', self)
         self.weight_btn_p.clicked.connect(self.weightP)
 
-        # 무게 삭제 버튼
         self.weight_btn_m = QPushButton('-(O)', self)
         self.weight_btn_m.clicked.connect(self.weightM)
 
-        # 무게 리셋 버튼
         self.weight_btn_z = QPushButton('리셋(I)', self)
         self.weight_btn_z.clicked.connect(self.weightZ)
 
-        # 로그 저장 버튼
         self.save_btn = QPushButton('저장(M)', self)
         self.save_btn.clicked.connect(self.save)
 
-        # 저장된 로그 확인 공간(중간 하단)
         self.save_file_box_log = QTableWidget()
         self.save_file_box_log.setColumnCount(1)
         self.save_file_box_log.setHorizontalHeaderLabels(['저장된 파일'])
@@ -121,7 +120,6 @@ class MyApp(QWidget):
         self.save_file_box_log.horizontalHeader().setStretchLastSection(True)
         self.save_file_box_log.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
-        # 무게 표시 시각화(중간 상단)
         self.weight_table = QTableWidget(3,3)
         self.weight_table.setHorizontalHeaderLabels([f"{i + 1}" for i in range(3)])
         self.weight_table.setVerticalHeaderLabels([f"{i + 1}" for i in range(3)])
@@ -131,6 +129,7 @@ class MyApp(QWidget):
         self.weight_table.setMinimumWidth(500)
         self.weight_table.installEventFilter(self)
         self.weight_table.cellChanged.connect(self.onCellChanged)
+
         for row in range(3):
             for col in range(3):
                 val = QTableWidgetItem(str(self.weight_a[self.count]))
@@ -141,7 +140,12 @@ class MyApp(QWidget):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_table)
 
-        # 그래프(오른쪽 상단)
+        self.main_layout = QHBoxLayout()
+        self.left_layout = QVBoxLayout()
+
+        self.graphWidgets = {}
+        self.curves = {}
+
         self.port_colors = {
             'COM3': 'r',
             'COM4': 'b',
@@ -149,67 +153,85 @@ class MyApp(QWidget):
             'COM8': 'orange'
         }
 
-        # 그래프(레이저 변화값)
+        sensor_titles = ["Laser"]
+
         self.graph_value = pg.PlotWidget()
         self.graph_value.setTitle("Laser Change")
         self.graph_value.setLabel("left", "Change")
         self.graph_value.setLabel("bottom", "Time")
-        self.graph_value.addLegend(offset=(30, 30)) #범례
+        self.graph_value.addLegend(offset=(30, 30))
 
-        # 그래프(레이저)
-        self.graph_laser = pg.PlotWidget()
-        self.graph_laser.setTitle("Laser")
-        self.graph_laser.setLabel("left", "Value")
-        self.graph_laser.setLabel("bottom", "Time")
+        self.curves["Laser Change"] = {}
 
-        sensor_colors = {'sen1': 'r', 'sen2': 'b', 'sen3': 'g', 'sen4': 'orange'}
-        self.sensor_curves = {}
-        for sensor, color in sensor_colors.items():
-            self.sensor_curves[sensor] = self.graph_laser.plot(pen=color, name=sensor)
+        for port, color in self.port_colors.items():
+            curve = self.graph_value.plot(pen=color, name=f"{port}")
+            self.curves["Laser Change"][port] = curve
 
-        # 무게 측정 예측 값(오른쪽 하단)
-        label_titles = ["평균값을 통한 무게 측정 결과:", "최빈값을 통한 무게 측정 결과:", "중앙값을 통한 무게 측정 결과:"]
-        predicted_weights = self.PredictedWeight()
+        self.left_layout.addWidget(self.graph_value)
 
-        for i, label_text in enumerate(label_titles):
-            self.label = QLabel(label_text)
-            font = self.label.font()
-            font.setBold(True)
-            font.setPointSize(30)
-            self.label.setFont(font)
+        for sensor in sensor_titles:
+            graph = pg.PlotWidget()
+            graph.setTitle(sensor)
+            graph.setLabel("left", "Value")
+            graph.setLabel("bottom", "Time")
 
-            self.value_label = QLabel(str(predicted_weights[i]))
-            self.value_label.setFont(font)
+            self.graphWidgets[sensor] = graph
 
-            self.kg = QLabel("KG")
-            self.kg.setFont(font)
+            self.curves[sensor] = {}
+
+            for port, color in self.port_colors.items():
+                curve = graph.plot(pen=color)
+                self.curves[sensor][port] = curve
+
+            self.left_layout.addWidget(graph)
 
     def PredictedWeight(self):
         laser_processor = LaserDataProcessor()
-        # 각 포트에 대해 주어진 변화량 처리
-        laser_processor.process_data(0, 1.4)  # 전방좌측 센서에 대한 변화량
-        laser_processor.process_data(1, 1.48)  # 후방좌측 센서에 대한 변화량
-        laser_processor.process_data(2, 1.42)  # 전방우측 센서에 대한 변화량
-        laser_processor.process_data(3, 1.44)  # 후방우측 센서에 대한 변화량
 
-        # 4개 포트의 데이터 처리 후 근사치 인덱스 출력
+        # 각 포트에 대해 주어진 변화량이 있는지 확인
+        for port in ["COM3", "COM4", "COM6", "COM8"]:
+            if len(self.laser_changes[port]) == 0:  # 데이터가 비어있는지 명확하게 확인
+                print(f"[경고] {port}에 대한 변화량 데이터 없음")
+                self.laser_changes[port].append(0)  # 기본값 추가
+
+            # ✅ 가장 최근 값(마지막 값)만 self.changes에 저장
+            self.changes[port] = self.laser_changes[port][-1]  # ✅ 가장 마지막 값 저장
+
+        # 데이터 처리
+        laser_processor.process_data(0, self.changes["COM3"])
+        laser_processor.process_data(1, self.changes["COM4"])
+        laser_processor.process_data(2, self.changes["COM6"])
+        laser_processor.process_data(3, self.changes["COM8"])
+
+        # 가중치 추정값 계산
         closest_indices = laser_processor.calculate_weight_estimation([0, 1, 2, 3])
 
-        return [closest_indices["mean"], closest_indices["mode"], closest_indices["median"]]
+        weights = closest_indices
+
+        # ✅ 기존 QLabel이 있다면 제거 (중복 추가 방지)
+        if hasattr(self, 'weight_value_label'):
+            self.left_layout.removeWidget(self.weight_value_label)
+            self.weight_value_label.deleteLater()
+
+        # ✅ 새로운 QLabel 추가 (한 번만 추가됨)
+        self.weight_value_label = QLabel(f"예상 무게 결과: {weights[0]} KG")
+        font = self.weight_value_label.font()
+        font.setBold(True)
+        font.setPointSize(30)
+        self.weight_value_label.setFont(font)
+
+        self.left_layout.addWidget(self.weight_value_label)
 
     def startSerialThread(self):
         self.data_x = {port: deque(maxlen=300) for port in self.port_colors}
-        self.data_y = {sensor: {port: deque(maxlen=300) for port in self.port_colors}
-                       for sensor in ['sen1', 'sen2', 'sen3', 'sen4']}
-        self.laser_changes = {port: deque(maxlen=300) for port in self.port_colors}
+        self.data_y = {
+            "Laser": {port: deque(maxlen=300) for port in self.port_colors},
+            "IMU[x]": {port: deque(maxlen=300) for port in self.port_colors},
+            "IMU[y]": {port: deque(maxlen=300) for port in self.port_colors},
+            "IMU[z]": {port: deque(maxlen=300) for port in self.port_colors},
+        }
 
         ports = list(self.port_colors.keys())
-        for port in ports:
-            thread = SerialThread(port, 9600)
-            thread.data_received.connect(self.handle_serial_data)
-            self.threads.append(thread)
-            thread.start()
-
         for port in ports:
             thread = SerialThread(port, 9600)
             thread.data_received.connect(self.handle_serial_data)
@@ -219,58 +241,62 @@ class MyApp(QWidget):
     def handle_serial_data(self, port, data):
         parsed_data = data.split(',')
 
-        if len(parsed_data) >= 6:
-            sensor_data = parsed_data[0:]
+        if len(parsed_data) < 12:
+            return
 
-            current_row_count = self.logging.rowCount()
-            self.logging.insertRow(current_row_count)
-            self.logging.setItem(current_row_count, 0, QTableWidgetItem(str(self.weight_a)))
-            self.logging.setItem(current_row_count, 1, QTableWidgetItem(port))
-            self.logging.setItem(current_row_count, 2, QTableWidgetItem(data))
+        try:
+            sensor_data = [float(x) if x.replace('.', '', 1).isdigit() else 0 for x in parsed_data]
+        except ValueError:
+            return
 
-            self.logging.scrollToBottom()
+        if not self.data_x[port]:
+            self.data_x[port].append(0)
+        else:
+            self.data_x[port].append(self.data_x[port][-1] + 1)
 
-            if not self.data_x[port]:
-                self.data_x[port].append(0)
-            else:
-                self.data_x[port].append(self.data_x[port][-1] + 1)
+        self.data_y["Laser"][port].append(sensor_data[0])
+        self.data_y["IMU[x]"][port].append(sensor_data[-3])
+        self.data_y["IMU[y]"][port].append(sensor_data[-1])
+        self.data_y["IMU[z]"][port].append(sensor_data[-2])
 
-                # 각 센서의 Y축 데이터 업데이트 (float 변환)
-            for i, sensor in enumerate(['sen1', 'sen2', 'sen3', 'sen4']):
-                try:
-                    val = float(sensor_data[i])
-                except:
-                    val = 0
-                self.data_y[sensor][port].append(val)
+        if self.prev_laser_values[port] is not None:
+            change = sensor_data[0] - self.prev_laser_values[port]
+        else:
+            change = 0
 
-            first_port = list(self.port_colors.keys())[0]
-            x_data = list(self.data_x[first_port])
-            for sensor in ['sen1', 'sen2', 'sen3', 'sen4']:
-                y_data = list(self.data_y[sensor][first_port])
-                self.sensor_curves[sensor].setData(x_data, y_data)
+        self.laser_changes[port].append(change)
+        self.prev_laser_values[port] = sensor_data[0]  # 현재 값을 다음 비교를 위해 저장
 
-            # 값은 z, x, y로 들어감
-            if port == 'COM3':
-                self.table.setItem(0, 0, QTableWidgetItem(sensor_data[0]))
-                self.table.setItem(1, 0, QTableWidgetItem(sensor_data[-2]))
-                self.table.setItem(2, 0, QTableWidgetItem(sensor_data[-1]))
-                self.table.setItem(3, 0, QTableWidgetItem(sensor_data[-3]))
+        port_index = list(self.port_colors.keys()).index(port)
+        self.table.setItem(0, port_index, QTableWidgetItem(str(sensor_data[0])))  # Laser
+        self.table.setItem(1, port_index, QTableWidgetItem(str(sensor_data[-3])))  # IMU[x]
+        self.table.setItem(2, port_index, QTableWidgetItem(str(sensor_data[-1])))  # IMU[y]
+        self.table.setItem(3, port_index, QTableWidgetItem(str(sensor_data[-2])))  # IMU[z]
 
-            elif port == 'COM4':
-                self.table.setItem(0, 1, QTableWidgetItem(sensor_data[0]))
-                self.table.setItem(1, 1, QTableWidgetItem(sensor_data[-2]))
-                self.table.setItem(2, 1, QTableWidgetItem(sensor_data[-1]))
-                self.table.setItem(3, 1, QTableWidgetItem(sensor_data[-3]))
-            elif port == 'COM6':
-                self.table.setItem(0, 2, QTableWidgetItem(sensor_data[0]))
-                self.table.setItem(1, 2, QTableWidgetItem(sensor_data[-2]))
-                self.table.setItem(2, 2, QTableWidgetItem(sensor_data[-1]))
-                self.table.setItem(3, 2, QTableWidgetItem(sensor_data[-3]))
-            elif port == 'COM8':
-                self.table.setItem(0, 3, QTableWidgetItem(sensor_data[0]))
-                self.table.setItem(1, 3, QTableWidgetItem(sensor_data[-2]))
-                self.table.setItem(2, 3, QTableWidgetItem(sensor_data[-1]))
-                self.table.setItem(3, 3, QTableWidgetItem(sensor_data[-3]))
+        self.PredictedWeight()
+
+        for sensor in ["Laser"]:
+            x_data = list(self.data_x[port])
+            y_data = list(self.data_y[sensor][port])
+
+            min_length = min(len(x_data), len(y_data))
+            if min_length > 0:
+                self.curves[sensor][port].setData(x_data[-min_length:], y_data[-min_length:])
+
+        x_data = list(self.data_x[port])
+        y_data = list(self.laser_changes[port])
+
+        min_length = min(len(x_data), len(y_data))
+        if min_length > 0:
+            self.curves["Laser Change"][port].setData(x_data[-min_length:], y_data[-min_length:])
+
+        current_row_count = self.logging.rowCount()
+        self.logging.insertRow(current_row_count)
+        self.logging.setItem(current_row_count, 0, QTableWidgetItem(str(self.weight_a)))
+        self.logging.setItem(current_row_count, 1, QTableWidgetItem(port))
+        self.logging.setItem(current_row_count, 2, QTableWidgetItem(data))
+
+        self.logging.scrollToBottom()
 
     def stop(self):
         for thread in self.threads:
@@ -429,6 +455,7 @@ class MyApp(QWidget):
                 thread.ser.dtr = True
 
     def setup(self):
+
         weight_input_layout2 = QHBoxLayout()
         weight_input_layout2.addWidget(self.weight_btn_p)
         weight_input_layout2.addWidget(self.weight_btn_m)
@@ -456,21 +483,10 @@ class MyApp(QWidget):
         layout2.addLayout(table_layout)
         layout2.addLayout(layout1)
 
-        row_layout = QHBoxLayout()
-        row_layout.addWidget(self.label)
-        row_layout.addWidget(self.value_label)
-        row_layout.addWidget(self.kg)
-        row_layout.addStretch()
-
-        layout3 = QVBoxLayout()
-        layout3.addWidget(self.graph_value)
-        layout3.addWidget(self.graph_laser)
-        layout3.addLayout(row_layout)
-
-        layout4 = QHBoxLayout()
-        layout4.addLayout(layout2)
-        layout4.addLayout(layout3)
-        self.setLayout(layout4)
+        layout3 = QHBoxLayout()
+        layout3.addLayout(layout2)
+        layout3.addLayout(self.left_layout, stretch=3)
+        self.setLayout(layout3)
 
     def eventFilter(self, source, event):
         if event.type() == QEvent.KeyPress:
