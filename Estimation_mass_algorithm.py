@@ -1,3 +1,4 @@
+# 새로 변경된 알고리즘
 import numpy as np
 from scipy.stats import mode
 class LaserDataProcessor:
@@ -50,23 +51,3 @@ class LaserDataProcessor:
                 closest_indices[key] = self.constants[key].index(closest_value)
 
         return closest_indices
-
-# tool.py 안으로 이동
-# # 예시 실행 코드
-# if __name__ == '__main__':
-#     # LaserDataProcessor 객체 생성
-#     laser_processor = LaserDataProcessor()
-#
-#     # 각 포트에 대해 주어진 변화량 처리
-#     laser_processor.process_data(0, 1.4)  # 전방좌측 센서에 대한 변화량
-#     laser_processor.process_data(1, 1.48)  # 후방좌측 센서에 대한 변화량
-#     laser_processor.process_data(2, 1.42)  # 전방우측 센서에 대한 변화량
-#     laser_processor.process_data(3, 1.44)  # 후방우측 센서에 대한 변화량
-#
-#     # 4개 포트의 데이터 처리 후 근사치 인덱스 출력
-#     closest_indices = laser_processor.calculate_weight_estimation([0, 1, 2, 3])
-#
-#     # 결과 출력: 각 상수값에 대해 가장 근사한 값의 인덱스를 출력
-#     print("평균값-무게 매핑을 활용한 적재 무게 예측 결과:", closest_indices["mean"])
-#     print("최빈값-무게 매핑을 활용한 적재 무게 예측 결과:", closest_indices["mode"])
-#     print("중앙값-무게 매핑을 활용한 적재 무게 예측 결과:", closest_indices["median"])
