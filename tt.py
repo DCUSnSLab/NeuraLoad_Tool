@@ -51,8 +51,8 @@ class MyApp(QWidget):
 
         self.changes = {}
 
-        self.laser_changes = {port: deque(maxlen=300) for port in ['COM3', 'COM4', 'COM6', 'COM8']}
-        self.prev_laser_values = {port: None for port in ['COM3', 'COM4', 'COM6', 'COM8']}
+        self.laser_changes = {port: deque(maxlen=300) for port in ['COM8', 'COM9', 'COM10', 'COM11']}
+        self.prev_laser_values = {port: None for port in ['COM8', 'COM9', 'COM10', 'COM11']}
 
         self.threads = []
         self.weight_text = "0"
@@ -147,10 +147,10 @@ class MyApp(QWidget):
         self.curves = {}
 
         self.port_colors = {
-            'COM3': 'r',
-            'COM4': 'b',
-            'COM6': 'g',
-            'COM8': 'orange'
+            'COM8': 'r',
+            'COM9': 'b',
+            'COM10': 'g',
+            'COM11': 'orange'
         }
 
         sensor_titles = ["Laser"]
@@ -185,42 +185,100 @@ class MyApp(QWidget):
 
             self.left_layout.addWidget(graph)
 
+    # def PredictedWeight(self):
+    #     laser_processor = LaserDataProcessor()
+    #
+    #     # 각 포트에 대해 주어진 변화량이 있는지 확인
+    #     for port in ["COM8", "COM9", "COM10", "COM11"]:
+    #         if len(self.laser_changes[port]) == 0:  # 데이터가 비어있는지 명확하게 확인
+    #             print(f"[경고] {port}에 대한 변화량 데이터 없음")
+    #             self.laser_changes[port].append(0)  # 기본값 추가
+    #
+    #         # ✅ 가장 최근 값(마지막 값)만 self.changes에 저장
+    #         self.changes[port] = self.laser_changes[port][-1]  # ✅ 가장 마지막 값 저장
+    #
+    #     # 데이터 처리
+    #     laser_processor.process_data(0, self.changes["COM8"])
+    #     laser_processor.process_data(1, self.changes["COM9"])
+    #     laser_processor.process_data(2, self.changes["COM10"])
+    #     laser_processor.process_data(3, self.changes["COM11"])
+    #
+    #     # 가중치 추정값 계산
+    #     closest_indices = laser_processor.calculate_weight_estimation([0, 1, 2, 3])
+    #
+    #     weights = closest_indices
+        #
+        # # ✅ 기존 QLabel이 있다면 제거 (중복 추가 방지)
+        # if hasattr(self, 'weight_value_label'):
+        #     self.left_layout.removeWidget(self.weight_value_label)
+        #     self.weight_value_label.deleteLater()
+        #
+        # # ✅ 새로운 QLabel 추가 (한 번만 추가됨)
+        # self.weight_value_label = QLabel(f"예상 무게 결과: {weights[0]} KG")
+        # font = self.weight_value_label.font()
+        # font.setBold(True)
+        # font.setPointSize(30)
+        # self.weight_value_label.setFont(font)
+        #
+        # self.left_layout.addWidget(self.weight_value_label)
     def PredictedWeight(self):
         laser_processor = LaserDataProcessor()
 
-        # 각 포트에 대해 주어진 변화량이 있는지 확인
-        for port in ["COM3", "COM4", "COM6", "COM8"]:
-            if len(self.laser_changes[port]) == 0:  # 데이터가 비어있는지 명확하게 확인
+        for port in ["COM8", "COM9", "COM10", "COM11"]:
+            if len(self.laser_changes[port]) == 0:
                 print(f"[경고] {port}에 대한 변화량 데이터 없음")
-                self.laser_changes[port].append(0)  # 기본값 추가
+                self.laser_changes[port].append(0)
 
-            # ✅ 가장 최근 값(마지막 값)만 self.changes에 저장
-            self.changes[port] = self.laser_changes[port][-1]  # ✅ 가장 마지막 값 저장
+            self.changes[port] = self.laser_changes[port][-1]
 
-        # 데이터 처리
-        laser_processor.process_data(0, self.changes["COM3"])
-        laser_processor.process_data(1, self.changes["COM4"])
-        laser_processor.process_data(2, self.changes["COM6"])
-        laser_processor.process_data(3, self.changes["COM8"])
+        laser_processor.process_data(0, self.changes["COM8"])
+        laser_processor.process_data(1, self.changes["COM9"])
+        laser_processor.process_data(2, self.changes["COM10"])
+        laser_processor.process_data(3, self.changes["COM11"])
 
-        # 가중치 추정값 계산
-        closest_indices = laser_processor.calculate_weight_estimation([0, 1, 2, 3])
+        closest_indices = laser_processor.calculate_weight_estimation()
 
-        weights = closest_indices
+        weight_value = -1
+        detected_category = None
 
-        # ✅ 기존 QLabel이 있다면 제거 (중복 추가 방지)
+        if 'left' in closest_indices:
+            weight_value = laser_processor.constants["left"][closest_indices["left"]]
+            detected_category = "LEFT"
+        elif 'mid' in closest_indices:
+            weight_value = laser_processor.constants["mid"][closest_indices["mid"]]
+            detected_category = "MID"
+        elif 'right' in closest_indices:
+            weight_value = laser_processor.constants["right"][closest_indices["right"]]
+            detected_category = "RIGHT"
+
+        if weight_value == -1:
+            return
+
+        # 기존 QLabel 제거 (중복 추가 방지)
         if hasattr(self, 'weight_value_label'):
             self.left_layout.removeWidget(self.weight_value_label)
             self.weight_value_label.deleteLater()
 
-        # ✅ 새로운 QLabel 추가 (한 번만 추가됨)
-        self.weight_value_label = QLabel(f"예상 무게 결과: {weights[0]} KG")
+        if hasattr(self, 'category_label'):
+            self.left_layout.removeWidget(self.category_label)
+            self.category_label.deleteLater()
+
+        # 새로운 QLabel 추가 (무게 결과)
+        self.weight_value_label = QLabel(f"예상 무게 결과: {weight_value} KG")
         font = self.weight_value_label.font()
         font.setBold(True)
         font.setPointSize(30)
         self.weight_value_label.setFont(font)
 
+        # 새로운 QLabel 추가 (감지된 위치)
+        self.category_label = QLabel(f"감지된 위치: {detected_category}")
+        font = self.category_label.font()
+        font.setBold(True)
+        font.setPointSize(20)
+        self.category_label.setFont(font)
+
         self.left_layout.addWidget(self.weight_value_label)
+        self.left_layout.addWidget(self.category_label)
 
     def startSerialThread(self):
         self.data_x = {port: deque(maxlen=300) for port in self.port_colors}
