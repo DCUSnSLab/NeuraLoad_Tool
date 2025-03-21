@@ -51,8 +51,8 @@ class MyApp(QWidget):
 
         self.changes = {}
 
-        self.laser_changes = {port: deque(maxlen=300) for port in ['COM8', 'COM9', 'COM10', 'COM11']}
-        self.prev_laser_values = {port: None for port in ['COM8', 'COM9', 'COM10', 'COM11']}
+        self.laser_changes = {port: deque(maxlen=300) for port in ['COM9', 'COM10', 'COM8', 'COM11']}
+        self.prev_laser_values = {port: None for port in ['COM9', 'COM10', 'COM8', 'COM11']}
 
         self.threads = []
         self.weight_text = "0"
@@ -147,9 +147,9 @@ class MyApp(QWidget):
         self.curves = {}
 
         self.port_colors = {
-            'COM8': 'r',
-            'COM9': 'b',
-            'COM10': 'g',
+            'COM9': 'r',
+            'COM10': 'b',
+            'COM8': 'g',
             'COM11': 'orange'
         }
 
@@ -185,55 +185,19 @@ class MyApp(QWidget):
 
             self.left_layout.addWidget(graph)
 
-    # def PredictedWeight(self):
-    #     laser_processor = LaserDataProcessor()
-    #
-    #     # 각 포트에 대해 주어진 변화량이 있는지 확인
-    #     for port in ["COM8", "COM9", "COM10", "COM11"]:
-    #         if len(self.laser_changes[port]) == 0:  # 데이터가 비어있는지 명확하게 확인
-    #             print(f"[경고] {port}에 대한 변화량 데이터 없음")
-    #             self.laser_changes[port].append(0)  # 기본값 추가
-    #
-    #         # ✅ 가장 최근 값(마지막 값)만 self.changes에 저장
-    #         self.changes[port] = self.laser_changes[port][-1]  # ✅ 가장 마지막 값 저장
-    #
-    #     # 데이터 처리
-    #     laser_processor.process_data(0, self.changes["COM8"])
-    #     laser_processor.process_data(1, self.changes["COM9"])
-    #     laser_processor.process_data(2, self.changes["COM10"])
-    #     laser_processor.process_data(3, self.changes["COM11"])
-    #
-    #     # 가중치 추정값 계산
-    #     closest_indices = laser_processor.calculate_weight_estimation([0, 1, 2, 3])
-    #
-    #     weights = closest_indices
-        #
-        # # ✅ 기존 QLabel이 있다면 제거 (중복 추가 방지)
-        # if hasattr(self, 'weight_value_label'):
-        #     self.left_layout.removeWidget(self.weight_value_label)
-        #     self.weight_value_label.deleteLater()
-        #
-        # # ✅ 새로운 QLabel 추가 (한 번만 추가됨)
-        # self.weight_value_label = QLabel(f"예상 무게 결과: {weights[0]} KG")
-        # font = self.weight_value_label.font()
-        # font.setBold(True)
-        # font.setPointSize(30)
-        # self.weight_value_label.setFont(font)
-        #
-        # self.left_layout.addWidget(self.weight_value_label)
     def PredictedWeight(self):
         laser_processor = LaserDataProcessor()
 
-        for port in ["COM8", "COM9", "COM10", "COM11"]:
+        for port in ["COM9", "COM10", "COM8", "COM11"]:
             if len(self.laser_changes[port]) == 0:
                 print(f"[경고] {port}에 대한 변화량 데이터 없음")
                 self.laser_changes[port].append(0)
 
             self.changes[port] = self.laser_changes[port][-1]
 
-        laser_processor.process_data(0, self.changes["COM8"])
-        laser_processor.process_data(1, self.changes["COM9"])
-        laser_processor.process_data(2, self.changes["COM10"])
+        laser_processor.process_data(0, self.changes["COM9"])
+        laser_processor.process_data(1, self.changes["COM10"])
+        laser_processor.process_data(2, self.changes["COM8"])
         laser_processor.process_data(3, self.changes["COM11"])
 
         closest_indices = laser_processor.calculate_weight_estimation()
@@ -254,31 +218,26 @@ class MyApp(QWidget):
         if weight_value == -1:
             return
 
-        # 기존 QLabel 제거 (중복 추가 방지)
-        if hasattr(self, 'weight_value_label'):
-            self.left_layout.removeWidget(self.weight_value_label)
-            self.weight_value_label.deleteLater()
+        # QLabel이 삭제되지 않았는지 확인 후 텍스트 변경
+        if hasattr(self, 'weight_value_label') and self.weight_value_label:
+            self.weight_value_label.setText(f"예상 무게 결과: {weight_value} KG")
+        else:
+            self.weight_value_label = QLabel(f"예상 무게 결과: {weight_value} KG")
+            font = self.weight_value_label.font()
+            font.setBold(True)
+            font.setPointSize(30)
+            self.weight_value_label.setFont(font)
+            self.left_layout.addWidget(self.weight_value_label)
 
-        if hasattr(self, 'category_label'):
-            self.left_layout.removeWidget(self.category_label)
-            self.category_label.deleteLater()
-
-        # 새로운 QLabel 추가 (무게 결과)
-        self.weight_value_label = QLabel(f"예상 무게 결과: {weight_value} KG")
-        font = self.weight_value_label.font()
-        font.setBold(True)
-        font.setPointSize(30)
-        self.weight_value_label.setFont(font)
-
-        # 새로운 QLabel 추가 (감지된 위치)
-        self.category_label = QLabel(f"감지된 위치: {detected_category}")
-        font = self.category_label.font()
-        font.setBold(True)
-        font.setPointSize(20)
-        self.category_label.setFont(font)
-
-        self.left_layout.addWidget(self.weight_value_label)
-        self.left_layout.addWidget(self.category_label)
+        if hasattr(self, 'category_label') and self.category_label:
+            self.category_label.setText(f"감지된 위치: {detected_category}")
+        else:
+            self.category_label = QLabel(f"감지된 위치: {detected_category}")
+            font = self.category_label.font()
+            font.setBold(True)
+            font.setPointSize(20)
+            self.category_label.setFont(font)
+            self.left_layout.addWidget(self.category_label)
 
     def startSerialThread(self):
         self.data_x = {port: deque(maxlen=300) for port in self.port_colors}
@@ -317,19 +276,25 @@ class MyApp(QWidget):
         self.data_y["IMU[y]"][port].append(sensor_data[-1])
         self.data_y["IMU[z]"][port].append(sensor_data[-2])
 
-        if self.prev_laser_values[port] is not None:
-            change = sensor_data[0] - self.prev_laser_values[port]
+        # 초기값 설정
+        if self.prev_laser_values[port] is None:
+            self.prev_laser_values[port] = sensor_data[0]
+            print(f"포트 {port}: 초기값 설정됨, 현재 값: {sensor_data[0]}")
+            change = 0  # 초기값일 경우 변화량 0
         else:
-            change = 0
+            print(f"포트 {port}: 이전 값: {self.prev_laser_values[port]}, 현재 값: {sensor_data[0]}")
+            change = self.prev_laser_values[port] - sensor_data[0]# 변화량 계산
 
         self.laser_changes[port].append(change)
-        self.prev_laser_values[port] = sensor_data[0]  # 현재 값을 다음 비교를 위해 저장
+
+        # 변화량 계산 후 prev_laser_values는 업데이트하지 않음
+        # self.prev_laser_values[port] = sensor_data[0]  # 이전 값 갱신 제거
 
         port_index = list(self.port_colors.keys()).index(port)
         self.table.setItem(0, port_index, QTableWidgetItem(str(sensor_data[0])))  # Laser
         self.table.setItem(1, port_index, QTableWidgetItem(str(sensor_data[-3])))  # IMU[x]
         self.table.setItem(2, port_index, QTableWidgetItem(str(sensor_data[-1])))  # IMU[y]
-        self.table.setItem(3, port_index, QTableWidgetItem(str(sensor_data[-2])))  # IMU[z]
+        self.table.setItem(3, port_index, QTableWidgetItem(str(sensor_data[-2])))  # IMU[z])
 
         self.PredictedWeight()
 
@@ -341,6 +306,7 @@ class MyApp(QWidget):
             if min_length > 0:
                 self.curves[sensor][port].setData(x_data[-min_length:], y_data[-min_length:])
 
+            # Laser Change 그래프 업데이트
         x_data = list(self.data_x[port])
         y_data = list(self.laser_changes[port])
 
@@ -417,38 +383,40 @@ class MyApp(QWidget):
             if item is None:
                 return
 
-            new_value = item.text()
+            new_value = item.text().strip()
+            index = row * 3 + col
 
-            if new_value.isdigit():
-                self.weight_a[row * 3 + col] = int(new_value)
+            # 인덱스가 유효한지 확인하고 값 변경
+            if 0 <= index < len(self.weight_a):
+                try:
+                    self.weight_a[index] = int(new_value)
+                except ValueError:
+                    prev_value = self.weight_a[index]  # 기존 값을 가져옴
+                    item.setText(str(prev_value))
             else:
-                prev_value = self.weight_a[row * 3 + col]
+                prev_value = 0
                 item.setText(str(prev_value))
+
         except Exception as e:
-            pass
+            print(f"onCellChanged 오류: {e}")
 
     def save(self):
         try:
-            # 파일 이름 생성
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             file_name = f"{timestamp}.txt"
+            current_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
             with open(file_name, 'w', encoding='utf-8') as file:
                 headers = ['Logged Time', '무게', '포트', '로그']
                 file.write("\t".join(headers) + "\n")
 
-                row_count = self.logging.rowCount()
-                for row in range(row_count):
-                    log_data = self.logging.item(row, 2).text() if self.logging.item(row, 2) else ""
-                    parsed_data = log_data.split(',')
-
-                    logged_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
-
+                for row in range(self.logging.rowCount()):
                     weight = self.logging.item(row, 0).text() if self.logging.item(row, 0) else ""
                     port = self.logging.item(row, 1).text() if self.logging.item(row, 1) else ""
-                    log_content = ",".join(parsed_data[0:]) if len(parsed_data) > 1 else ""
+                    log_data = self.logging.item(row, 2).text() if self.logging.item(row, 2) else ""
+                    log_content = ",".join(log_data.split(','))
 
-                    file.write(f"{logged_time}\t{weight}\t{port}\t{log_content}\n")
+                    file.write(f"{current_time}\t{weight}\t{port}\t{log_content}\n")
 
             row_position = self.save_file_box_log.rowCount()
             self.save_file_box_log.insertRow(row_position)
@@ -456,7 +424,7 @@ class MyApp(QWidget):
             self.save_file_box_log.scrollToBottom()
 
         except Exception as e:
-            QMessageBox.critical(self, "저장 실패", f"오류 발생: {str(e)}", QMessageBox.Ok)
+            QMessageBox.critical(self, "저장 실패", f"오류 발생: {e}", QMessageBox.Ok)
 
     def auto_save(self):
         try:
