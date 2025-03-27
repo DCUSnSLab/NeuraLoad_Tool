@@ -68,7 +68,7 @@ class MyApp(QWidget):
 
         self.auto_save_timer = QTimer()
         self.auto_save_timer.timeout.connect(self.auto_save)
-        self.auto_save_timer.start(600000)
+        self.auto_save_timer.start(1000) #600000
 
     def initUI(self):
         self.setWindowTitle('과적 테스트')
@@ -432,21 +432,28 @@ class MyApp(QWidget):
 
     def save(self):
         try:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now().strftime("%H_%M_%S_%f")[:-3]
             file_name = f"{timestamp}.txt"
-            current_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 
-            with open(file_name, 'w', encoding='utf-8') as file:
-                headers = ['Logged Time', '무게', '포트', '로그']
-                file.write("\t".join(headers) + "\n")
+            folder_name = datetime.now().strftime("saved_data_%Y-%m-%d")
+            folder_path = os.path.join("log", folder_name)
+            os.makedirs(folder_path, exist_ok=True)
 
-                for row in range(self.logging.rowCount()):
-                    weight = self.logging.item(row, 0).text() if self.logging.item(row, 0) else ""
-                    port = self.logging.item(row, 1).text() if self.logging.item(row, 1) else ""
-                    log_data = self.logging.item(row, 2).text() if self.logging.item(row, 2) else ""
-                    log_content = ",".join(log_data.split(','))
+            file_path = os.path.join(folder_path, file_name)
 
-                    file.write(f"{current_time}\t{weight}\t{port}\t{log_content}\n")
+            current_time = datetime.now().strftime("saved_data_%Y-%m-%d")
+
+            with open(file_path, 'w', encoding='utf-8') as file:
+                    headers = ['Logged Time', '무게', '포트', '로그']
+                    file.write("\t".join(headers) + "\n")
+
+                    for row in range(self.logging.rowCount()):
+                        weight = self.logging.item(row, 0).text() if self.logging.item(row, 0) else ""
+                        port = self.logging.item(row, 1).text() if self.logging.item(row, 1) else ""
+                        log_data = self.logging.item(row, 2).text() if self.logging.item(row, 2) else ""
+                        log_content = ",".join(log_data.split(','))
+
+                        file.write(f"{current_time}\t{weight}\t{port}\t{log_content}\n")
 
             row_position = self.save_file_box_log.rowCount()
             self.save_file_box_log.insertRow(row_position)
@@ -458,12 +465,12 @@ class MyApp(QWidget):
 
     def auto_save(self):
         try:
-            date_str = datetime.now().strftime("%Y%m%d")
+            date_str = datetime.now().strftime("%Y-%m-%d")
             folder_path = os.path.join("log", date_str)
             os.makedirs(folder_path, exist_ok=True)  # 폴더 없으면 생성
 
             # 파일 이름 생성 (HHMMSS.txt)
-            time_str = datetime.now().strftime("%H%M%S")
+            time_str = datetime.now().strftime("%H_%M_%S_%f")[:-3]
             file_name = f"{time_str}.txt"
             file_path = os.path.join(folder_path, file_name)
 
@@ -476,7 +483,7 @@ class MyApp(QWidget):
                     log_data = self.logging.item(row, 2).text() if self.logging.item(row, 2) else ""
                     parsed_data = log_data.split(',')
 
-                    logged_time = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+                    logged_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")[:-3]
 
                     weight = self.logging.item(row, 0).text() if self.logging.item(row, 0) else ""
                     port = self.logging.item(row, 1).text() if self.logging.item(row, 1) else ""
