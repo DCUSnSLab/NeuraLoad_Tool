@@ -441,8 +441,6 @@ class MyApp(QWidget):
 
             file_path = os.path.join(folder_path, file_name)
 
-            current_time = datetime.now().strftime("%H_%M_%S_%f")[:-3]
-
             with open(file_path, 'w', encoding='utf-8') as file:
                     headers = ['Logged Time', '무게', '포트', '로그']
                     file.write("\t".join(headers) + "\n")
@@ -452,6 +450,8 @@ class MyApp(QWidget):
                         port = self.logging.item(row, 1).text() if self.logging.item(row, 1) else ""
                         log_data = self.logging.item(row, 2).text() if self.logging.item(row, 2) else ""
                         log_content = ",".join(log_data.split(','))
+
+                        current_time = datetime.now().strftime("%H_%M_%S_%f")[:-3]
 
                         file.write(f"{current_time}\t{weight}\t{port}\t{log_content}\n")
 
