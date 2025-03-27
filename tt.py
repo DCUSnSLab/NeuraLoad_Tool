@@ -194,32 +194,32 @@ class MyApp(QWidget):
                 self.laser_changes[port].append(0)
 
             self.changes[port] = self.laser_changes[port][-1]
+            print(f"{port}의 마지막 변화량: {self.changes[port]}")
 
         laser_processor.process_data(0, self.changes["COM9"])
         laser_processor.process_data(1, self.changes["COM10"])
         laser_processor.process_data(2, self.changes["COM8"])
         laser_processor.process_data(3, self.changes["COM11"])
 
-        closest_indices = laser_processor.calculate_weight_estimation()
+        closest_indices = laser_processor.process_data(0, self.changes["COM9"])
+        print(f"계산된 가장 가까운 인덱스: {closest_indices}")  # 가장 가까운 인덱스 출력
 
-        weight_value = -1
-        detected_category = None
+        # 우선순위에 따라 category를 선택
+        for category in ["left", "mid", "right"]:
+            print(f"카테고리 확인 중: {category}")  # 현재 확인 중인 카테고리 출력
+            if category in closest_indices and closest_indices[category] is not None:
+                weight_value = closest_indices[category]
+                detected_category = category.upper()  # "LEFT", "MID", "RIGHT"
+                print(f"선택된 카테고리: {detected_category}, 값: {weight_value}")  # 선택된 카테고리와 값 출력
+                break  # 우선순위가 먼저 선택된 category로 결정되면 반복문 종료
 
-        if 'left' in closest_indices:
-            weight_value = laser_processor.constants["left"][closest_indices["left"]]
-            detected_category = "LEFT"
-        elif 'mid' in closest_indices:
-            weight_value = laser_processor.constants["mid"][closest_indices["mid"]]
-            detected_category = "MID"
-        elif 'right' in closest_indices:
-            weight_value = laser_processor.constants["right"][closest_indices["right"]]
-            detected_category = "RIGHT"
-
-        if weight_value == -1:
-            return
+        # if weight_value == -1:
+        #     print("[경고] 적절한 값이 없으므로 반환합니다.")  # 값이 없을 때 경고 출력
+        #     return  # 적절한 값이 없다면 반환
 
         # QLabel이 삭제되지 않았는지 확인 후 텍스트 변경
         if hasattr(self, 'weight_value_label') and self.weight_value_label:
+            print(f"예상 무게 텍스트 업데이트: {weight_value} KG")  # 예상 무게 텍스트 업데이트 출력
             self.weight_value_label.setText(f"예상 무게 결과: {weight_value} KG")
         else:
             self.weight_value_label = QLabel(f"예상 무게 결과: {weight_value} KG")
@@ -230,6 +230,7 @@ class MyApp(QWidget):
             self.left_layout.addWidget(self.weight_value_label)
 
         if hasattr(self, 'category_label') and self.category_label:
+            print(f"감지된 위치 텍스트 업데이트: {detected_category}")  # 감지된 위치 텍스트 업데이트 출력
             self.category_label.setText(f"감지된 위치: {detected_category}")
         else:
             self.category_label = QLabel(f"감지된 위치: {detected_category}")
@@ -258,11 +259,12 @@ class MyApp(QWidget):
     def handle_serial_data(self, port, data):
         parsed_data = data.split(',')
 
-        if len(parsed_data) < 12:
+        # 데이터가 12개 미만이면 처리하지 않음
+        if 1 < len(parsed_data) < 12:
             return
 
         try:
-            sensor_data = [float(x) if x.replace('.', '', 1).isdigit() else 0 for x in parsed_data]
+            sensor_data = [int(x) if x.isdigit() else 0 for x in parsed_data]
         except ValueError:
             return
 
@@ -271,19 +273,24 @@ class MyApp(QWidget):
         else:
             self.data_x[port].append(self.data_x[port][-1] + 1)
 
-        self.data_y["Laser"][port].append(sensor_data[0])
-        self.data_y["IMU[x]"][port].append(sensor_data[-3])
-        self.data_y["IMU[y]"][port].append(sensor_data[-1])
-        self.data_y["IMU[z]"][port].append(sensor_data[-2])
+        self.data_y["Laser"][port].append(sensor_data[0])  # Laser 데이터 추가
 
-        # 초기값 설정
+        # IMU 데이터가 있을 때만 처리
+        if len(sensor_data) > 12:
+            self.data_y["IMU[x]"][port].append(sensor_data[-3])
+            self.data_y["IMU[y]"][port].append(sensor_data[-1])
+            self.data_y["IMU[z]"][port].append(sensor_data[-2])
+        if sensor_data[0] == 0:
+            return
+        # 변화량 계산
         if self.prev_laser_values[port] is None:
             self.prev_laser_values[port] = sensor_data[0]
             print(f"포트 {port}: 초기값 설정됨, 현재 값: {sensor_data[0]}")
             change = 0  # 초기값일 경우 변화량 0
         else:
+            # if sensor_data[0] != 0:  # sensor_data[0]이 0이 아닐 경우에만 초기값 설정
             print(f"포트 {port}: 이전 값: {self.prev_laser_values[port]}, 현재 값: {sensor_data[0]}")
-            change = self.prev_laser_values[port] - sensor_data[0]# 변화량 계산
+            change = self.prev_laser_values[port] - sensor_data[0]  # 변화량 계산
 
         self.laser_changes[port].append(change)
 
@@ -292,9 +299,10 @@ class MyApp(QWidget):
 
         port_index = list(self.port_colors.keys()).index(port)
         self.table.setItem(0, port_index, QTableWidgetItem(str(sensor_data[0])))  # Laser
-        self.table.setItem(1, port_index, QTableWidgetItem(str(sensor_data[-3])))  # IMU[x]
-        self.table.setItem(2, port_index, QTableWidgetItem(str(sensor_data[-1])))  # IMU[y]
-        self.table.setItem(3, port_index, QTableWidgetItem(str(sensor_data[-2])))  # IMU[z])
+        if len(sensor_data)>12:
+            self.table.setItem(1, port_index, QTableWidgetItem(str(sensor_data[-3])))  # IMU[x]
+            self.table.setItem(2, port_index, QTableWidgetItem(str(sensor_data[-1])))  # IMU[y]
+            self.table.setItem(3, port_index, QTableWidgetItem(str(sensor_data[-2])))  # IMU[z])
 
         self.PredictedWeight()
 
@@ -350,22 +358,44 @@ class MyApp(QWidget):
     def weightM(self):
         selected_items = self.weight_table.selectedItems()
         if selected_items:
-            for val in selected_items:
+            # 선택된 항목의 개수가 1개인 경우와 13개인 경우를 구분하여 처리
+            if len(selected_items) == 1:
+                # 1개의 값만 선택된 경우
+                val = selected_items[0]
                 try:
                     current_value = int(val.text())
 
                     row = val.row()
                     col = val.column()
-                    index = row * 3 + col
+                    index = row * 3 + col  # 3x3 배열로 인덱스 계산
 
-                    if current_value  < 4:
+                    if current_value < 4:
                         self.weight_a[index] = 0
                         val.setText(str(self.weight_a[index]))
                     else:
                         self.weight_a[index] = (current_value - 20)
                         val.setText(str(self.weight_a[index]))
                 except ValueError:
-                    continue
+                    pass  # 예외 발생 시 처리하지 않고 넘어감
+
+            elif len(selected_items) == 13:
+                # 13개의 값이 선택된 경우
+                for val in selected_items:
+                    try:
+                        current_value = int(val.text())
+
+                        row = val.row()
+                        col = val.column()
+                        index = row * 3 + col
+
+                        if current_value < 4:
+                            self.weight_a[index] = 0
+                            val.setText(str(self.weight_a[index]))
+                        else:
+                            self.weight_a[index] = (current_value - 20)
+                            val.setText(str(self.weight_a[index]))
+                    except ValueError:
+                        continue
 
     def weightZ(self):
         self.weight_a = [0] * 9
@@ -394,7 +424,7 @@ class MyApp(QWidget):
                     prev_value = self.weight_a[index]  # 기존 값을 가져옴
                     item.setText(str(prev_value))
             else:
-                prev_value = 0
+                prev_value = -1
                 item.setText(str(prev_value))
 
         except Exception as e:
