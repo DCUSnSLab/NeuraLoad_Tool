@@ -441,7 +441,7 @@ class MyApp(QWidget):
 
             file_path = os.path.join(folder_path, file_name)
 
-            current_time = datetime.now().strftime("saved_data_%Y-%m-%d")
+            current_time = datetime.now().strftime("%H_%M_%S_%f")[:-3]
 
             with open(file_path, 'w', encoding='utf-8') as file:
                     headers = ['Logged Time', '무게', '포트', '로그']
