@@ -79,8 +79,11 @@ class MyApp(QWidget):
         self.table = QTableWidget()
         self.table.setColumnCount(4)
         self.table.setRowCount(4)
-        for i in range(5):
-            self.table.setHorizontalHeaderItem(i, QTableWidgetItem(f'sensor{i+1}'))
+        self.table.setHorizontalHeaderItem(0, QTableWidgetItem('TopLeft'))
+        self.table.setHorizontalHeaderItem(1, QTableWidgetItem('BottomLeft'))
+        self.table.setHorizontalHeaderItem(2, QTableWidgetItem('TopRight'))
+        self.table.setHorizontalHeaderItem(3, QTableWidgetItem('BottomRight'))
+
         self.table.setVerticalHeaderLabels(['Laser', 'IMU[x]', 'IMU[y]', 'IMU[z]'])
         self.table.setMaximumHeight(300)
         self.table.setMinimumHeight(250)
@@ -164,7 +167,16 @@ class MyApp(QWidget):
         self.curves["Laser Change"] = {}
 
         for port, color in self.port_colors.items():
-            curve = self.graph_value.plot(pen=color, name=f"{port}")
+            if color == 'r':
+                curve = self.graph_value.plot(pen=color, name="TopLeft")
+            elif color == 'b':
+                curve = self.graph_value.plot(pen=color, name="BottomLeft")
+            elif color == 'g':
+                curve = self.graph_value.plot(pen=color, name="TopRight")
+            elif color == 'orange':
+                curve = self.graph_value.plot(pen=color, name="BottomRight")
+            else:
+                pass
             self.curves["Laser Change"][port] = curve
 
         self.left_layout.addWidget(self.graph_value)
@@ -325,7 +337,19 @@ class MyApp(QWidget):
         current_row_count = self.logging.rowCount()
         self.logging.insertRow(current_row_count)
         self.logging.setItem(current_row_count, 0, QTableWidgetItem(str(self.weight_a)))
-        self.logging.setItem(current_row_count, 1, QTableWidgetItem(port))
+        if port == 'COM9':
+            name = "TopLeft"
+        elif port == 'COM10':
+            name = "BottomLeft"
+        elif port == 'COM8':
+            name = "TopRight"
+        elif port == 'COM11':
+            name = "BottomRight"
+        else:
+            name = ""
+            print("지정된 이외의 포트가 있음")
+
+        self.logging.setItem(current_row_count, 1, QTableWidgetItem(name))
         self.logging.setItem(current_row_count, 2, QTableWidgetItem(data))
 
         self.logging.scrollToBottom()
@@ -447,13 +471,27 @@ class MyApp(QWidget):
 
                     for row in range(self.logging.rowCount()):
                         weight = self.logging.item(row, 0).text() if self.logging.item(row, 0) else ""
+
                         port = self.logging.item(row, 1).text() if self.logging.item(row, 1) else ""
+
+                        if port == 'COM9':
+                            name = "TopLeft"
+                        elif port == 'COM10':
+                            name = "BottomLeft"
+                        elif port == 'COM8':
+                            name = "TopRight"
+                        elif port == 'COM11':
+                            name = "BottomRight"
+                        else:
+                            name = ""
+                            print("지정된 이외의 포트가 있음")
+
                         log_data = self.logging.item(row, 2).text() if self.logging.item(row, 2) else ""
                         log_content = ",".join(log_data.split(','))
 
                         current_time = datetime.now().strftime("%H_%M_%S_%f")[:-3]
 
-                        file.write(f"{current_time}\t{weight}\t{port}\t{log_content}\n")
+                        file.write(f"{current_time}\t{weight}\t{name}\t{log_content}\n")
 
             row_position = self.save_file_box_log.rowCount()
             self.save_file_box_log.insertRow(row_position)
@@ -486,10 +524,24 @@ class MyApp(QWidget):
                     logged_time = datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")[:-3]
 
                     weight = self.logging.item(row, 0).text() if self.logging.item(row, 0) else ""
+
                     port = self.logging.item(row, 1).text() if self.logging.item(row, 1) else ""
+
+                    if port == 'COM9':
+                        name = "TopLeft"
+                    elif port == 'COM10':
+                        name = "BottomLeft"
+                    elif port == 'COM8':
+                        name = "TopRight"
+                    elif port == 'COM11':
+                        name = "BottomRight"
+                    else:
+                        name = ""
+                        print("지정된 이외의 포트가 있음")
+
                     log_content = ",".join(parsed_data) if parsed_data else ""
 
-                    file.write(f"{logged_time}\t{weight}\t{port}\t{log_content}\n")
+                    file.write(f"{logged_time}\t{weight}\t{name}\t{log_content}\n")
 
             # 저장된 파일을 UI에 추가
             row_position = self.save_file_box_log.rowCount()
