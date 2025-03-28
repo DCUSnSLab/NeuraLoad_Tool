@@ -70,20 +70,6 @@ class MyApp(QWidget):
         self.auto_save_timer.timeout.connect(self.auto_save)
         self.auto_save_timer.start(600000)
 
-        self.last_data_time = datetime.now()
-        self.data_timeout_limit = 10
-
-        self.data_check_timer = QTimer()
-        self.data_check_timer.timeout.connect(self.check_data_timeout)
-        self.data_check_timer.start(1000)
-
-    def check_data_timeout(self):
-        elapsed = (datetime.now() - self.last_data_time).total_seconds()
-
-        if elapsed > self.data_timeout_limit:
-            QMessageBox.warning(self, "연결 끊김 경고", f"{self.data_timeout_limit}초 동안 데이터가 수신되지 않았습니다.", QMessageBox.Ok)
-            self.last_data_time = datetime.now()
-
     def initUI(self):
         self.setWindowTitle('과적 테스트')
         self.resize(2000, 800)
@@ -92,21 +78,21 @@ class MyApp(QWidget):
     def setupUI(self):
         self.table = QTableWidget()
         self.table.setColumnCount(4)
-        self.table.setRowCount(4)
+        self.table.setRowCount(1)
         self.table.setHorizontalHeaderItem(0, QTableWidgetItem('TopLeft'))
         self.table.setHorizontalHeaderItem(1, QTableWidgetItem('BottomLeft'))
         self.table.setHorizontalHeaderItem(2, QTableWidgetItem('TopRight'))
         self.table.setHorizontalHeaderItem(3, QTableWidgetItem('BottomRight'))
 
-        self.table.setVerticalHeaderLabels(['Laser', 'IMU[x]', 'IMU[y]', 'IMU[z]'])
-        self.table.setMaximumHeight(300)
-        self.table.setMinimumHeight(250)
+        self.table.setVerticalHeaderLabels(['value'])
+        self.table.setMaximumHeight(200)
+        self.table.setMinimumHeight(150)
         self.table.setMaximumWidth(1000)
         self.table.setMinimumWidth(700)
 
         self.logging = QTableWidget()
         self.logging.setColumnCount(4)
-        self.logging.setHorizontalHeaderLabels(['무게', '포트', '무게 변화', '로그'])
+        self.logging.setHorizontalHeaderLabels(['무게', '무게 변화', '위치', '로그'])
         self.logging.setMinimumHeight(300)
         self.logging.setMinimumWidth(500)
         self.logging.horizontalHeader().setStretchLastSection(True)
@@ -140,8 +126,8 @@ class MyApp(QWidget):
         self.weight_table = QTableWidget(3,3)
         self.weight_table.setHorizontalHeaderLabels([f"{i + 1}" for i in range(3)])
         self.weight_table.setVerticalHeaderLabels([f"{i + 1}" for i in range(3)])
-        self.weight_table.setMaximumHeight(300)
-        self.weight_table.setMinimumHeight(250)
+        self.weight_table.setMaximumHeight(200)
+        self.weight_table.setMinimumHeight(150)
         self.weight_table.setMaximumWidth(1000)
         self.weight_table.setMinimumWidth(500)
         self.weight_table.installEventFilter(self)
@@ -283,10 +269,8 @@ class MyApp(QWidget):
             thread.start()
 
     def handle_serial_data(self, port, data):
-        self.last_data_time = datetime.now()
         parsed_data = data.split(',')
 
-        # 데이터가 12개 미만이면 처리하지 않음
         if 1 < len(parsed_data) < 12:
             return
 
@@ -358,12 +342,12 @@ class MyApp(QWidget):
         if sum(self.weight_a) > self.weight_total:
             self.logging.setItem(current_row_count, 1, QTableWidgetItem('U'))
             self.weight_total = sum(self.weight_a)
-        elif sum(self.weight_a) < self.weight_total:
-            self.logging.setItem(current_row_count, 1, QTableWidgetItem('D'))
-            self.weight_total = sum(self.weight_a)
-        else:
-            self.logging.setItem(current_row_count, 1, QTableWidgetItem('-'))
-            self.weight_total = sum(self.weight_a)
+        # elif sum(self.weight_a) < self.weight_total:
+        #     self.logging.setItem(current_row_count, 1, QTableWidgetItem('D'))
+        #     self.weight_total = sum(self.weight_a)
+        # else:
+        #     self.logging.setItem(current_row_count, 1, QTableWidgetItem('-'))
+        #     self.weight_total = sum(self.weight_a)
 
         if port == 'COM9':
             name = "TopLeft"
