@@ -70,6 +70,20 @@ class MyApp(QWidget):
         self.auto_save_timer.timeout.connect(self.auto_save)
         self.auto_save_timer.start(600000)
 
+        self.last_data_time = datetime.now()
+        self.data_timeout_limit = 10
+
+        self.data_check_timer = QTimer()
+        self.data_check_timer.timeout.connect(self.check_data_timeout)
+        self.data_check_timer.start(1000)
+
+    def check_data_timeout(self):
+        elapsed = (datetime.now() - self.last_data_time).total_seconds()
+
+        if elapsed > self.data_timeout_limit:
+            QMessageBox.warning(self, "연결 끊김 경고", f"{self.data_timeout_limit}초 동안 데이터가 수신되지 않았습니다.", QMessageBox.Ok)
+            self.last_data_time = datetime.now()
+
     def initUI(self):
         self.setWindowTitle('과적 테스트')
         self.resize(2000, 800)
@@ -91,8 +105,8 @@ class MyApp(QWidget):
         self.table.setMinimumWidth(700)
 
         self.logging = QTableWidget()
-        self.logging.setColumnCount(3)
-        self.logging.setHorizontalHeaderLabels(['무게', '포트', '로그'])
+        self.logging.setColumnCount(4)
+        self.logging.setHorizontalHeaderLabels(['무게', '포트', '무게 변화', '로그'])
         self.logging.setMinimumHeight(300)
         self.logging.setMinimumWidth(500)
         self.logging.horizontalHeader().setStretchLastSection(True)
@@ -269,6 +283,7 @@ class MyApp(QWidget):
             thread.start()
 
     def handle_serial_data(self, port, data):
+        self.last_data_time = datetime.now()
         parsed_data = data.split(',')
 
         # 데이터가 12개 미만이면 처리하지 않음
@@ -337,6 +352,19 @@ class MyApp(QWidget):
         current_row_count = self.logging.rowCount()
         self.logging.insertRow(current_row_count)
         self.logging.setItem(current_row_count, 0, QTableWidgetItem(str(self.weight_a)))
+
+        self.weight_total = 0
+
+        if sum(self.weight_a) > self.weight_total:
+            self.logging.setItem(current_row_count, 1, QTableWidgetItem('U'))
+            self.weight_total = sum(self.weight_a)
+        elif sum(self.weight_a) < self.weight_total:
+            self.logging.setItem(current_row_count, 1, QTableWidgetItem('D'))
+            self.weight_total = sum(self.weight_a)
+        else:
+            self.logging.setItem(current_row_count, 1, QTableWidgetItem('-'))
+            self.weight_total = sum(self.weight_a)
+
         if port == 'COM9':
             name = "TopLeft"
         elif port == 'COM10':
@@ -349,8 +377,8 @@ class MyApp(QWidget):
             name = ""
             print("지정된 이외의 포트가 있음")
 
-        self.logging.setItem(current_row_count, 1, QTableWidgetItem(name))
-        self.logging.setItem(current_row_count, 2, QTableWidgetItem(data))
+        self.logging.setItem(current_row_count, 2, QTableWidgetItem(name))
+        self.logging.setItem(current_row_count, 3, QTableWidgetItem(data))
 
         self.logging.scrollToBottom()
 
@@ -466,13 +494,17 @@ class MyApp(QWidget):
             file_path = os.path.join(folder_path, file_name)
 
             with open(file_path, 'w', encoding='utf-8') as file:
-                    headers = ['Logged Time', '무게', '포트', '로그']
+                    headers = ['Logged Time', '무게', '무게 변화량', '포트', '로그']
                     file.write("\t".join(headers) + "\n")
 
                     for row in range(self.logging.rowCount()):
+                        current_time = datetime.now().strftime("%H_%M_%S_%f")[:-3]
+
                         weight = self.logging.item(row, 0).text() if self.logging.item(row, 0) else ""
 
-                        port = self.logging.item(row, 1).text() if self.logging.item(row, 1) else ""
+                        weight_change = self.logging.item(row, 1).text() if self.logging.item(row, 1) else ""
+
+                        port = self.logging.item(row, 2).text() if self.logging.item(row, 2) else ""
 
                         if port == 'COM9':
                             name = "TopLeft"
@@ -486,12 +518,10 @@ class MyApp(QWidget):
                             name = ""
                             print("지정된 이외의 포트가 있음")
 
-                        log_data = self.logging.item(row, 2).text() if self.logging.item(row, 2) else ""
+                        log_data = self.logging.item(row, 3).text() if self.logging.item(row, 3) else ""
                         log_content = ",".join(log_data.split(','))
 
-                        current_time = datetime.now().strftime("%H_%M_%S_%f")[:-3]
-
-                        file.write(f"{current_time}\t{weight}\t{name}\t{log_content}\n")
+                        file.write(f"{current_time}\t{weight}\t{weight_change}\t{name}\t{log_content}\n")
 
             row_position = self.save_file_box_log.rowCount()
             self.save_file_box_log.insertRow(row_position)
@@ -525,7 +555,9 @@ class MyApp(QWidget):
 
                     weight = self.logging.item(row, 0).text() if self.logging.item(row, 0) else ""
 
-                    port = self.logging.item(row, 1).text() if self.logging.item(row, 1) else ""
+                    weight_change = self.logging.item(row, 1).text() if self.logging.item(row, 1) else ""
+
+                    port = self.logging.item(row, 2).text() if self.logging.item(row, 2) else ""
 
                     if port == 'COM9':
                         name = "TopLeft"
@@ -541,7 +573,7 @@ class MyApp(QWidget):
 
                     log_content = ",".join(parsed_data) if parsed_data else ""
 
-                    file.write(f"{logged_time}\t{weight}\t{name}\t{log_content}\n")
+                    file.write(f"{logged_time}\t{weight}\t{weight_change}\t{name}\t{log_content}\n")
 
             # 저장된 파일을 UI에 추가
             row_position = self.save_file_box_log.rowCount()
