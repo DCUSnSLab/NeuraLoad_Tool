@@ -124,7 +124,7 @@ class Experiment(QWidget):
         self.save_btn.clicked.connect(self.btn_save)
 
         self.graph_change = pg.PlotWidget()
-        self.graph_change.setTitle("Laser Change")
+        self.graph_change.setTitle("Sensor Change")
         self.graph_change.setLabel("left", "Change")
         self.graph_change.setLabel("bottom", "Time")
         self.graph_change.addLegend(offset=(30, 30))
