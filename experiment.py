@@ -11,12 +11,15 @@ class Experiment(QWidget):
     def __init__(self):
         super().__init__()
         self.threads = []
+        self.subscribers = []
         self.port_index = {}
         self.weight_a = [0] * 9
         self.count = 0
         self.weight_total = 0
         self.last_direction = '-'
         self.ports = get_arduino_ports()
+        self.port_location = {}
+        self.port_colors = {}
 
         self.plot_curve = {}
         self.plot_data = {}
@@ -33,9 +36,18 @@ class Experiment(QWidget):
         self.auto_save_timer.timeout.connect(self.auto_save)
         self.auto_save_timer.start(600000)
 
+    def add_subscriber(self, subscriber):
+        self.subscribers.append(subscriber)
+
+    def broadcast_data(self, port, data):
+        for sub in self.subscribers:
+            sub.update_data(port, data)
+
+    def broadcast_weight(self):
+        for sub in self.subscribers:
+            sub.set_weight(self.weight_a)
+
     def setting(self):
-        self.port_location = {}
-        self.port_colors = {}
         for i, port in enumerate(self.ports):
             if i == 0:
                 name = 'TopLeft'
@@ -71,13 +83,13 @@ class Experiment(QWidget):
         self.sensor_table.setMaximumHeight(200)
         self.sensor_table.setMinimumHeight(150)
         self.sensor_table.setMaximumWidth(500)
-        self.sensor_table.setMinimumWidth(700)
+        self.sensor_table.setMinimumWidth(500)
 
         self.logging = QTableWidget()
         self.logging.setColumnCount(5)
         self.logging.setHorizontalHeaderLabels(['시간', '무게', '무게 변화', '위치', '로그'])
-        self.logging.setMinimumHeight(300)
-        self.logging.setMinimumWidth(300)
+        self.logging.setMinimumHeight(150)
+        self.logging.setMinimumWidth(150)
         self.logging.horizontalHeader().setStretchLastSection(True)
 
         self.save_file_box_log = QTableWidget()
@@ -171,6 +183,8 @@ class Experiment(QWidget):
             except ValueError:
                 return
 
+            self.broadcast_data(port, data)
+
             self.plot_data[port].append(value)
             self.plot_change[port].append(value)
 
@@ -236,6 +250,7 @@ class Experiment(QWidget):
             if 0 <= index < len(self.weight_a):
                 try:
                     self.weight_a[index] = int(new_value)
+                    self.broadcast_weight()
                 except ValueError:
                     prev_value = self.weight_a[index]
                     item.setText(str(prev_value))

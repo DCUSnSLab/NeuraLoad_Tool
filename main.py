@@ -1,6 +1,8 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QTabWidget, QVBoxLayout
 from experiment import Experiment
+from algorithm import Algorithm
+from analytics import Analytics
 
 class Main(QWidget):
 
@@ -9,28 +11,21 @@ class Main(QWidget):
         self.initUI()
 
     def initUI(self):
-        tab1 = QWidget()
-        tab1_layout = QVBoxLayout()
-        tab1_layout.addWidget(Experiment())
-        tab1.setLayout(tab1_layout)
+        self.tabs = QTabWidget()
 
-        tab2 = QWidget()
-        # tab2_layout = QVBoxLayout()
-        # tab2_layout.addWidget()
-        # tab2.setLayout(tab2_layout)
+        self.tab1 = Experiment()
+        self.tab2 = Algorithm()
+        self.tab3 = Analytics()
 
-        tab3 = QWidget()
-        # tab3_layout = QVBoxLayout()
-        # tab3_layout.addWidget()
-        # tab3.setLayout(tab3_layout)
+        self.tab1.add_subscriber(self.tab2)
+        self.tab1.add_subscriber(self.tab3)
 
-        tabs = QTabWidget()
-        tabs.addTab(tab1, '실험')
-        tabs.addTab(tab2, '알고리즘')
-        tabs.addTab(tab3, '분석')
+        self.tabs.addTab(self.tab1, '실험')
+        self.tabs.addTab(self.tab2, '알고리즘')
+        self.tabs.addTab(self.tab3, '분석')
 
         vbox = QVBoxLayout()
-        vbox.addWidget(tabs)
+        vbox.addWidget(self.tabs)
 
         self.setLayout(vbox)
 
