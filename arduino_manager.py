@@ -23,10 +23,11 @@ class SerialThread(QThread):
 
     def __init__(self, port=None, baudrate=9600):
         super().__init__()
-        self.port = port or find_arduino_port()  # 자동 포트 설정
+        self.port = port or find_arduino_port()
         self.baudrate = baudrate
         self.is_running = True
         self.is_paused = False
+        self.last_data = "0"
 
     def run(self):
         if not self.port:
@@ -36,12 +37,14 @@ class SerialThread(QThread):
             self.ser = serial.Serial(self.port, self.baudrate, timeout=1)
 
             while self.is_running:
-                if self.is_paused:
-                    QThread.msleep(100)
-                    continue
-                if self.ser.in_waiting > 0:
+                if not self.is_paused and self.ser.in_waiting > 0:
                     data = self.ser.readline().decode('utf-8', errors='ignore').strip()
-                    self.data_received.emit(self.port, data)
+                    if data:
+                        self.last_data = data
+
+                # pause 여부 상관없이 계속 emit
+                self.data_received.emit(self.port, self.last_data)
+                self.msleep(100)  # 그래프는 계속 움직이게
 
         except serial.serialutil.SerialException as e:
             print(f"시리얼 연결 오류: {e}")

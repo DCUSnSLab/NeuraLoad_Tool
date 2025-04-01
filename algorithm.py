@@ -66,6 +66,12 @@ class Algorithm(QWidget):
         self.reset_btn = QPushButton('리셋', self)
         self.reset_btn.clicked.connect(self.reset)
 
+        self.stop_btn = QPushButton('정지(K)', self)
+        self.stop_btn.clicked.connect(self.stop)
+
+        self.restart_btn = QPushButton('재시작(L)', self)
+        self.restart_btn.clicked.connect(self.restart)
+
         self.sensor_table = QTableWidget()
         self.sensor_table.setColumnCount(len(self.ports))
         self.sensor_table.setRowCount(1)
@@ -172,6 +178,15 @@ class Algorithm(QWidget):
         for checkbox in self.checkboxes:
             checkbox.setChecked(False)
 
+    def stop(self):
+        for thread in self.threads:
+            thread.pause()
+        QCoreApplication.processEvents()
+
+    def restart(self):
+        for thread in self.threads:
+            thread.resume()
+
     def setup(self):
         layout = QVBoxLayout()
         layout.addWidget(self.algorithm_list)
@@ -183,9 +198,14 @@ class Algorithm(QWidget):
         btn_layout.addWidget(self.start_btn)
         btn_layout.addWidget(self.reset_btn)
 
+        btn_layout1 = QHBoxLayout()
+        btn_layout1.addWidget(self.stop_btn)
+        btn_layout1.addWidget(self.restart_btn)
+
         layout1 = QVBoxLayout()
         layout1.addWidget(groupbox)
         layout1.addLayout(btn_layout)
+        layout1.addLayout(btn_layout1)
         layout1.addWidget(self.logging)
 
         layout2 = QVBoxLayout()
