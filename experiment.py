@@ -44,7 +44,7 @@ class Experiment(QWidget):
 
         self.live_log_timer = QTimer()
         self.live_log_timer.timeout.connect(self.setup_live_logging)
-        self.live_log_timer.start(1000)  # 10분마다 호출 (600,000ms)
+        self.live_log_timer.start(100)  # 10분마다 호출 (600,000ms)
 
         # __init__ 마지막에 추가
         self.graph_timer = QTimer()
@@ -115,8 +115,8 @@ class Experiment(QWidget):
         self.sensor_table.setMinimumWidth(500)
 
         self.logging = QTableWidget()
-        self.logging.setColumnCount(5)
-        self.logging.setHorizontalHeaderLabels(['시간', '무게', '무게 변화', '위치', '로그'])
+        self.logging.setColumnCount(7)
+        self.logging.setHorizontalHeaderLabels(['시간', '무게', '무게 변화', '위치', '로그', '강도', 't/f'])
         self.logging.setMinimumHeight(150)
         self.logging.setMinimumWidth(150)
         self.logging.horizontalHeader().setStretchLastSection(True)
@@ -208,12 +208,13 @@ class Experiment(QWidget):
     def handle_serial_data(self, port, data):
         if port in self.port_index:
             try:
-                # 콤마 앞부분만 추출
-                main_part = data.split(',')[0].strip()
+                parts = data.split(',')
+                main_part = parts[0].strip()
+                sub_part = ','.join(p.strip() for p in parts[1:])
                 if not main_part.isdigit():
                     return
                 value = int(main_part)
-                print(data)
+                s_value = int(sub_part)
             except ValueError:
                 return
 
@@ -272,7 +273,8 @@ class Experiment(QWidget):
             self.logging.setItem(current_row, 2, QTableWidgetItem(direction))
             self.logging.setItem(current_row, 3, QTableWidgetItem(name))
             self.logging.setItem(current_row, 4, QTableWidgetItem(str(value)))
-            self.logging.setItem(current_row, 4, QTableWidgetItem(str(value)))
+            self.logging.setItem(current_row, 5, QTableWidgetItem(str(s_value)))
+            self.logging.setItem(current_row, 6, QTableWidgetItem(str(self.is_paused_global)))
             self.logging.scrollToBottom()
 
     def stop(self):
@@ -362,6 +364,7 @@ class Experiment(QWidget):
         try:
             timestamp = datetime.datetime.now().strftime("%H_%M_%S_%f")[:-3]
             folder_name = datetime.datetime.now().strftime("%Y-%m-%d")
+            print("auto on")
             self.save(timestamp, folder_name)
         except Exception as e:
             QMessageBox.critical(self, "저장 실패", f"오류 발생: {e}", QMessageBox.Ok)
@@ -384,7 +387,7 @@ class Experiment(QWidget):
 
         with open(file_path, 'w', encoding='utf-8') as file:
             for row in range(self.logging.rowCount()):
-                # print(self.logging.item(row, 4).text())
+                print(self.logging.item(row, 5).text())
                 current_time = datetime.datetime.now().strftime("%H_%M_%S_%f")[:-3]
 
                 weight = self.logging.item(row, 0).text() if self.logging.item(row, 0) else ""
@@ -396,9 +399,10 @@ class Experiment(QWidget):
                 log_data = self.logging.item(row, 3).text() if self.logging.item(row, 3) else ""
                 log_content = ",".join(log_data.split(','))
                 etc = self.logging.item(row, 4).text() if self.logging.item(row, 4) else ""
-
+                s_etc = self.logging.item(row, 5).text() if self.logging.item(row, 5) else ""
+                T_F = self.logging.item(row, 6).text() if self.logging.item(row, 6) else ""
                 # 파일에 기록
-                file.write(f"{current_time}\t{weight}\t{weight_change}\t{port}\t{log_content}\t{etc}\n")
+                file.write(f"{current_time}\t{weight}\t{weight_change}\t{port}\t{log_content}\t{etc}\t{s_etc}\t{T_F}\n")
 
         row_position = self.save_file_box_log.rowCount()
         self.save_file_box_log.insertRow(row_position)
@@ -413,13 +417,13 @@ class Experiment(QWidget):
         # 파일명: 날짜별 파일 하나만 계속 사용
         filename = datetime.datetime.now().strftime("raw_data_%Y-%m-%d.txt")
         file_path = os.path.join(folder_name, filename)
-
+        print("auto on3")
         # 이미 열려 있다면 무시하고, 없으면 새로 열기 (append 모드)
         if not hasattr(self, "live_log_file") or self.live_log_file.closed or self.live_log_file.name != file_path:
             # 이전 파일 닫기
             if hasattr(self, "live_log_file") and not self.live_log_file.closed:
                 self.live_log_file.close()
-
+            print("auto on")
             self.live_log_file = open(file_path, "a", encoding="utf-8")
 
             # 헤더가 없으면 한 번만 쓰기 (선택)
@@ -431,6 +435,7 @@ class Experiment(QWidget):
             row_position = self.save_file_box_log.rowCount()
             if all(self.save_file_box_log.item(row, 0).text() != filename for row in
                    range(self.save_file_box_log.rowCount())):
+                print("auto on2")
                 self.save_file_box_log.insertRow(row_position)
                 self.save_file_box_log.setItem(row_position, 0, QTableWidgetItem(filename))
                 self.save_file_box_log.scrollToBottom()
