@@ -19,6 +19,7 @@ class Experiment(QWidget):
         self.count_t = 't'
         self.last_direction = '-'
         self.is_paused_global = False
+        self.aaaa = False
 
         self.ports = get_arduino_ports()
         self.port_location = {}
@@ -44,7 +45,7 @@ class Experiment(QWidget):
 
         self.live_log_timer = QTimer()
         self.live_log_timer.timeout.connect(self.setup_live_logging)
-        self.live_log_timer.start(100)  # 10분마다 호출 (600,000ms)
+        self.live_log_timer.start(100000)  # 10분마다 호출 (600,000ms)
 
         # __init__ 마지막에 추가
         self.graph_timer = QTimer()
@@ -146,10 +147,10 @@ class Experiment(QWidget):
                 self.weight_table.setItem(row, col, val)
                 self.count += 1
 
-        self.stop_btn = QPushButton('정지(K)', self)
+        self.stop_btn = QPushButton('시험 시작(K)', self)
         self.stop_btn.clicked.connect(self.stop)
 
-        self.restart_btn = QPushButton('재시작(L)', self)
+        self.restart_btn = QPushButton('시험 종료(L)', self)
         self.restart_btn.clicked.connect(self.restart)
 
         self.weight_btn_p = QPushButton('+(P)', self)
@@ -213,6 +214,8 @@ class Experiment(QWidget):
                 sub_part = ','.join(p.strip() for p in parts[1:])
                 if not main_part.isdigit():
                     return
+                if port == 'COM5' or port == 'COM6' :
+                    print(int(main_part))
                 value = int(main_part)
                 s_value = int(sub_part)
             except ValueError:
@@ -274,20 +277,16 @@ class Experiment(QWidget):
             self.logging.setItem(current_row, 3, QTableWidgetItem(name))
             self.logging.setItem(current_row, 4, QTableWidgetItem(str(value)))
             self.logging.setItem(current_row, 5, QTableWidgetItem(str(s_value)))
-            self.logging.setItem(current_row, 6, QTableWidgetItem(str(self.is_paused_global)))
+            self.logging.setItem(current_row, 6, QTableWidgetItem(str(self.aaaa)))
             self.logging.scrollToBottom()
 
     def stop(self):
-        for thread in self.threads:
-            thread.pause()
-        self.is_paused_global = True  # 전역 상태 갱신
+        self.aaaa = True  # 전역 상태 갱신
 
         QCoreApplication.processEvents()
 
     def restart(self):
-        for thread in self.threads:
-            thread.resume()
-        self.is_paused_global = False  # 전역 상태 갱신
+        self.aaaa = False  # 전역 상태 갱신
 
     def onCellChanged(self, row, col):
         try:
