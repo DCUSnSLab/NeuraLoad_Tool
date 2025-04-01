@@ -79,16 +79,16 @@ class Experiment(QWidget):
     def setting(self):
         for i, port in enumerate(self.ports):
             if i == 0:
-                name = 'TopLeft'
+                name = 'BottomLeft'
                 color = 'r'
             elif i == 1:
-                name = 'BottomLeft'
+                name = 'TopRight'
                 color = 'g'
             elif i == 2:
-                name = 'LeftRight'
+                name = 'TopLeft'
                 color = 'b'
             elif i == 3:
-                name = 'RightLeft'
+                name = 'BottomRight'
                 color = 'orange'
             elif i == 4:
                 name = 'IMU'
@@ -208,13 +208,16 @@ class Experiment(QWidget):
     def handle_serial_data(self, port, data):
         if port in self.port_index:
             try:
-                value = int(data.strip())
+                # 콤마 앞부분만 추출
+                main_part = data.split(',')[0].strip()
+                if not main_part.isdigit():
+                    return
+                value = int(main_part)
+                print(data)
             except ValueError:
                 return
 
-            timestamp = datetime.datetime.now().strftime("%H_%M_%S_%f")[:-3]
-
-            # 무게 변화 계산
+            # 무게 변화 방향 계산
             total = sum(self.weight_a)
             if total > self.weight_total:
                 direction = 'U'
@@ -226,39 +229,51 @@ class Experiment(QWidget):
                 direction = self.last_direction
             self.weight_total = total
 
-            name = self.port_location.get(port, port)
+            # 현재 상태 플래그
             state_flag = 't' if self.is_paused_global else 'f'
 
-            # ✅ 실시간 로그 저장
-            line = f"{timestamp}\t{self.weight_a}\t{direction}\t{name}\t{data.strip()}\t{state_flag}\n"
-            self.live_log_file.write(line)
-            self.live_log_file.flush()
+            # 타임스탬프
+            timestamp = datetime.datetime.now().strftime("%H_%M_%S_%f")[:-3]
+            name = self.port_location.get(port, port)
 
-            # 데이터 전달
+            # ✅ 실시간 로그 저장
+            if hasattr(self, "live_log_file") and not self.live_log_file.closed:
+                log_line = f"{timestamp}\t{self.weight_a}\t{direction}\t{name}\t{value}\t{state_flag}\n"
+                self.live_log_file.write(log_line)
+                self.live_log_file.flush()
+
+            # 브로드캐스트
             self.broadcast_data(port, data)
 
             # 그래프 데이터 추가
             self.plot_data[port].append(value)
             self.plot_change[port].append(value)
 
-            # 센서 테이블 업데이트
+            x = list(range(len(self.plot_data[port])))
+            y = list(self.plot_data[port])
+
+            base_val = self.plot_change[port][0] if len(self.plot_change[port]) > 0 else 0
+            change = [v - base_val for v in self.plot_change[port]]
+
+            short_time = datetime.datetime.now().strftime("%M_%S_%f")[:-3]
+            self.log_output.append(short_time + " " + str(self.port_location[port]) + ": " + str(change[-1]))
+
+            self.plot_curve[port].setData(x, y)
+            self.plot_curve_change[port].setData(x, change)
+
             location = self.port_index[port]
-            self.sensor_table.setItem(0, location, QTableWidgetItem(data))
+            self.sensor_table.setItem(0, location, QTableWidgetItem(str(value)))
 
-            # 로그 출력 (정지 상태에서는 출력하지 않음)
-            for thread in self.threads:
-                if thread.port == port and not thread.is_paused:
-                    time = datetime.datetime.now().strftime("%M_%S_%f")[:-3]
-                    self.log_output.append(time + " " + str(self.port_location[port]) + ": " + str(value))
-
-                    current_row = self.logging.rowCount()
-                    self.logging.insertRow(current_row)
-                    self.logging.setItem(current_row, 0, QTableWidgetItem(time))
-                    self.logging.setItem(current_row, 1, QTableWidgetItem(str(self.weight_a)))
-                    self.logging.setItem(current_row, 2, QTableWidgetItem(direction))
-                    self.logging.setItem(current_row, 3, QTableWidgetItem(name))
-                    self.logging.setItem(current_row, 4, QTableWidgetItem(data))
-                    self.logging.scrollToBottom()
+            # 로깅 테이블 기록
+            current_row = self.logging.rowCount()
+            self.logging.insertRow(current_row)
+            self.logging.setItem(current_row, 0, QTableWidgetItem(short_time))
+            self.logging.setItem(current_row, 1, QTableWidgetItem(str(self.weight_a)))
+            self.logging.setItem(current_row, 2, QTableWidgetItem(direction))
+            self.logging.setItem(current_row, 3, QTableWidgetItem(name))
+            self.logging.setItem(current_row, 4, QTableWidgetItem(str(value)))
+            self.logging.setItem(current_row, 4, QTableWidgetItem(str(value)))
+            self.logging.scrollToBottom()
 
     def stop(self):
         for thread in self.threads:
@@ -369,6 +384,7 @@ class Experiment(QWidget):
 
         with open(file_path, 'w', encoding='utf-8') as file:
             for row in range(self.logging.rowCount()):
+                # print(self.logging.item(row, 4).text())
                 current_time = datetime.datetime.now().strftime("%H_%M_%S_%f")[:-3]
 
                 weight = self.logging.item(row, 0).text() if self.logging.item(row, 0) else ""
@@ -379,8 +395,10 @@ class Experiment(QWidget):
 
                 log_data = self.logging.item(row, 3).text() if self.logging.item(row, 3) else ""
                 log_content = ",".join(log_data.split(','))
+                etc = self.logging.item(row, 4).text() if self.logging.item(row, 4) else ""
 
-                file.write(f"{current_time}\t{weight}\t{weight_change}\t{port}\t{log_content}\n")
+                # 파일에 기록
+                file.write(f"{current_time}\t{weight}\t{weight_change}\t{port}\t{log_content}\t{etc}\n")
 
         row_position = self.save_file_box_log.rowCount()
         self.save_file_box_log.insertRow(row_position)
