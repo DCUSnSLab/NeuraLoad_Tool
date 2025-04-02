@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="072aab99-5fed-4b01-a532-fed66849dcf2" name="변경" comment="">
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/.gitignore" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/NeuraLoad.iml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/modules.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Algorithm/Estimation_mass_algorithm.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/algorithm.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/analytics.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/arduino_manager.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/experiment.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/log/raw_data_2025-04-01.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/log/saved_data_2025-04-01/save_16_23_54_114.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/log/saved_data_2025-04-01/save_16_31_02_720.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/log/saved_data_2025-04-01/save_16_47_57_305.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/log/saved_data_2025-04-01/save_17_00_46_889.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/log/saved_data_2025-04-01/save_17_12_34_830.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/log/saved_data_2025-04-01/save_17_18_19_955.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/log/saved_data_2025-04-01/save_17_18_45_251.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/log/saved_data_2025-04-01/save_17_21_58_768.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/log/saved_data_2025-04-01/save_17_26_51_630.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/log/saved_data_2025-04-01/save_17_30_11_451.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/log/saved_data_2025-04-01/save_17_33_21_217.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/log/saved_data_2025-04-01/save_17_36_18_239.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "hayeon02"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/DCUSnSLab/NeuraLoad_Tool.git",
+    "accountId": "d78a7779-8969-4bcc-8da1-914c6704b6a0"
+  }
+}]]></component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "customColor": "",
+  "associatedIndex": 0
+}]]></component>
+  <component name="ProjectId" id="2vAWgz7XHMXIUyeXICg7EilKRB3" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="1" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "GEN-605__AlgorithmInterface",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-5c90d61e3bab-JavaScript-PY-242.23726.102" />
+        <option value="bundled-python-sdk-5e1850174b45-399fe30bd8c1-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-242.23726.102" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="애플리케이션 수준" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="디폴트 작업">
+      <changelist id="072aab99-5fed-4b01-a532-fed66849dcf2" name="변경" comment="" />
+      <created>1743588474409</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1743588474409</updated>
+      <workItem from="1743588475682" duration="1474000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>
