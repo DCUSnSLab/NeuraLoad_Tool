@@ -5,6 +5,7 @@ from PyQt5.QtCore import QThread, pyqtSignal
 from PyQt5.QtWidgets import QApplication
 import sys
 import random
+import datetime
 
 
 def find_arduino_port():
@@ -23,7 +24,7 @@ def get_arduino_ports(DEBUG_MODE=False):
 
     if DEBUG_MODE:
         remainNumofPort = 4 - len(ports)
-        if len(ports) is not 0 and remainNumofPort > 0:
+        if len(ports) != 0 and remainNumofPort > 0:
             for i in range(remainNumofPort):
                 ports.append('VCOM'+str(i+1))
         print('Port, ', ports)
@@ -43,25 +44,23 @@ class SerialThread(QThread):
         if not self.port:
             print("아두이노 포트를 찾을 수 없습니다.")
             return
-        try:
-            self.ser = serial.Serial(self.port, self.baudrate, timeout=1)
+        self.ser = serial.Serial(self.port, self.baudrate, timeout=1)
 
-            while self.is_running:
-                if not self.is_paused and self.ser.in_waiting > 0:
-                    data = self.ser.readline().decode('utf-8', errors='ignore').strip()
-                    if data:
-                        parts = data.split(',')
-                        main_part = parts[0].strip()
-                        sub_part = ','.join(p.strip() for p in parts[1:])
-                        if not main_part.isdigit():
-                            return
-                        value = int(main_part)
+        while self.is_running:
+            if not self.is_paused and self.ser.in_waiting > 0:
+                data = self.ser.readline().decode('utf-8', errors='ignore').strip()
+                short_time = datetime.datetime.now().strftime("%M_%S_%f")[:-3]
+                if data:
+                    parts = data.split(',')
+                    main_part = parts[0].strip()
+                    sub_part = ','.join(p.strip() for p in parts[1:])
+                    if not main_part.isdigit():
+                        return
+                    value = int(main_part)
 
-                        #print(value, self.databuf.qsize())
-                        self.databuf.put(value)
-                self.msleep(1)
-        except serial.serialutil.SerialException as e:
-            print(f"시리얼 연결 오류: {e}")
+                    # print(value, self.databuf.qsize())
+                    self.databuf.put(value)
+            self.msleep(1)
 
     def pause(self):
         self.is_paused = True
@@ -83,14 +82,12 @@ class SerialThreadVirtual(SerialThread):
         if not self.port:
             print("아두이노 포트를 찾을 수 없습니다.")
             return
-        try:
-            pidxGap = self.systemPorts.index(self.port)
-            while self.is_running:
-                value = random.randint(400+(pidxGap*10), 450+(pidxGap*10))
-                self.databuf.put(value)
-                self.msleep(100)
-        except serial.serialutil.SerialException as e:
-            print(f"시리얼 연결 오류: {e}")
+
+        pidxGap = self.systemPorts.index(self.port)
+        while self.is_running:
+            value = random.randint(400+(pidxGap*10), 450+(pidxGap*10))
+            self.databuf.put(value)
+            self.msleep(100)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
@@ -99,7 +96,7 @@ if __name__ == "__main__":
     threads = []
 
     for port in get_arduino_ports():
-        thread = SerialThread(data_store1=store1, data_store2=store2, port=port)
+        thread = SerialThread(port=port)
         thread.start()
         threads.append(thread)
 

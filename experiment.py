@@ -53,24 +53,24 @@ class Experiment(QWidget):
         self.live_log_timer.timeout.connect(self.setup_live_logging)
         self.live_log_timer.start(100000)  # 10분마다 호출 (600,000ms)
 
-        # __init__ 마지막에 추가
-        self.graph_timer = QTimer()
-        self.graph_timer.timeout.connect(self.update_graphs)
-        self.graph_timer.start(100)  # 0.5초마다 그래프만 갱신
+        # # __init__ 마지막에 추가
+        # self.graph_timer = QTimer()
+        # self.graph_timer.timeout.connect(self.update_graphs)
+        # self.graph_timer.start(100)  # 0.5초마다 그래프만 갱신
 
-    def update_graphs(self):
-        for port in self.ports:
-            x = list(range(len(self.plot_data[port])))
-            y = list(self.plot_data[port])
-
-            if len(self.plot_change[port]) == 0:
-                continue
-
-            base_val = self.plot_change[port][0]
-            change = [v - base_val for v in self.plot_change[port]]
-
-            self.plot_curve[port].setData(x, y)
-            self.plot_curve_change[port].setData(x, change)
+    # def update_graphs(self):
+    #     for port in self.ports:
+    #         x = list(range(len(self.plot_data[port])))
+    #         y = list(self.plot_data[port])
+    #
+    #         if len(self.plot_change[port]) == 0:
+    #             continue
+    #
+    #         base_val = self.plot_change[port][0]
+    #         change = [v - base_val for v in self.plot_change[port]]
+    #
+    #         self.plot_curve[port].setData(x, y)
+    #         self.plot_curve_change[port].setData(x, change)
 
     def add_subscriber(self, subscriber):
         self.subscribers.append(subscriber)
@@ -220,7 +220,39 @@ class Experiment(QWidget):
     def startGUIThread(self):
         print('start GUIThread')
         self.GUIThread = GUIController(self, self.threads)
+        self.GUIThread.plot_updated.connect(self.updateGraph)
         self.GUIThread.start()
+
+    def updateGraph(self):
+        short_time = datetime.datetime.now().strftime("%M_%S_%f")[:-3]
+
+        for port in self.ports:
+            x = list(range(len(self.plot_data[port])))
+            y = list(self.plot_data[port])
+
+            base_val = self.plot_change[port][0] if len(self.plot_change[port]) > 0 else 0
+            change = [v - base_val for v in self.plot_change[port]]
+
+            self.plot_curve[port].setData(x, y)
+            self.plot_curve_change[port].setData(x, change)
+
+            value = -1
+            if len(self.plot_data[port]) > 0:
+                value = self.plot_data[port][-1]
+            location = self.port_index[port]
+            self.sensor_table.setItem(0, location, QTableWidgetItem(str(value)))
+
+            # 로깅 테이블 기록
+            current_row = self.logging.rowCount()
+            self.logging.insertRow(current_row)
+            self.logging.setItem(current_row, 0, QTableWidgetItem(short_time))
+            self.logging.setItem(current_row, 1, QTableWidgetItem(str(self.weight_a)))
+            self.logging.setItem(current_row, 2, QTableWidgetItem("direction"))
+            self.logging.setItem(current_row, 3, QTableWidgetItem("name"))
+            self.logging.setItem(current_row, 4, QTableWidgetItem(str(value)))
+            self.logging.setItem(current_row, 5, QTableWidgetItem("-"))
+            self.logging.setItem(current_row, 6, QTableWidgetItem(str(self.aaaa)))
+            self.logging.scrollToBottom()
 
     def handle_serial_data(self, port, data):
         if port in self.port_index:
