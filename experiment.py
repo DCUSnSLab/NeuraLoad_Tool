@@ -74,7 +74,6 @@ class Experiment(QWidget):
     #         self.plot_curve[port].setData(x, y)
     #         self.plot_curve_change[port].setData(x, change)
 
-
     def add_subscriber(self, subscriber):
         self.subscribers.append(subscriber)
 
@@ -118,6 +117,7 @@ class Experiment(QWidget):
             port = self.ports[i]
             name = self.port_location.get(port, "")
             self.sensor_table.setHorizontalHeaderItem(i, QTableWidgetItem(name))
+            self.port_index[port] = i
         self.sensor_table.setVerticalHeaderLabels(['value'])
         self.sensor_table.setMaximumHeight(200)
         self.sensor_table.setMinimumHeight(150)
@@ -172,8 +172,8 @@ class Experiment(QWidget):
         self.weight_btn_z = QPushButton('리셋', self)
         self.weight_btn_z.clicked.connect(self.weightZ)
 
-        self.save_btn = QPushButton('저장', self)
-        self.save_btn.clicked.connect(self.btn_save)
+        # self.save_btn = QPushButton('저장', self)
+        # self.save_btn.clicked.connect(self.btn_save)
 
         self.graph_change = pg.PlotWidget()
         self.graph_change.setTitle("Sensor Change")
@@ -291,9 +291,11 @@ class Experiment(QWidget):
             if port.startswith('V'):
                 thread = SerialThreadVirtual(port, self.ports)
                 thread.start()
+                self.threads.append(thread)
             else:
                 thread = SerialThread(port)
                 thread.start()
+                self.threads.append(thread)
 
         location_name = self.port_comboboxes[port].currentText().strip()
         default_color = 'gray'
@@ -353,10 +355,12 @@ class Experiment(QWidget):
 
             if self.aaaa:
                 value = -1
+                data = self.plot_data[port]
                 if len(self.plot_data[port]) > 0:
                     value = self.plot_data[port][-1][1]
                 location = self.port_index[port]
                 self.sensor_table.setItem(0, location, QTableWidgetItem(str(value)))
+                self.handle_serial_data(port, data)
 
             # 로깅 테이블 기록
             # current_row = self.logging.rowCount()
@@ -371,34 +375,47 @@ class Experiment(QWidget):
             # self.logging.scrollToBottom()
 
     def handle_serial_data(self, port, data):
-        if port in self.port_index:
+        if port not in self.port_index:
+            return
 
-            # 무게 변화 방향 계산
-            total = sum(self.weight_a)
-            if total > self.weight_total:
-                direction = 'U'
-                self.last_direction = direction
-            elif total < self.weight_total:
-                direction = 'D'
-                self.last_direction = direction
-            else:
-                direction = self.last_direction
-            self.weight_total = total
+        # 무게 변화 방향 계산
+        total = sum(self.weight_a)
+        if total > self.weight_total:
+            direction = 'U'
+            self.last_direction = direction
+        elif total < self.weight_total:
+            direction = 'D'
+            self.last_direction = direction
+        else:
+            direction = self.last_direction
+        self.weight_total = total
 
-            # 현재 상태 플래그
-            state_flag = 't' if self.is_paused_global else 'f'
+        # 현재 상태 플래그
+        state_flag = 't' if self.is_paused_global else 'f'
+        name = self.port_location.get(port, port)
 
-            timestamp = data[0]
-            value = data[1:]
-            name = self.port_location.get(port, port)
+        # 데이터 포맷 정리
+        if isinstance(data, deque):
+            data = list(data)
+        if not isinstance(data, list) or len(data) < 2:
+            print(f"[경고] 예상치 못한 데이터 형식 또는 길이 부족: {data}")
+            return
 
-            print(value)
+        last_point = data[-1]
+        if not isinstance(last_point, (list, tuple)) or len(last_point) < 2:
+            print(f"[경고] 잘못된 포맷: {last_point}")
+            return
 
-            log_line = f"{timestamp}\t{self.weight_a}\t{direction}\t{name}\t{value}\t{state_flag}\n"
+        timestamp = last_point[0]
+        value1 = float(last_point[1])
+        value2 = float(last_point[2])
+        value3 = float(last_point[3])
 
-            if hasattr(self, "raw_data_file") and not self.raw_data_file.closed:
-                self.raw_data_file.write(log_line)
-                self.raw_data_file.flush()
+        log_line = f"{timestamp}\t{self.weight_a}\t{direction}\t{name}\t{value1}\t{value2}\t{value3}\t{state_flag}\n"
+        if hasattr(self, "raw_data_file") and not self.raw_data_file.closed:
+            self.raw_data_file.write(log_line)
+            self.raw_data_file.flush()
+
             #
             # # 브로드캐스트
             # self.broadcast_data(port, data)
@@ -603,7 +620,7 @@ class Experiment(QWidget):
         layout_btn2.addLayout(weight_input_layout2)
         layout_btn2.addWidget(self.weight_btn_z)
         layout_btn2.addLayout(layout_btn1)
-        layout_btn2.addWidget(self.save_btn)
+        # layout_btn2.addWidget(self.save_btn)
         layout_btn2.addWidget(self.save_file_box_log)
 
         layout1 = QHBoxLayout()

@@ -62,7 +62,7 @@ class SerialThread(QThread):
                         return
                     value = int(main_part)
 
-                    # print(timestamp, value, self.databuf.qsize())
+                    print(value, self.databuf.qsize())
                     # self.save(timestamp, value, sub_part1, sub_part2)
                     self.databuf.put((timestamp, value, sub_part1, sub_part2))
 
@@ -78,24 +78,6 @@ class SerialThread(QThread):
     def stop(self):
         self.is_running = False
         self.wait()
-
-    def open_log_file(self):
-        filename = datetime.datetime.now().strftime("sensor_data_%Y-%m-%d_%M_%S.txt")
-        folder = "sensor_logs"
-        os.makedirs(folder, exist_ok=True)
-        path = os.path.join(folder, filename)
-        self.sensor_data_file = open(path, "a", encoding="utf-8")
-
-    def save(self, timestamp, value, sub_part1, sub_part2):
-        log_line = f"{timestamp},{self.weight_a} {self.port},{value},{sub_part1},{sub_part2}\n"
-
-        # 파일로 저장 (sensor_data_file이 열려 있다면)
-        if hasattr(self, "sensor_data_file") and not self.sensor_data_file.closed:
-            self.sensor_data_file.write(log_line)
-            self.sensor_data_file.flush()
-
-    def set_weight_array(self, weight_array):
-        self.weight_a = weight_array
 
 class SerialThreadVirtual(SerialThread):
     def __init__(self, port, systemPorts):
@@ -124,8 +106,6 @@ if __name__ == "__main__":
 
     for port in get_arduino_ports():
         thread = SerialThread(port=port)
-        # thread.set_weight_array(weight_a)
-        # thread.open_log_file()
         thread.start()
         threads.append(thread)
 
