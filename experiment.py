@@ -23,7 +23,7 @@ class Experiment(QWidget):
         self.weight_total = 0
         self.count_t = 't'
         self.last_direction = '-'
-        self.is_paused_global = False
+        self.is_paused_global = True
         self.aaaa = False
         self.save_graph_max = 500
         self.save_graph_min = 0
@@ -47,10 +47,10 @@ class Experiment(QWidget):
         self.startGUIThread()
         # self.installEventFilter(self)
 
-        # self.auto_save_timer = QTimer()
-        # self.auto_save_timer.timeout.connect(self.auto_save)
-        # # self.auto_save_timer.start(600000)
-        # self.auto_save_timer.start(1000)
+        self.auto_save_timer = QTimer()
+        self.auto_save_timer.timeout.connect(self.auto_save)
+        # self.auto_save_timer.start(600000)
+        self.auto_save_timer.start(1000)
 
         # self.live_log_timer = QTimer()
         # self.live_log_timer.timeout.connect(self.setup_live_logging)
@@ -282,10 +282,6 @@ class Experiment(QWidget):
         self.updateGraph()
 
     def startSerialThread(self):
-        os.makedirs("log", exist_ok=True)
-        filename = datetime.datetime.now().strftime("raw_data_%Y-%m-%d.txt")
-        self.raw_data_file = open(os.path.join("log", filename), "a", encoding="utf-8")
-
         for i, port in enumerate(self.ports):
             print('make Serial', i, port)
             if port.startswith('V'):
@@ -328,6 +324,9 @@ class Experiment(QWidget):
                 name=location_name if location_name else port
             )
 
+        for port in self.ports:
+            if len(self.plot_data[port]) > 0:
+                self.save_serial_data(port, self.plot_data[port])
     def startGUIThread(self):
         print('start GUIThread')
         self.GUIThread = GUIController(self, self.threads)
@@ -378,6 +377,10 @@ class Experiment(QWidget):
         if port not in self.port_index:
             return
 
+        os.makedirs("log", exist_ok=True)
+        filename = datetime.datetime.now().strftime("sensor_data_%Y-%m-%d.txt")
+        self.sensor_data_file = open(os.path.join("log", filename), "a", encoding="utf-8")
+
         # 무게 변화 방향 계산
         total = sum(self.weight_a)
         if total > self.weight_total:
@@ -391,7 +394,63 @@ class Experiment(QWidget):
         self.weight_total = total
 
         # 현재 상태 플래그
-        state_flag = 't' if self.is_paused_global else 'f'
+        state_flag = 'f' if self.is_paused_global else 't'
+        name = self.port_location.get(port, port)
+
+        # 데이터 포맷 정리
+        if isinstance(data, deque):
+            data = list(data)
+        if not isinstance(data, list) or len(data) < 2:
+            print(f"[경고] 예상치 못한 데이터 형식 또는 길이 부족: {data}")
+            return
+
+        last_point = data[-1]
+        if not isinstance(last_point, (list, tuple)) or len(last_point) < 2:
+            print(f"[경고] 잘못된 포맷: {last_point}")
+            return
+
+        timestamp = last_point[0]
+        value1 = float(last_point[1])
+        value2 = float(last_point[2])
+        value3 = float(last_point[3])
+
+        log_line = f"{timestamp}\t{self.weight_a}\t{direction}\t{name}\t{value1}\t{value2}\t{value3}\t{state_flag}\n"
+        if hasattr(self, "sensor_data_file") and not self.sensor_data_file.closed:
+            self.sensor_data_file.write(log_line)
+            self.sensor_data_file.flush()
+
+            #
+            # # 브로드캐스트
+            # self.broadcast_data(port, data)
+            #
+            # x = list(range(len(self.plot_data[port])))
+            # y = list(self.plot_data[port])
+            #
+            # base_val = self.plot_change[port][0] if len(self.plot_change[port]) > 0 else 0
+            # change = [v - base_val for v in self.plot_change[port]]
+
+    def save_serial_data(self, port, data):
+        if port not in self.port_index:
+            return
+
+        os.makedirs("log", exist_ok=True)
+        filename = datetime.datetime.now().strftime("raw_data_%Y-%m-%d.txt")
+        self.raw_data_file = open(os.path.join("log", filename), "a", encoding="utf-8")
+
+        # 무게 변화 방향 계산
+        total = sum(self.weight_a)
+        if total > self.weight_total:
+            direction = 'U'
+            self.last_direction = direction
+        elif total < self.weight_total:
+            direction = 'D'
+            self.last_direction = direction
+        else:
+            direction = self.last_direction
+        self.weight_total = total
+
+        # 현재 상태 플래그
+        state_flag = 'f' if self.is_paused_global else 't'
         name = self.port_location.get(port, port)
 
         # 데이터 포맷 정리
@@ -416,16 +475,6 @@ class Experiment(QWidget):
             self.raw_data_file.write(log_line)
             self.raw_data_file.flush()
 
-            #
-            # # 브로드캐스트
-            # self.broadcast_data(port, data)
-            #
-            # x = list(range(len(self.plot_data[port])))
-            # y = list(self.plot_data[port])
-            #
-            # base_val = self.plot_change[port][0] if len(self.plot_change[port]) > 0 else 0
-            # change = [v - base_val for v in self.plot_change[port]]
-
     def stop(self):
         self.aaaa = True  # 전역 상태 갱신
 
@@ -437,10 +486,12 @@ class Experiment(QWidget):
     def toggle_btn(self):
         if self.stop_btn.isChecked():
             self.aaaa = True
+            self.is_paused_global = False
             QCoreApplication.processEvents()
             self.stop_btn.setText("실험 종료")
         else:
             self.aaaa = False
+            self.is_paused_global = True
             self.stop_btn.setText("실험 시작")
 
     def onCellChanged(self, row, col):
@@ -513,15 +564,50 @@ class Experiment(QWidget):
                 val.setTextAlignment(Qt.AlignCenter)
                 self.weight_table.setItem(row, col, val)
                 self.count += 1
-
     def auto_save(self):
-        try:
-            timestamp = datetime.datetime.now().strftime("%H_%M_%S_%f")[:-3]
-            folder_name = datetime.datetime.now().strftime("%Y-%m-%d")
-            print("auto on")
-            self.save(timestamp, folder_name)
-        except Exception as e:
-            QMessageBox.critical(self, "저장 실패", f"오류 발생: {e}", QMessageBox.Ok)
+        os.makedirs("log", exist_ok=True)
+        filename = datetime.datetime.now().strftime("raw_data_%Y-%m-%d.txt")
+        file_path = os.path.join("log", filename)
+
+        with open(file_path, "a", encoding="utf-8") as f:
+            for port in self.ports:
+                if port not in self.port_index:
+                    continue
+
+                data = self.plot_data.get(port, [])
+                if not data:
+                    continue
+
+                name = self.port_location.get(port, port)
+                state_flag = 'f' if self.is_paused_global else 't'
+
+                # 무게 변화 방향 계산 (포트별로는 아님)
+                total = sum(self.weight_a)
+                if total > self.weight_total:
+                    direction = 'U'
+                    self.last_direction = direction
+                elif total < self.weight_total:
+                    direction = 'D'
+                    self.last_direction = direction
+                else:
+                    direction = self.last_direction
+                self.weight_total = total
+
+                # 전체 데이터 반복
+                for point in data:
+                    if not isinstance(point, (list, tuple)) or len(point) < 4:
+                        continue
+
+                    timestamp = point[0]
+                    try:
+                        value1 = float(point[1])
+                        value2 = float(point[2])
+                        value3 = float(point[3])
+                    except (ValueError, IndexError):
+                        continue
+
+                    log_line = f"{timestamp}\t{self.weight_a}\t{direction}\t{name}\t{value1}\t{value2}\t{value3}\t{state_flag}\n"
+                    f.write(log_line)
 
     def btn_save(self):
         try:
@@ -687,8 +773,8 @@ class Experiment(QWidget):
     def closeEvent(self, event):
         for thread in self.threads:
             thread.stop()
-        if hasattr(self, "raw_data_file") and not self.raw_data_file.closed:
-            self.raw_data_file.close()
+        if hasattr(self, "sensor_data_file") and not self.sensor_data_file.closed:
+            self.sensor_data_file.close()
 
         event.accept()
 

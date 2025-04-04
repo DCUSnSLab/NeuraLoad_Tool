@@ -8,7 +8,6 @@ import sys
 import random
 import datetime
 
-
 def find_arduino_port():
     ports = serial.tools.list_ports.comports()
     for port in ports:
@@ -62,7 +61,7 @@ class SerialThread(QThread):
                         return
                     value = int(main_part)
 
-                    print(value, self.databuf.qsize())
+                    # print(value, self.databuf.qsize())
                     # self.save(timestamp, value, sub_part1, sub_part2)
                     self.databuf.put((timestamp, value, sub_part1, sub_part2))
 
