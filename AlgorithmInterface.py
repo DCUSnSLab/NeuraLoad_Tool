@@ -13,7 +13,7 @@ class AlgorithmBase(ABC):
     표준화된 인터페이스를 통해 다양한 입력/출력 데이터 처리
     """
 
-    def __init__(self, name: str, description: str = ""):
+    def __init__(self, name: str, description: str = "", model_path: str = ""):
         """
         알고리즘 클래스 초기화
 
@@ -23,6 +23,7 @@ class AlgorithmBase(ABC):
         """
         self.name = name
         self.description = description
+        self.model_path = model_path
         self.input_data = {}
         self.output_data = {}
         self.execution_time = 0

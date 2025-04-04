@@ -21,7 +21,7 @@ class RandomForestPredictor(AlgorithmBase):
     4개의 레이저 센서 데이터를 입력받아 무게와 위치를 예측합니다.
     """
 
-    def __init__(self, model_path=None):
+    def __init__(self):
         """
         알고리즘 초기화
 
@@ -30,17 +30,17 @@ class RandomForestPredictor(AlgorithmBase):
         """
         super().__init__(
             name="RandomForestPredictor",
-            description="랜덤 포레스트 모델을 사용한 무게 및 위치 예측 알고리즘"
+            description="랜덤 포레스트 모델을 사용한 무게 및 위치 예측 알고리즘",
+            model_path="../model/GPT_new_best_regression_model.joblib"
         )
-
-        # 모델 파일 경로
-        self.model_path = model_path
 
         # 모델 로드
         try:
             self.model = self._load_model()
         except Exception as e:
+            print(e)
             self.model = None
+
 
     def _load_model(self):
         """모델 파일 로드"""
@@ -70,6 +70,7 @@ class RandomForestPredictor(AlgorithmBase):
         """
         # 모델 검증
         if self.model is None:
+            print("None")
             return {'error': "모델이 로드되지 않았습니다"}
 
         # 입력 데이터 추출
@@ -187,12 +188,8 @@ class RandomForestPredictor(AlgorithmBase):
 
 # 테스트 코드
 if __name__ == "__main__":
-    # 임시 모델 저장
-    model_path = "../GPT_new_best_regression_model.joblib"
-
     # 알고리즘 인스턴스 생성 (임시 모델 사용)
-    predictor = RandomForestPredictor(model_path=model_path)
-
+    predictor = RandomForestPredictor()
     # 테스트 데이터
     test_data = [613, 649, 606, 673]
 
