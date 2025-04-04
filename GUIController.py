@@ -17,7 +17,7 @@ class GUIController(QThread):
                 port = module.port
                 if not module.databuf.empty():
                     data = module.databuf.get()
-                    print(port,'=> ',data)
+                    # print(port,'=> ',data)
                     self.dataUpdate(port, data)
                     # self.loggingUpdate(port, data)
             self.plot_updated.emit()

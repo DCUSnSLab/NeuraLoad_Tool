@@ -25,6 +25,10 @@ class Experiment(QWidget):
         self.last_direction = '-'
         self.is_paused_global = False
         self.aaaa = False
+        self.save_graph_max = 500
+        self.save_graph_min = 0
+        self.port_comboboxes = {}
+        self.port_column_index = {}
 
         self.ports = get_arduino_ports(self.DEBUG_MODE)
         self.port_location = {}
@@ -35,11 +39,11 @@ class Experiment(QWidget):
         self.plot_curve_change = {}
         self.plot_change = {}
 
-        self.setting()
+        # self.setting()
         self.setupUI()
         self.setup()
-        self.setup_live_logging()  # ✅ 로그 파일 먼저 열고
-        self.startSerialThread()  # ✅ 그다음 시리얼 스레드 시작
+        self.setup_live_logging()
+        self.startSerialThread()
         self.startGUIThread()
         self.installEventFilter(self)
 
@@ -53,7 +57,6 @@ class Experiment(QWidget):
         self.live_log_timer.timeout.connect(self.setup_live_logging)
         self.live_log_timer.start(100000)  # 10분마다 호출 (600,000ms)
 
-        # # __init__ 마지막에 추가
         # self.graph_timer = QTimer()
         # self.graph_timer.timeout.connect(self.update_graphs)
         # self.graph_timer.start(100)  # 0.5초마다 그래프만 갱신
@@ -83,29 +86,29 @@ class Experiment(QWidget):
         for sub in self.subscribers:
             sub.set_weight(self.weight_a)
 
-    def setting(self):
-        for i, port in enumerate(self.ports):
-            if i == 0:
-                name = 'BottomLeft'
-                color = 'r'
-            elif i == 1:
-                name = 'TopRight'
-                color = 'g'
-            elif i == 2:
-                name = 'TopLeft'
-                color = 'b'
-            elif i == 3:
-                name = 'BottomRight'
-                color = 'orange'
-            elif i == 4:
-                name = 'IMU'
-                color = 'yellow'
-            else:
-                name = 'etc'
-                color = 'purple'
-
-            self.port_location[port] = name
-            self.port_colors[name] = color
+    # def setting(self):
+    #     for i, port in enumerate(self.ports):
+    #         if i == 0:
+    #             name = 'BottomLeft'
+    #             color = 'r'
+    #         elif i == 1:
+    #             name = 'TopRight'
+    #             color = 'g'
+    #         elif i == 2:
+    #             name = 'TopLeft'
+    #             color = 'b'
+    #         elif i == 3:
+    #             name = 'BottomRight'
+    #             color = 'orange'
+    #         elif i == 4:
+    #             name = 'IMU'
+    #             color = 'yellow'
+    #         else:
+    #             name = 'etc'
+    #             color = 'purple'
+    #
+    #         self.port_location[port] = name
+    #         self.port_colors[name] = color
 
     def setupUI(self):
         self.sensor_table = QTableWidget()
@@ -121,12 +124,12 @@ class Experiment(QWidget):
         self.sensor_table.setMaximumWidth(1000)
         self.sensor_table.setMinimumWidth(500)
 
-        self.logging = QTableWidget()
-        self.logging.setColumnCount(7)
-        self.logging.setHorizontalHeaderLabels(['시간', '무게', '무게 변화', '위치', '로그', '강도', 't/f'])
-        self.logging.setMinimumHeight(150)
-        self.logging.setMinimumWidth(150)
-        self.logging.horizontalHeader().setStretchLastSection(True)
+        # self.logging = QTableWidget()
+        # self.logging.setColumnCount(7)
+        # self.logging.setHorizontalHeaderLabels(['시간', '무게', '무게 변화', '위치', '로그', '강도', 't/f'])
+        # self.logging.setMinimumHeight(150)
+        # self.logging.setMinimumWidth(150)
+        # self.logging.horizontalHeader().setStretchLastSection(True)
 
         self.save_file_box_log = QTableWidget()
         self.save_file_box_log.setColumnCount(1)
@@ -184,10 +187,68 @@ class Experiment(QWidget):
         self.graph_value.setLabel("bottom", "Time")
         self.graph_value.setMinimumWidth(500)
 
-        self.log_output = QTextEdit()
-        self.log_output.setReadOnly(True)
-        self.log_output.setStyleSheet("background-color: #F2F2F2;")
-        self.log_output.append(str(self.port_location))
+        # self.log_output = QTextEdit()
+        # self.log_output.setReadOnly(True)
+        # self.log_output.setStyleSheet("background-color: #F2F2F2;")
+        # self.log_output.append(str(self.port_location))
+
+        self.graph_label_max = QLabel('그래프 최대: ')
+        self.graph_text_max = QLineEdit()
+        self.graph_text_max.returnPressed.connect(self.saveGraphMax)
+
+        self.graph_label_min = QLabel('그래프 최소: ')
+        self.graph_text_min = QLineEdit()
+        self.graph_text_min.returnPressed.connect(self.saveGraphMin)
+
+        self.port_label_layout = QVBoxLayout()
+        self.port_location_selection = {}
+        for idx, port in enumerate(self.ports):
+            port_label = QLabel(port)
+            port_location_cb = QComboBox()
+            port_location_cb.addItems([' ', 'BottomLeft', 'TopRight', 'TopLeft', 'BottomRight', 'IMU', 'etc'])
+            port_location_cb.adjustSize()
+
+            self.port_comboboxes[port] = port_location_cb
+            self.port_column_index[port] = idx
+
+            port_location_cb.currentTextChanged.connect(
+                lambda value, p=port: self.update_sensor_table_header(p, value)
+            )
+
+            self.port_label_layout.addWidget(port_label)
+            self.port_label_layout.addWidget(port_location_cb)
+
+    def update_sensor_table_header(self, port, new_label):
+        index = self.port_column_index.get(port)
+        if index is not None and new_label.strip() != '':
+            self.sensor_table.setHorizontalHeaderItem(index, QTableWidgetItem(new_label))
+            print(f"{port} → 센서 테이블 헤더 이름 변경됨: {new_label}")
+
+            if port in self.plot_curve:
+                self.plot_curve[port].setName(new_label)
+            if port in self.plot_curve_change:
+                self.plot_curve_change[port].setName(new_label)
+
+            self.port_location[port] = new_label
+
+    def save_port_location(self, port, new_label):
+        index =  self.port_column_index.get(port)
+        self.sensor_table.setHorizontalHeaderItem(index, QTableWidgetItem(new_label))
+        print(f"{port} → {new_label}")  # 디버깅용 출력
+
+    def saveGraphMax(self):
+        text = self.graph_text_max.text().strip()
+        self.save_graph_max = int(text)
+
+        self.graph_text_max.clear()
+        self.updateGraph()
+
+    def saveGraphMin(self):
+        text = self.graph_text_min.text().strip()
+        self.save_graph_min = int(text)
+
+        self.graph_text_min.clear()
+        self.updateGraph()
 
     def startSerialThread(self):
         for i, port in enumerate(self.ports):
@@ -201,21 +262,36 @@ class Experiment(QWidget):
             self.threads.append(thread)
             self.port_index[port] = i
 
+        location_name = self.port_comboboxes[port].currentText().strip()
+        default_color = 'gray'
+        self.port_colors = {
+            'BottomLeft': 'r',
+            'TopRight': 'g',
+            'TopLeft': 'b',
+            'BottomRight': 'orange',
+            'IMU': 'yellow',
+            'etc': 'purple'
+        }
+
+        color = self.port_colors.get(location_name, default_color)
+
         for port in self.ports:
             self.plot_data[port] = deque(maxlen=300)
             self.plot_change[port] = deque(maxlen=300)
-            color = self.port_colors.get(self.port_location[port])
+            # color = self.port_colors.get(self.port_location[port])
+
+            self.plot_curve[port] = self.graph_value.plot()
+            self.plot_curve_change[port] = self.graph_change.plot()
 
             self.plot_curve[port] = self.graph_value.plot(
                 pen=pg.mkPen(color=color, width=1),
-                name=self.port_location.get(port, port)
+                name=location_name if location_name else port
             )
 
             self.plot_curve_change[port] = self.graph_change.plot(
                 pen=pg.mkPen(color=color, width=1),
-                name=self.port_location.get(port, port)
+                name=location_name if location_name else port
             )
-            self.graph_change.getPlotItem().setYRange(min=0, max=100)
 
     def startGUIThread(self):
         print('start GUIThread')
@@ -224,9 +300,14 @@ class Experiment(QWidget):
         self.GUIThread.start()
 
     def updateGraph(self):
+        self.graph_change.getPlotItem().setYRange(min=self.save_graph_min, max=self.save_graph_max)
+        self.graph_value.getPlotItem().setYRange(min=self.save_graph_min, max=self.save_graph_max)
         short_time = datetime.datetime.now().strftime("%M_%S_%f")[:-3]
 
         for port in self.ports:
+            if self.port_comboboxes[port].currentText().strip() == '':
+                continue
+
             x = list(range(len(self.plot_data[port])))
             y = list(self.plot_data[port])
 
@@ -243,16 +324,16 @@ class Experiment(QWidget):
             self.sensor_table.setItem(0, location, QTableWidgetItem(str(value)))
 
             # 로깅 테이블 기록
-            current_row = self.logging.rowCount()
-            self.logging.insertRow(current_row)
-            self.logging.setItem(current_row, 0, QTableWidgetItem(short_time))
-            self.logging.setItem(current_row, 1, QTableWidgetItem(str(self.weight_a)))
-            self.logging.setItem(current_row, 2, QTableWidgetItem("direction"))
-            self.logging.setItem(current_row, 3, QTableWidgetItem("name"))
-            self.logging.setItem(current_row, 4, QTableWidgetItem(str(value)))
-            self.logging.setItem(current_row, 5, QTableWidgetItem("-"))
-            self.logging.setItem(current_row, 6, QTableWidgetItem(str(self.aaaa)))
-            self.logging.scrollToBottom()
+            # current_row = self.logging.rowCount()
+            # self.logging.insertRow(current_row)
+            # self.logging.setItem(current_row, 0, QTableWidgetItem(short_time))
+            # self.logging.setItem(current_row, 1, QTableWidgetItem(str(self.weight_a)))
+            # self.logging.setItem(current_row, 2, QTableWidgetItem("direction"))
+            # self.logging.setItem(current_row, 3, QTableWidgetItem("name"))
+            # self.logging.setItem(current_row, 4, QTableWidgetItem(str(value)))
+            # self.logging.setItem(current_row, 5, QTableWidgetItem("-"))
+            # self.logging.setItem(current_row, 6, QTableWidgetItem(str(self.aaaa)))
+            # self.logging.scrollToBottom()
 
     def handle_serial_data(self, port, data):
         if port in self.port_index:
@@ -451,6 +532,19 @@ class Experiment(QWidget):
                 self.save_file_box_log.scrollToBottom()
 
     def setup(self):
+        graph_max_layout = QHBoxLayout()
+        graph_max_layout.addWidget(self.graph_label_max)
+        graph_max_layout.addWidget(self.graph_text_max)
+
+        graph_min_layout = QHBoxLayout()
+        graph_min_layout.addWidget(self.graph_label_min)
+        graph_min_layout.addWidget(self.graph_text_min)
+
+        setting_layout = QVBoxLayout()
+        setting_layout.addLayout(graph_max_layout)
+        setting_layout.addLayout(graph_min_layout)
+        setting_layout.addLayout(self.port_label_layout)
+
         weight_input_layout2 = QHBoxLayout()
         weight_input_layout2.addWidget(self.weight_btn_p)
         weight_input_layout2.addWidget(self.weight_btn_m)
@@ -467,17 +561,19 @@ class Experiment(QWidget):
         layout_btn2.addWidget(self.save_file_box_log)
 
         layout1 = QHBoxLayout()
-        layout1.addWidget(self.logging)
+        # layout1.addWidget(self.logging)
+        layout1.addWidget(self.sensor_table)
         layout1.addLayout(layout_btn2)
 
         table_layout = QHBoxLayout()
-        table_layout.addWidget(self.sensor_table)
+        # table_layout.addWidget(self.sensor_table)
+        table_layout.addLayout(setting_layout)
         table_layout.addWidget(self.weight_table)
 
         graph_layout = QVBoxLayout()
         graph_layout.addWidget(self.graph_change)
         graph_layout.addWidget(self.graph_value)
-        graph_layout.addWidget(self.log_output)
+        # graph_layout.addWidget(self.log_output)
 
         layout2 = QVBoxLayout()
         layout2.addLayout(table_layout)
