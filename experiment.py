@@ -42,20 +42,19 @@ class Experiment(QWidget):
         # self.setting()
         self.setupUI()
         self.setup()
-        self.setup_live_logging()
+        # self.setup_live_logging()
         self.startSerialThread()
         self.startGUIThread()
-        self.installEventFilter(self)
+        # self.installEventFilter(self)
 
-        #
         # self.auto_save_timer = QTimer()
         # self.auto_save_timer.timeout.connect(self.auto_save)
         # # self.auto_save_timer.start(600000)
         # self.auto_save_timer.start(1000)
 
-        self.live_log_timer = QTimer()
-        self.live_log_timer.timeout.connect(self.setup_live_logging)
-        self.live_log_timer.start(100000)  # 10분마다 호출 (600,000ms)
+        # self.live_log_timer = QTimer()
+        # self.live_log_timer.timeout.connect(self.setup_live_logging)
+        # self.live_log_timer.start(100000)  # 10분마다 호출 (600,000ms)
 
         # self.graph_timer = QTimer()
         # self.graph_timer.timeout.connect(self.update_graphs)
@@ -74,6 +73,7 @@ class Experiment(QWidget):
     #
     #         self.plot_curve[port].setData(x, y)
     #         self.plot_curve_change[port].setData(x, change)
+
 
     def add_subscriber(self, subscriber):
         self.subscribers.append(subscriber)
@@ -156,22 +156,23 @@ class Experiment(QWidget):
                 self.weight_table.setItem(row, col, val)
                 self.count += 1
 
-        self.stop_btn = QPushButton('시험 시작(K)', self)
-        self.stop_btn.clicked.connect(self.stop)
+        self.stop_btn = QPushButton('실험 시작', self)
+        self.stop_btn.setCheckable(True)
+        self.stop_btn.clicked.connect(self.toggle_btn)
 
-        self.restart_btn = QPushButton('시험 종료(L)', self)
-        self.restart_btn.clicked.connect(self.restart)
+        # self.restart_btn = QPushButton('실험 종료', self)
+        # self.restart_btn.clicked.connect(self.restart)
 
-        self.weight_btn_p = QPushButton('+(P)', self)
+        self.weight_btn_p = QPushButton('+', self)
         self.weight_btn_p.clicked.connect(self.weightP)
 
-        self.weight_btn_m = QPushButton('-(O)', self)
+        self.weight_btn_m = QPushButton('-', self)
         self.weight_btn_m.clicked.connect(self.weightM)
 
-        self.weight_btn_z = QPushButton('리셋(I)', self)
+        self.weight_btn_z = QPushButton('리셋', self)
         self.weight_btn_z.clicked.connect(self.weightZ)
 
-        self.save_btn = QPushButton('저장(M)', self)
+        self.save_btn = QPushButton('저장', self)
         self.save_btn.clicked.connect(self.btn_save)
 
         self.graph_change = pg.PlotWidget()
@@ -218,18 +219,48 @@ class Experiment(QWidget):
             self.port_label_layout.addWidget(port_label)
             self.port_label_layout.addWidget(port_location_cb)
 
+    # def update_sensor_table_header(self, port, new_label):
+    #     index = self.port_column_index.get(port)
+    #     if index is not None and new_label.strip() != '':
+    #         self.sensor_table.setHorizontalHeaderItem(index, QTableWidgetItem(new_label))
+    #         print(f"{port} → 센서 테이블 헤더 이름 변경됨: {new_label}")
+    #
+    #         if port in self.plot_curve:
+    #             self.plot_curve[port].setName(new_label)
+    #         if port in self.plot_curve_change:
+    #             self.plot_curve_change[port].setName(new_label)
+    #
+    #         self.port_location[port] = new_label
+
     def update_sensor_table_header(self, port, new_label):
         index = self.port_column_index.get(port)
-        if index is not None and new_label.strip() != '':
-            self.sensor_table.setHorizontalHeaderItem(index, QTableWidgetItem(new_label))
-            print(f"{port} → 센서 테이블 헤더 이름 변경됨: {new_label}")
+        if index is None or new_label.strip() == '':
+            return
 
-            if port in self.plot_curve:
-                self.plot_curve[port].setName(new_label)
-            if port in self.plot_curve_change:
-                self.plot_curve_change[port].setName(new_label)
+        self.sensor_table.setHorizontalHeaderItem(index, QTableWidgetItem(new_label))
+        print(f"{port} → 센서 테이블 헤더 이름 변경됨: {new_label}")
+        self.port_location[port] = new_label
 
-            self.port_location[port] = new_label
+        # 기존 그래프 제거
+        if port in self.plot_curve:
+            self.graph_value.removeItem(self.plot_curve[port])
+        if port in self.plot_curve_change:
+            self.graph_change.removeItem(self.plot_curve_change[port])
+
+        color = self.port_colors.get(new_label, 'gray')
+
+        # 새로운 그래프 추가 (legend 포함)
+        self.plot_curve[port] = self.graph_value.plot(
+            pen=pg.mkPen(color=color, width=1),
+            name=new_label
+        )
+        self.plot_curve_change[port] = self.graph_change.plot(
+            pen=pg.mkPen(color=color, width=1),
+            name=new_label
+        )
+
+        self.graph_value.addLegend()
+        self.graph_change.addLegend()
 
     def save_port_location(self, port, new_label):
         index =  self.port_column_index.get(port)
@@ -251,6 +282,10 @@ class Experiment(QWidget):
         self.updateGraph()
 
     def startSerialThread(self):
+        os.makedirs("log", exist_ok=True)
+        filename = datetime.datetime.now().strftime("raw_data_%Y-%m-%d.txt")
+        self.raw_data_file = open(os.path.join("log", filename), "a", encoding="utf-8")
+
         for i, port in enumerate(self.ports):
             print('make Serial', i, port)
             if port.startswith('V'):
@@ -259,8 +294,6 @@ class Experiment(QWidget):
             else:
                 thread = SerialThread(port)
                 thread.start()
-            self.threads.append(thread)
-            self.port_index[port] = i
 
         location_name = self.port_comboboxes[port].currentText().strip()
         default_color = 'gray'
@@ -309,19 +342,21 @@ class Experiment(QWidget):
                 continue
 
             x = list(range(len(self.plot_data[port])))
-            y = list(self.plot_data[port])
+            # y = list(self.plot_data[port])
+            y = [v[1] for v in self.plot_data[port]]
 
-            base_val = self.plot_change[port][0] if len(self.plot_change[port]) > 0 else 0
-            change = [v - base_val for v in self.plot_change[port]]
+            base_val = self.plot_change[port][0][1] if len(self.plot_change[port]) > 0 else 0
+            change = [v[1] - base_val for v in self.plot_change[port]]
 
             self.plot_curve[port].setData(x, y)
             self.plot_curve_change[port].setData(x, change)
 
-            value = -1
-            if len(self.plot_data[port]) > 0:
-                value = self.plot_data[port][-1]
-            location = self.port_index[port]
-            self.sensor_table.setItem(0, location, QTableWidgetItem(str(value)))
+            if self.aaaa:
+                value = -1
+                if len(self.plot_data[port]) > 0:
+                    value = self.plot_data[port][-1][1]
+                location = self.port_index[port]
+                self.sensor_table.setItem(0, location, QTableWidgetItem(str(value)))
 
             # 로깅 테이블 기록
             # current_row = self.logging.rowCount()
@@ -353,24 +388,26 @@ class Experiment(QWidget):
             # 현재 상태 플래그
             state_flag = 't' if self.is_paused_global else 'f'
 
-            # 타임스탬프
-            timestamp = datetime.datetime.now().strftime("%H_%M_%S_%f")[:-3]
+            timestamp = data[0]
+            value = data[1:]
             name = self.port_location.get(port, port)
 
-            # ✅ 실시간 로그 저장
-            if hasattr(self, "live_log_file") and not self.live_log_file.closed:
-                log_line = f"{timestamp}\t{self.weight_a}\t{direction}\t{name}\t{value}\t{state_flag}\n"
-                self.live_log_file.write(log_line)
-                self.live_log_file.flush()
+            print(value)
 
-            # 브로드캐스트
-            self.broadcast_data(port, data)
+            log_line = f"{timestamp}\t{self.weight_a}\t{direction}\t{name}\t{value}\t{state_flag}\n"
 
-            x = list(range(len(self.plot_data[port])))
-            y = list(self.plot_data[port])
-
-            base_val = self.plot_change[port][0] if len(self.plot_change[port]) > 0 else 0
-            change = [v - base_val for v in self.plot_change[port]]
+            if hasattr(self, "raw_data_file") and not self.raw_data_file.closed:
+                self.raw_data_file.write(log_line)
+                self.raw_data_file.flush()
+            #
+            # # 브로드캐스트
+            # self.broadcast_data(port, data)
+            #
+            # x = list(range(len(self.plot_data[port])))
+            # y = list(self.plot_data[port])
+            #
+            # base_val = self.plot_change[port][0] if len(self.plot_change[port]) > 0 else 0
+            # change = [v - base_val for v in self.plot_change[port]]
 
     def stop(self):
         self.aaaa = True  # 전역 상태 갱신
@@ -379,6 +416,15 @@ class Experiment(QWidget):
 
     def restart(self):
         self.aaaa = False  # 전역 상태 갱신
+
+    def toggle_btn(self):
+        if self.stop_btn.isChecked():
+            self.aaaa = True
+            QCoreApplication.processEvents()
+            self.stop_btn.setText("실험 종료")
+        else:
+            self.aaaa = False
+            self.stop_btn.setText("실험 시작")
 
     def onCellChanged(self, row, col):
         try:
@@ -500,36 +546,36 @@ class Experiment(QWidget):
         self.save_file_box_log.setItem(row_position, 0, QTableWidgetItem(file_name))
         self.save_file_box_log.scrollToBottom()
 
-    def setup_live_logging(self):
-        # 로그 디렉토리
-        folder_name = "log"
-        os.makedirs(folder_name, exist_ok=True)
-
-        # 파일명: 날짜별 파일 하나만 계속 사용
-        filename = datetime.datetime.now().strftime("raw_data_%Y-%m-%d.txt")
-        file_path = os.path.join(folder_name, filename)
-        print("auto on3")
-        # 이미 열려 있다면 무시하고, 없으면 새로 열기 (append 모드)
-        if not hasattr(self, "live_log_file") or self.live_log_file.closed or self.live_log_file.name != file_path:
-            # 이전 파일 닫기
-            if hasattr(self, "live_log_file") and not self.live_log_file.closed:
-                self.live_log_file.close()
-            print("auto on")
-            self.live_log_file = open(file_path, "a", encoding="utf-8")
-
-            # 헤더가 없으면 한 번만 쓰기 (선택)
-            if os.stat(file_path).st_size == 0:
-                self.live_log_file.write("시간\t무게\t무게 변화\t포트\t로그\t상태\n")
-                self.live_log_file.flush()
-
-            # UI에 파일명 추가 (중복 방지)
-            row_position = self.save_file_box_log.rowCount()
-            if all(self.save_file_box_log.item(row, 0).text() != filename for row in
-                   range(self.save_file_box_log.rowCount())):
-                print("auto on2")
-                self.save_file_box_log.insertRow(row_position)
-                self.save_file_box_log.setItem(row_position, 0, QTableWidgetItem(filename))
-                self.save_file_box_log.scrollToBottom()
+    # def setup_live_logging(self):
+    #     # 로그 디렉토리
+    #     folder_name = "log"
+    #     os.makedirs(folder_name, exist_ok=True)
+    #
+    #     # 파일명: 날짜별 파일 하나만 계속 사용
+    #     filename = datetime.datetime.now().strftime("raw_data_%Y-%m-%d.txt")
+    #     file_path = os.path.join(folder_name, filename)
+    #     print("auto on3")
+    #     # 이미 열려 있다면 무시하고, 없으면 새로 열기 (append 모드)
+    #     if not hasattr(self, "live_log_file") or self.live_log_file.closed or self.live_log_file.name != file_path:
+    #         # 이전 파일 닫기
+    #         if hasattr(self, "live_log_file") and not self.live_log_file.closed:
+    #             self.live_log_file.close()
+    #         print("auto on")
+    #         self.live_log_file = open(file_path, "a", encoding="utf-8")
+    #
+    #         # 헤더가 없으면 한 번만 쓰기 (선택)
+    #         if os.stat(file_path).st_size == 0:
+    #             self.live_log_file.write("시간\t무게\t무게 변화\t포트\t로그\t상태\n")
+    #             self.live_log_file.flush()
+    #
+    #         # UI에 파일명 추가 (중복 방지)
+    #         row_position = self.save_file_box_log.rowCount()
+    #         if all(self.save_file_box_log.item(row, 0).text() != filename for row in
+    #                range(self.save_file_box_log.rowCount())):
+    #             print("auto on2")
+    #             self.save_file_box_log.insertRow(row_position)
+    #             self.save_file_box_log.setItem(row_position, 0, QTableWidgetItem(filename))
+    #             self.save_file_box_log.scrollToBottom()
 
     def setup(self):
         graph_max_layout = QHBoxLayout()
@@ -551,7 +597,7 @@ class Experiment(QWidget):
 
         layout_btn1 = QHBoxLayout()
         layout_btn1.addWidget(self.stop_btn)
-        layout_btn1.addWidget(self.restart_btn)
+        # layout_btn1.addWidget(self.restart_btn)
 
         layout_btn2 = QVBoxLayout()
         layout_btn2.addLayout(weight_input_layout2)
@@ -624,8 +670,9 @@ class Experiment(QWidget):
     def closeEvent(self, event):
         for thread in self.threads:
             thread.stop()
-        if hasattr(self, "live_log_file"):
-            self.live_log_file.close()
+        if hasattr(self, "raw_data_file") and not self.raw_data_file.closed:
+            self.raw_data_file.close()
+
         event.accept()
 
 if __name__ == '__main__':

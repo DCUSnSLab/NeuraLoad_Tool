@@ -1,3 +1,4 @@
+import os
 from queue import Queue
 import serial
 import serial.tools.list_ports
@@ -39,6 +40,7 @@ class SerialThread(QThread):
         self.is_paused = False
 
         self.databuf = Queue(maxsize=1000)
+        self.weight_a = [0] * 9
 
     def run(self):
         if not self.port:
@@ -49,17 +51,21 @@ class SerialThread(QThread):
         while self.is_running:
             if not self.is_paused and self.ser.in_waiting > 0:
                 data = self.ser.readline().decode('utf-8', errors='ignore').strip()
-                short_time = datetime.datetime.now().strftime("%M_%S_%f")[:-3]
+                timestamp = datetime.datetime.now().strftime("%H_%M_%S_%f")[:-3]
                 if data:
                     parts = data.split(',')
                     main_part = parts[0].strip()
-                    sub_part = ','.join(p.strip() for p in parts[1:])
+                    sub_part1 = parts[1].strip()
+                    sub_part2 = parts[2].strip()
+
                     if not main_part.isdigit():
                         return
                     value = int(main_part)
 
-                    # print(value, self.databuf.qsize())
-                    self.databuf.put(value)
+                    # print(timestamp, value, self.databuf.qsize())
+                    # self.save(timestamp, value, sub_part1, sub_part2)
+                    self.databuf.put((timestamp, value, sub_part1, sub_part2))
+
             self.msleep(1)
 
     def pause(self):
@@ -73,6 +79,24 @@ class SerialThread(QThread):
         self.is_running = False
         self.wait()
 
+    def open_log_file(self):
+        filename = datetime.datetime.now().strftime("sensor_data_%Y-%m-%d_%M_%S.txt")
+        folder = "sensor_logs"
+        os.makedirs(folder, exist_ok=True)
+        path = os.path.join(folder, filename)
+        self.sensor_data_file = open(path, "a", encoding="utf-8")
+
+    def save(self, timestamp, value, sub_part1, sub_part2):
+        log_line = f"{timestamp},{self.weight_a} {self.port},{value},{sub_part1},{sub_part2}\n"
+
+        # 파일로 저장 (sensor_data_file이 열려 있다면)
+        if hasattr(self, "sensor_data_file") and not self.sensor_data_file.closed:
+            self.sensor_data_file.write(log_line)
+            self.sensor_data_file.flush()
+
+    def set_weight_array(self, weight_array):
+        self.weight_a = weight_array
+
 class SerialThreadVirtual(SerialThread):
     def __init__(self, port, systemPorts):
         super().__init__(port)
@@ -85,8 +109,11 @@ class SerialThreadVirtual(SerialThread):
 
         pidxGap = self.systemPorts.index(self.port)
         while self.is_running:
+            timestamp = datetime.datetime.now().strftime("%H_%M_%S_%f")[:-3]
             value = random.randint(400+(pidxGap*10), 450+(pidxGap*10))
-            self.databuf.put(value)
+            sub_part1 = random.randint(400 + (pidxGap * 10), 450 + (pidxGap * 10))
+            sub_part2 = random.randint(400 + (pidxGap * 10), 450 + (pidxGap * 10))
+            self.databuf.put((timestamp, value, sub_part1, sub_part2))
             self.msleep(100)
 
 if __name__ == "__main__":
@@ -97,6 +124,8 @@ if __name__ == "__main__":
 
     for port in get_arduino_ports():
         thread = SerialThread(port=port)
+        # thread.set_weight_array(weight_a)
+        # thread.open_log_file()
         thread.start()
         threads.append(thread)
 
