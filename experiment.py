@@ -8,7 +8,7 @@ import pyqtgraph as pg
 from collections import deque
 
 from GUIController import GUIController
-from arduino_manager import SerialThread, get_arduino_ports, SerialThreadVirtual
+from arduino_manager import SerialManager, SerialThread, get_arduino_ports, SerialThreadVirtual
 
 
 class Experiment(QWidget):
@@ -31,7 +31,6 @@ class Experiment(QWidget):
         self.port_comboboxes = {}
         self.port_column_index = {}
 
-        self.ports = get_arduino_ports(self.DEBUG_MODE)
         self.port_location = {}
         self.port_colors = {}
 
@@ -40,9 +39,14 @@ class Experiment(QWidget):
         self.plot_curve_change = {}
         self.plot_change = {}
 
+        self.startSerialManager()
+        # self.ports = get_arduino_ports(self.DEBUG_MODE)
+        self.ports = self.serial_manager.ports
+
         self.setupUI()
         self.setup()
-        self.startSerialThread()
+
+        #self.startSerialThread()
         self.startGUIThread()
 
         self.auto_save_timer = QTimer()
@@ -201,6 +205,10 @@ class Experiment(QWidget):
 
         self.graph_text_min.clear()
         self.updateGraph()
+
+    def startSerialManager(self):
+        self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE)
+        self.serial_manager.start_threads()
 
     def startSerialThread(self):
         for i, port in enumerate(self.ports):
