@@ -69,7 +69,9 @@ class Experiment(QWidget):
 
     def broadcast_weight(self):
         for sub in self.subscribers:
-            sub.set_weight(self.weight_a)
+            # 각 subscriber가 set_weight 메소드를 가지고 있는지 확인
+            if hasattr(sub, 'set_weight'):
+                sub.set_weight(self.weight_a)
 
     def setupUI(self):
         self.sensor_table = QTableWidget()
@@ -132,9 +134,10 @@ class Experiment(QWidget):
         self.graph_change.setMinimumWidth(500)
 
         self.graph_value = pg.PlotWidget()
-        self.graph_value.setTitle("Sensor")
+        self.graph_value.setTitle("Sensor Value")
         self.graph_value.setLabel("left", "Value")
         self.graph_value.setLabel("bottom", "Time")
+        self.graph_value.addLegend(offset=(30, 30))
         self.graph_value.setMinimumWidth(500)
 
         self.graph_label_max = QLabel('그래프 최대: ')
@@ -233,12 +236,12 @@ class Experiment(QWidget):
             
             # 그래프 요소 초기화
             self.plot_curve[port] = self.graph_value.plot(
-                pen=pg.mkPen(color=color, width=1),
+                pen=pg.mkPen(color=color, width=2),  # 선 두께 증가
                 name=location_name if location_name else port
             )
             
             self.plot_curve_change[port] = self.graph_change.plot(
-                pen=pg.mkPen(color=color, width=1),
+                pen=pg.mkPen(color=color, width=2),  # 선 두께 증가
                 name=location_name if location_name else port
             )
             
@@ -253,78 +256,114 @@ class Experiment(QWidget):
         self.GUIThread.start()
 
     def updateGraph(self, port=None):
-        self.graph_change.getPlotItem().setYRange(min=self.save_graph_min, max=self.save_graph_max)
-        self.graph_value.getPlotItem().setYRange(min=self.save_graph_min, max=self.save_graph_max)
-        short_time = datetime.datetime.now().strftime("%M_%S_%f")[:-3]
+        try:
+            # 그래프 Y축 범위 설정
+            self.graph_change.getPlotItem().setYRange(min=self.save_graph_min, max=self.save_graph_max)
+            self.graph_value.getPlotItem().setYRange(min=self.save_graph_min, max=self.save_graph_max)
 
-        # 특정 포트만 업데이트하거나 모든 포트 업데이트
-        ports_to_update = [port] if port else self.ports
+            # 특정 포트만 업데이트하거나 모든 포트 업데이트
+            ports_to_update = [port] if port else self.ports
 
-        for port in ports_to_update:
-            # 포트가 plot_data에 초기화되어 있지 않으면 초기화
-            if port not in self.plot_data:
-                self.plot_data[port] = deque(maxlen=300)
-                self.plot_change[port] = deque(maxlen=300)
+            for port in ports_to_update:
+                # 포트가 plot_data에 초기화되어 있지 않으면 초기화
+                if port not in self.plot_data:
+                    self.plot_data[port] = deque(maxlen=300)
+                    self.plot_change[port] = deque(maxlen=300)
+                    
+                    # 그래프 요소도 없으면 초기화
+                    if port not in self.plot_curve:
+                        default_color = 'gray'
+                        location_name = self.port_comboboxes[port].currentText().strip() if port in self.port_comboboxes else ''
+                        color = self.port_colors.get(location_name, default_color)
+                        
+                        self.plot_curve[port] = self.graph_value.plot(
+                            pen=pg.mkPen(color=color, width=2),  # 선 두께 증가
+                            name=location_name if location_name else port
+                        )
+                        
+                        self.plot_curve_change[port] = self.graph_change.plot(
+                            pen=pg.mkPen(color=color, width=2),  # 선 두께 증가
+                            name=location_name if location_name else port
+                        )
                 
-                # 그래프 요소도 없으면 초기화
-                if port not in self.plot_curve:
-                    default_color = 'gray'
-                    location_name = self.port_comboboxes[port].currentText().strip()
-                    color = self.port_colors.get(location_name, default_color)
-                    
-                    self.plot_curve[port] = self.graph_value.plot(
-                        pen=pg.mkPen(color=color, width=1),
-                        name=location_name if location_name else port
-                    )
-                    
-                    self.plot_curve_change[port] = self.graph_change.plot(
-                        pen=pg.mkPen(color=color, width=1),
-                        name=location_name if location_name else port
-                    )
-            
-            if self.port_comboboxes[port].currentText().strip() == '':
-                continue
+                # 위치가 설정되지 않은 포트는 건너뛰기
+                location_name = self.port_comboboxes[port].currentText().strip() if port in self.port_comboboxes else ''
+                if location_name == '':
+                    continue
 
-            # 데이터가 없으면 그래프 업데이트 건너뛰기
-            if not self.plot_data[port]:
-                continue
+                # 데이터가 없으면 그래프 업데이트 건너뛰기
+                if not self.plot_data[port] or len(self.plot_data[port]) == 0:
+                    continue
 
-            try:
+                # X축 데이터 생성 - 시간에 따른 인덱스
                 x = list(range(len(self.plot_data[port])))
                 
-                # 데이터 구조 안전하게 처리
-                if all(isinstance(item, (list, tuple)) and len(item) > 1 for item in self.plot_data[port]):
-                    y = [v[1] for v in self.plot_data[port]]
-                    
-                    # plot_change에 데이터가 있을 때만 기준값 사용
-                    if self.plot_change[port] and len(self.plot_change[port]) > 0:
-                        if isinstance(self.plot_change[port][0], (list, tuple)) and len(self.plot_change[port][0]) > 1:
-                            base_val = self.plot_change[port][0][1]
-                        else:
-                            base_val = 0
+                # Y축 데이터 추출 - 안전 처리
+                y_values = []
+                for point in self.plot_data[port]:
+                    if isinstance(point, (list, tuple)) and len(point) > 1:
+                        try:
+                            # value 부분이 숫자인지 확인
+                            y_value = float(point[1])
+                            y_values.append(y_value)
+                        except (ValueError, TypeError):
+                            # 숫자로 변환할 수 없는 경우 임의 값 사용
+                            y_values.append(0)
                     else:
+                        y_values.append(0)
+                
+                # 변화량 데이터 계산
+                change_values = []
+                if len(self.plot_change[port]) > 0:
+                    # 기준값을 첫번째 유효한 값으로 설정
+                    base_val = None
+                    for point in self.plot_change[port]:
+                        if isinstance(point, (list, tuple)) and len(point) > 1:
+                            try:
+                                base_val = float(point[1])
+                                break
+                            except (ValueError, TypeError):
+                                pass
+                    
+                    # 기준값이 없으면 0으로 설정
+                    if base_val is None:
                         base_val = 0
-                        
-                    change = [v[1] - base_val for v in self.plot_change[port] if isinstance(v, (list, tuple)) and len(v) > 1]
                     
-                    # 데이터가 준비되면 그래프 업데이트
-                    if y and len(x) == len(y):
-                        self.plot_curve[port].setData(x, y)
+                    # 변화량 계산
+                    for point in self.plot_change[port]:
+                        if isinstance(point, (list, tuple)) and len(point) > 1:
+                            try:
+                                value = float(point[1])
+                                change_values.append(value - base_val)
+                            except (ValueError, TypeError):
+                                change_values.append(0)
+                        else:
+                            change_values.append(0)
+                
+                # 데이터가 준비되면 그래프 업데이트
+                if len(y_values) > 0 and len(x) == len(y_values):
+                    self.plot_curve[port].setData(x, y_values)
+                
+                if len(change_values) > 0 and len(x) == len(change_values):
+                    self.plot_curve_change[port].setData(x, change_values)
+                
+                # 실험 중일 때만 데이터 처리 및 테이블 업데이트
+                if self.aaaa and port in self.port_index:
+                    # 최신 값 표시
+                    value = -1
+                    if len(y_values) > 0:
+                        value = y_values[-1]
                     
-                    if change and len(x) == len(change):
-                        self.plot_curve_change[port].setData(x, change)
+                    # 테이블 업데이트
+                    location = self.port_index[port]
+                    self.sensor_table.setItem(0, location, QTableWidgetItem(str(value)))
                     
-                    # 실험 중일 때만 데이터 처리
-                    if self.aaaa:
-                        value = -1
-                        data = self.plot_data[port]
-                        if data and len(data) > 0 and isinstance(data[-1], (list, tuple)) and len(data[-1]) > 1:
-                            value = data[-1][1]
-                        location = self.port_index[port]
-                        self.sensor_table.setItem(0, location, QTableWidgetItem(str(value)))
-                        self.handle_serial_data(port, data)
-            except Exception as e:
-                print(f"그래프 업데이트 중 오류 발생 ({port}): {e}")
+                    # 데이터 저장 처리
+                    self.handle_serial_data(port, self.plot_data[port])
+        except Exception as e:
+            print(f"그래프 업데이트 중 오류 발생: {e}")
+            import traceback
+            traceback.print_exc()
 
     def handle_serial_data(self, port, data):
         if port not in self.port_index:
@@ -493,7 +532,10 @@ class Experiment(QWidget):
                 item.setText(str(prev_value))
 
         except Exception as e:
-            self.log_output.append(f"onCellChanged 오류: {e}")
+            print(f"onCellChanged 오류: {e}")
+            # 로그 출력 객체가 있는지 확인
+            if hasattr(self, 'log_output'):
+                self.log_output.append(f"onCellChanged 오류: {e}")
 
     def weightP(self):
         selected_items = self.weight_table.selectedItems()
