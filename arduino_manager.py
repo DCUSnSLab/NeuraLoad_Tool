@@ -8,6 +8,8 @@ import sys
 import random
 import datetime
 
+RAW_DATA_TEST_REPLAY = True # False 기존, True 임시값 전송
+
 def find_arduino_port():
     ports = serial.tools.list_ports.comports()
     for port in ports:
@@ -16,6 +18,9 @@ def find_arduino_port():
     return None
 
 def get_arduino_ports(DEBUG_MODE=False):
+    if RAW_DATA_TEST_REPLAY:
+        return [f"VCOM{i+1}" for i in range(4)]
+
     ports = serial.tools.list_ports.comports()
     ports = [
         port.device for port in ports
@@ -42,6 +47,10 @@ class SerialThread(QThread):
         self.weight_a = [0] * 9
 
     def run(self):
+        if RAW_DATA_TEST_REPLAY:
+            self._run_dummy()
+            return
+
         if not self.port:
             print("아두이노 포트를 찾을 수 없습니다.")
             return
@@ -53,25 +62,38 @@ class SerialThread(QThread):
                 timestamp = datetime.datetime.now().strftime("%H_%M_%S_%f")[:-3]
                 if data:
                     parts = data.split(',')
+                    if len(parts) < 3:
+                        continue
                     main_part = parts[0].strip()
                     sub_part1 = parts[1].strip()
                     sub_part2 = parts[2].strip()
 
                     if not main_part.isdigit():
-                        return
+                        continue
                     value = int(main_part)
 
-                    # print(value, self.databuf.qsize())
-                    # self.save(timestamp, value, sub_part1, sub_part2)
                     self.databuf.put((timestamp, value, sub_part1, sub_part2))
-
             self.msleep(1)
+
+    def _run_dummy(self):
+        try:
+            pidxGap = int(''.join(filter(str.isdigit, self.port))) - 1
+        except ValueError:
+            pidxGap = 0
+        while self.is_running:
+            timestamp = datetime.datetime.now().strftime("%H_%M_%S_%f")[:-3]
+            value = random.randint(400 + (pidxGap * 10), 450 + (pidxGap * 10))
+            sub_part1 = random.randint(400 + (pidxGap * 10), 450 + (pidxGap * 10))
+            sub_part2 = random.randint(400 + (pidxGap * 10), 450 + (pidxGap * 10))
+            self.databuf.put((timestamp, value, sub_part1, sub_part2))
+            self.msleep(100)
 
     def pause(self):
         self.is_paused = True
 
     def resume(self):
-        self.ser.flushInput()
+        if not RAW_DATA_TEST_REPLAY and hasattr(self, 'ser'):
+            self.ser.flushInput()
         self.is_paused = False
 
     def stop(self):
@@ -103,8 +125,11 @@ if __name__ == "__main__":
 
     threads = []
 
-    for port in get_arduino_ports():
-        thread = SerialThread(port=port)
+    for port in ports:
+        if RAW_DATA_TEST_REPLAY:
+            thread = SerialThread(port=port)
+        else:
+            thread = SerialThreadVirtual(port, ports) if port.startswith('V') else SerialThread(port=port)
         thread.start()
         threads.append(thread)
 
