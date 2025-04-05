@@ -8,7 +8,7 @@ import pyqtgraph as pg
 from collections import deque
 
 from GUIController import GUIController
-from arduino_manager import SerialManager, SerialThread, get_arduino_ports, SerialThreadVirtual
+from arduino_manager import SerialManager
 
 
 class Experiment(QWidget):
@@ -28,25 +28,31 @@ class Experiment(QWidget):
         self.aaaa = False
         self.save_graph_max = 500
         self.save_graph_min = 0
+
         self.port_comboboxes = {}
         self.port_column_index = {}
-
         self.port_location = {}
-        self.port_colors = {}
-
+        self.port_colors = {
+            'BottomLeft': 'r',
+            'TopRight': 'g',
+            'TopLeft': 'b',
+            'BottomRight': 'orange',
+            'IMU': 'yellow',
+            'etc': 'purple'
+        }
         self.plot_curve = {}
         self.plot_data = {}
         self.plot_curve_change = {}
         self.plot_change = {}
 
         self.startSerialManager()
-        # self.ports = get_arduino_ports(self.DEBUG_MODE)
         self.ports = self.serial_manager.ports
 
         self.setupUI()
         self.setup()
-
-        #self.startSerialThread()
+        
+        # 딕셔너리 초기화
+        self.initializePortData()
         self.startGUIThread()
 
         self.auto_save_timer = QTimer()
@@ -209,89 +215,125 @@ class Experiment(QWidget):
     def startSerialManager(self):
         self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE)
         self.serial_manager.start_threads()
-
-    def startSerialThread(self):
-        for i, port in enumerate(self.ports):
-            print('make Serial', i, port)
-            if port.startswith('V'):
-                thread = SerialThreadVirtual(port, self.ports)
-                thread.start()
-                self.threads.append(thread)
-            else:
-                thread = SerialThread(port)
-                thread.start()
-                self.threads.append(thread)
-
-        location_name = self.port_comboboxes[port].currentText().strip()
-        default_color = 'gray'
-        self.port_colors = {
-            'BottomLeft': 'r',
-            'TopRight': 'g',
-            'TopLeft': 'b',
-            'BottomRight': 'orange',
-            'IMU': 'yellow',
-            'etc': 'purple'
-        }
-
-        color = self.port_colors.get(location_name, default_color)
-
+        
+    def initializePortData(self):
+        # SerialManager의 포트 정보를 기반으로 데이터 딕셔너리 초기화
         for port in self.ports:
+            # 이미 초기화된 포트는 건너뛰기
+            if port in self.plot_data:
+                continue
+                
             self.plot_data[port] = deque(maxlen=300)
             self.plot_change[port] = deque(maxlen=300)
-            # color = self.port_colors.get(self.port_location[port])
-
-            self.plot_curve[port] = self.graph_value.plot()
-            self.plot_curve_change[port] = self.graph_change.plot()
-
+            
+            # 기본 색상 설정
+            default_color = 'gray'
+            location_name = self.port_comboboxes[port].currentText().strip() if port in self.port_comboboxes else ''
+            color = self.port_colors.get(location_name, default_color)
+            
+            # 그래프 요소 초기화
             self.plot_curve[port] = self.graph_value.plot(
                 pen=pg.mkPen(color=color, width=1),
                 name=location_name if location_name else port
             )
-
+            
             self.plot_curve_change[port] = self.graph_change.plot(
                 pen=pg.mkPen(color=color, width=1),
                 name=location_name if location_name else port
             )
+            
+            print(f"포트 초기화 완료: {port}")
 
-        for port in self.ports:
-            if len(self.plot_data[port]) > 0:
-                self.save_serial_data(port, self.plot_data[port])
+
     def startGUIThread(self):
         print('start GUIThread')
-        self.GUIThread = GUIController(self, self.threads)
+        # 쓰레드에 SerialManager의 쓰레드도 전달
+        self.GUIThread = GUIController(self, self.serial_manager.threads)
         self.GUIThread.plot_updated.connect(self.updateGraph)
         self.GUIThread.start()
 
-    def updateGraph(self):
+    def updateGraph(self, port=None):
         self.graph_change.getPlotItem().setYRange(min=self.save_graph_min, max=self.save_graph_max)
         self.graph_value.getPlotItem().setYRange(min=self.save_graph_min, max=self.save_graph_max)
         short_time = datetime.datetime.now().strftime("%M_%S_%f")[:-3]
 
-        for port in self.ports:
+        # 특정 포트만 업데이트하거나 모든 포트 업데이트
+        ports_to_update = [port] if port else self.ports
+
+        for port in ports_to_update:
+            # 포트가 plot_data에 초기화되어 있지 않으면 초기화
+            if port not in self.plot_data:
+                self.plot_data[port] = deque(maxlen=300)
+                self.plot_change[port] = deque(maxlen=300)
+                
+                # 그래프 요소도 없으면 초기화
+                if port not in self.plot_curve:
+                    default_color = 'gray'
+                    location_name = self.port_comboboxes[port].currentText().strip()
+                    color = self.port_colors.get(location_name, default_color)
+                    
+                    self.plot_curve[port] = self.graph_value.plot(
+                        pen=pg.mkPen(color=color, width=1),
+                        name=location_name if location_name else port
+                    )
+                    
+                    self.plot_curve_change[port] = self.graph_change.plot(
+                        pen=pg.mkPen(color=color, width=1),
+                        name=location_name if location_name else port
+                    )
+            
             if self.port_comboboxes[port].currentText().strip() == '':
                 continue
 
-            x = list(range(len(self.plot_data[port])))
-            # y = list(self.plot_data[port])
-            y = [v[1] for v in self.plot_data[port]]
+            # 데이터가 없으면 그래프 업데이트 건너뛰기
+            if not self.plot_data[port]:
+                continue
 
-            base_val = self.plot_change[port][0][1] if len(self.plot_change[port]) > 0 else 0
-            change = [v[1] - base_val for v in self.plot_change[port]]
-
-            self.plot_curve[port].setData(x, y)
-            self.plot_curve_change[port].setData(x, change)
-
-            if self.aaaa:
-                value = -1
-                data = self.plot_data[port]
-                if len(self.plot_data[port]) > 0:
-                    value = self.plot_data[port][-1][1]
-                location = self.port_index[port]
-                self.sensor_table.setItem(0, location, QTableWidgetItem(str(value)))
-                self.handle_serial_data(port, data)
+            try:
+                x = list(range(len(self.plot_data[port])))
+                
+                # 데이터 구조 안전하게 처리
+                if all(isinstance(item, (list, tuple)) and len(item) > 1 for item in self.plot_data[port]):
+                    y = [v[1] for v in self.plot_data[port]]
+                    
+                    # plot_change에 데이터가 있을 때만 기준값 사용
+                    if self.plot_change[port] and len(self.plot_change[port]) > 0:
+                        if isinstance(self.plot_change[port][0], (list, tuple)) and len(self.plot_change[port][0]) > 1:
+                            base_val = self.plot_change[port][0][1]
+                        else:
+                            base_val = 0
+                    else:
+                        base_val = 0
+                        
+                    change = [v[1] - base_val for v in self.plot_change[port] if isinstance(v, (list, tuple)) and len(v) > 1]
+                    
+                    # 데이터가 준비되면 그래프 업데이트
+                    if y and len(x) == len(y):
+                        self.plot_curve[port].setData(x, y)
+                    
+                    if change and len(x) == len(change):
+                        self.plot_curve_change[port].setData(x, change)
+                    
+                    # 실험 중일 때만 데이터 처리
+                    if self.aaaa:
+                        value = -1
+                        data = self.plot_data[port]
+                        if data and len(data) > 0 and isinstance(data[-1], (list, tuple)) and len(data[-1]) > 1:
+                            value = data[-1][1]
+                        location = self.port_index[port]
+                        self.sensor_table.setItem(0, location, QTableWidgetItem(str(value)))
+                        self.handle_serial_data(port, data)
+            except Exception as e:
+                print(f"그래프 업데이트 중 오류 발생 ({port}): {e}")
 
     def handle_serial_data(self, port, data):
         if port not in self.port_index:
+            return
+            
+        # data가 비어있는지 확인
+        if not data:
+            # 디버그 수준을 낮추기 위해 경고 출력 생략
+            # print(f"[정보] {port}에 대한 데이터가 아직 없습니다.")
             return
 
         os.makedirs("log", exist_ok=True)
@@ -314,42 +356,54 @@ class Experiment(QWidget):
         # data 가 deque 면 list 로 변환
         if isinstance(data, deque):
             data = list(data)
-        if not isinstance(data, list) or len(data) < 2:
+        if not isinstance(data, list) or len(data) < 1:
             print(f"[경고] 예상치 못한 데이터 형식 또는 길이 부족: {data}")
             return
-        last_point = data[-1]
-        if not isinstance(last_point, (list, tuple)) or len(last_point) < 4:
-            print(f"[경고] 잘못된 포맷: {last_point}")
-            return
-
-        timestamp_str = last_point[0]
+            
         try:
-            timestamp_int = int(timestamp_str.replace('_', ''))
-        except ValueError:
-            print(f"[경고] 타임스탬프 변환 실패: {timestamp_str}")
-            return
+            last_point = data[-1]
+            if not isinstance(last_point, (list, tuple)) or len(last_point) < 4:
+                print(f"[경고] 잘못된 포맷: {last_point}")
+                return
 
-        try:
-            value1 = float(last_point[1])
-            value2 = float(last_point[2])
-            value3 = float(last_point[3])
-        except (ValueError, IndexError):
-            print(f"[경고] 값 변환 실패: {last_point}")
-            return
+            timestamp_str = last_point[0]
+            try:
+                timestamp_int = int(timestamp_str.replace('_', ''))
+            except ValueError:
+                print(f"[경고] 타임스탬프 변환 실패: {timestamp_str}")
+                return
 
-        # 패킹
-        weight_bin = struct.pack('<9h', *self.weight_a)
-        name_bytes = name.encode('utf-8')[:16]
-        name_bin = name_bytes + b'\x00' * (16 - len(name_bytes))
-        values_bin = struct.pack('<fff', value1, value2, value3)
-        record = struct.pack('<I', timestamp_int) + weight_bin + direction_byte + name_bin + values_bin + state_flag
+            try:
+                value1 = float(last_point[1])
+                value2 = float(last_point[2])
+                value3 = float(last_point[3])
+            except (ValueError, IndexError):
+                print(f"[경고] 값 변환 실패: {last_point}")
+                return
+                
+            # 패킹 및 처리 코드
+            weight_bin = struct.pack('<9h', *self.weight_a)
+            name_bytes = name.encode('utf-8')[:16]
+            name_bin = name_bytes + b'\x00' * (16 - len(name_bytes))
+            values_bin = struct.pack('<fff', value1, value2, value3)
+            record = struct.pack('<I', timestamp_int) + weight_bin + direction_byte + name_bin + values_bin + state_flag
 
-        # 파일에 append
-        with open(file_path, 'ab') as f:
-            f.write(record)
+            # 파일에 append
+            with open(file_path, 'ab') as f:
+                f.write(record)
+        except Exception as e:
+            print(f"[오류] 데이터 처리 중 예외 발생: {e}")
+
+
 
     def save_serial_data(self, port, data):
         if port not in self.port_index:
+            return
+            
+        # 데이터가 비어있는지 확인
+        if not data:
+            # 디버그 수준을 낮추기 위해 경고 출력 생략
+            # print(f"[정보] {port}에 대한 저장할 데이터가 아직 없습니다.")
             return
 
         os.makedirs("log", exist_ok=True)
@@ -375,24 +429,29 @@ class Experiment(QWidget):
         # 데이터 포맷 정리
         if isinstance(data, deque):
             data = list(data)
-        if not isinstance(data, list) or len(data) < 2:
+        if not isinstance(data, list) or len(data) < 1:
             print(f"[경고] 예상치 못한 데이터 형식 또는 길이 부족: {data}")
             return
 
-        last_point = data[-1]
-        if not isinstance(last_point, (list, tuple)) or len(last_point) < 2:
-            print(f"[경고] 잘못된 포맷: {last_point}")
-            return
+        try:
+            last_point = data[-1]
+            if not isinstance(last_point, (list, tuple)) or len(last_point) < 2:
+                print(f"[경고] 잘못된 포맷: {last_point}")
+                return
 
-        timestamp = last_point[0]
-        value1 = float(last_point[1])
-        value2 = float(last_point[2])
-        value3 = float(last_point[3])
+            timestamp = last_point[0]
+            value1 = float(last_point[1])
+            value2 = float(last_point[2])
+            value3 = float(last_point[3])
+            
+            log_line = f"{timestamp}\t{self.weight_a}\t{direction}\t{name}\t{value1}\t{value2}\t{value3}\t{state_flag}\n"
+            if hasattr(self, "raw_data_file") and not self.raw_data_file.closed:
+                self.raw_data_file.write(log_line)
+                self.raw_data_file.flush()
+        except Exception as e:
+            print(f"[오류] 데이터 저장 중 예외 발생: {e}")
 
-        log_line = f"{timestamp}\t{self.weight_a}\t{direction}\t{name}\t{value1}\t{value2}\t{value3}\t{state_flag}\n"
-        if hasattr(self, "raw_data_file") and not self.raw_data_file.closed:
-            self.raw_data_file.write(log_line)
-            self.raw_data_file.flush()
+
 
     def stop(self):
         self.aaaa = True  # 전역 상태 갱신
