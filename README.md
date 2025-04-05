@@ -20,3 +20,8 @@ Q W E
 A S D
 
 Z X C
+
+### 알고리즘 구현 관련 내용 작성
+
+ - 사용할 모델 파일은 model 경로에 입력
+   - 이후 AlgorithmBase를 상속받아 작성한 각자의 클래스 생성자의 model_path에 해당 경로를 입력한다
