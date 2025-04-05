@@ -205,17 +205,6 @@ class Algorithm(QWidget):
                     except Exception as class_err:
                         self.log_output.append(f"클래스 {attr_name} 인스턴스화 실패: {str(class_err)}")
             
-            # AlgorithmBase를 상속한 클래스가 없으면, 기본적인 방식으로 다시 시도
-            for attr_name in dir(module):
-                attr = getattr(module, attr_name)
-                if isinstance(attr, type) and not attr_name.startswith('_'):
-                    try:
-                        instance = attr()
-                        self.log_output.append(f"클래스 {attr_name} 로드 완료 (비표준 구현)")
-                        return instance
-                    except Exception as class_err:
-                        self.log_output.append(f"클래스 {attr_name} 인스턴스화 실패: {str(class_err)}")
-            
             self.log_output.append(f"모듈 {module_name}에서 알고리즘 클래스를 찾을 수 없습니다.")
             return None
             
