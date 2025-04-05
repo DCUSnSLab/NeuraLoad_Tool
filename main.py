@@ -15,7 +15,7 @@ class Main(QWidget):
         self.tabs = QTabWidget()
 
         self.tab1 = Experiment()
-        self.tab2 = Algorithm()
+        self.tab2 = Algorithm(parent_experiment=self.tab1)
         self.tab3 = Analytics()
 
         self.tab1.add_subscriber(self.tab2)
