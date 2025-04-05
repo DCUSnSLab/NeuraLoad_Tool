@@ -375,17 +375,33 @@ class Algorithm(QWidget):
             data['laser_values'] = [600, 650, 600, 650]  # 더미 데이터
         
         return data
-    
+
     def display_results(self, results):
         """알고리즘 실행 결과 표시"""
         self.log_output.append("\n===== 알고리즘 실행 결과 =====")
-        
+
         if isinstance(results, dict):
+            # 무게와 위치 정보를 표에 추가
+            if 'weight' in results:
+                current_row = self.logging.rowCount()
+                self.logging.insertRow(current_row)
+                self.logging.setItem(current_row, 0, QTableWidgetItem(str(results['weight'])))
+
+                # position이 있으면 위치 탭에 추가
+                if 'position' in results:
+                    self.logging.setItem(current_row, 1, QTableWidgetItem(str(results['position'])))
+
+                # 종합 정보를 로그 탭에 추가
+                log_text = f"입력값: {results.get('input_values', 'N/A')}"
+                self.logging.setItem(current_row, 2, QTableWidgetItem(log_text))
+                self.logging.scrollToBottom()
+
+            # 전체 결과는 로그 출력에도 표시
             for key, value in results.items():
                 self.log_output.append(f"{key}: {value}")
         else:
             self.log_output.append(str(results))
-        
+
         self.log_output.append("==============================\n")
 
     def reset(self):
@@ -427,17 +443,11 @@ class Algorithm(QWidget):
         layout1.addLayout(btn_layout1)
         layout1.addWidget(self.logging)
 
-        layout2 = QVBoxLayout()
-        layout2.addWidget(self.sensor_table)
-        layout2.addWidget(self.graph_change)
-        layout2.addWidget(self.graph_value)
-
         layout3 = QVBoxLayout()
         layout3.addWidget(self.log_output)
 
         layout4 = QHBoxLayout()
         layout4.addLayout(layout1)
-        layout4.addLayout(layout2)
         layout4.addLayout(layout3)
 
         self.setLayout(layout4)
