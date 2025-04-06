@@ -1,4 +1,5 @@
 import os
+import copy
 from queue import Queue, Empty
 import serial
 import serial.tools.list_ports
@@ -124,7 +125,7 @@ class SerialThreadVirtual(SerialThread):
 
             # 현재 시간에 0~120ms 범위의 랜덤 오프셋 추가
             base_time = datetime.datetime.now()
-            offset_ms = random.randint(0, 100)
+            offset_ms = random.randint(0, 20)
             timestamp_dt = base_time + datetime.timedelta(milliseconds=offset_ms)
             # 타임스탬프 포맷: "HH_MM_SS_mmm"
             timestamp = timestamp_dt.strftime("%H_%M_%S_%f")[:-3]

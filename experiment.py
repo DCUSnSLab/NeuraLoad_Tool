@@ -12,8 +12,9 @@ from arduino_manager import SerialManager
 
 
 class Experiment(QWidget):
-    def __init__(self):
+    def __init__(self, serial_manager):
         super().__init__()
+        self.serial_manager = serial_manager
         self.DEBUG_MODE = True
         self.threads = []
         self.GUIThread = None
@@ -45,7 +46,6 @@ class Experiment(QWidget):
         self.plot_curve_change = {}
         self.plot_change = {}
 
-        self.startSerialManager()
         self.ports = self.serial_manager.ports
 
         self.setupUI()
@@ -214,10 +214,6 @@ class Experiment(QWidget):
 
         self.graph_text_min.clear()
         self.updateGraph()
-
-    def startSerialManager(self):
-        self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE)
-        self.serial_manager.start_threads()
         
     def initializePortData(self):
         # SerialManager의 포트 정보를 기반으로 데이터 딕셔너리 초기화

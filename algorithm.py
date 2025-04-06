@@ -1,3 +1,4 @@
+import copy
 import os
 import sys
 import importlib.util
@@ -10,10 +11,10 @@ from experiment import Experiment
 from AlgorithmInterface import AlgorithmBase
 
 class Algorithm(QWidget):
-    def __init__(self, parent_experiment=None):
+    def __init__(self, serial_manager):
         super().__init__()
+        self.serial_manager = serial_manager
         self.threads = []
-        self.ports = get_arduino_ports()
         self.port_location = {}
         self.port_colors = {}
         self.port_index = {}
@@ -21,43 +22,16 @@ class Algorithm(QWidget):
         self.plot_data = {}
         self.plot_curve_change = {}
         self.plot_change = {}
-        self.parent_experiment = parent_experiment  # 실험 클래스 참조 저장
 
         self.weight_a = [0] * 9
         self.selected_algorithm = None
         self.algorithm_instance = None
 
-        self.setting()
         self.setupUI()
         self.setup()
 
     def set_weight(self, weight):
         self.weight_a = weight.copy()
-
-    def setting(self):
-        for i, port in enumerate(self.ports):
-            if i == 0:
-                name = 'TopLeft'
-                color = 'r'
-            elif i == 1:
-                name = 'BottomLeft'
-                color = 'g'
-            elif i == 2:
-                name = 'LeftRight'
-                color = 'b'
-            elif i == 3:
-                name = 'RightLeft'
-                color = 'orange'
-            elif i == 4:
-                name = 'IMU'
-                color = 'yellow'
-            else:
-                name = ''
-                color = 'purple'
-
-            self.port_location[port] = name
-            self.port_colors[name] = color
-            self.port_index[port] = i
 
     def setupUI(self):
         self.algorithm_list = QWidget(self)
@@ -76,49 +50,6 @@ class Algorithm(QWidget):
 
         self.restart_btn = QPushButton('재시작(L)', self)
         self.restart_btn.clicked.connect(self.restart)
-
-        self.sensor_table = QTableWidget()
-        self.sensor_table.setColumnCount(len(self.ports))
-        self.sensor_table.setRowCount(1)
-        for i, port in enumerate(self.ports):
-            name = self.port_location.get(port, "")
-            self.sensor_table.setHorizontalHeaderItem(i, QTableWidgetItem(name))
-        self.sensor_table.setVerticalHeaderLabels(['value'])
-
-        self.logging = QTableWidget()
-        self.logging.setColumnCount(3)
-        self.logging.setHorizontalHeaderLabels(['무게', '위치', '로그'])
-        self.logging.setMinimumHeight(150)
-        self.logging.setMinimumWidth(150)
-        self.logging.horizontalHeader().setStretchLastSection(True)
-
-        self.graph_change = pg.PlotWidget()
-        self.graph_change.setTitle("Sensor Change")
-        self.graph_change.setLabel("left", "Change")
-        self.graph_change.setLabel("bottom", "Time")
-        self.graph_change.addLegend(offset=(30, 30))
-        self.graph_change.setMinimumWidth(500)
-
-        self.graph_value = pg.PlotWidget()
-        self.graph_value.setTitle("Sensor")
-        self.graph_value.setLabel("left", "Value")
-        self.graph_value.setLabel("bottom", "Time")
-        self.graph_value.setMinimumWidth(500)
-
-        for port in self.ports:
-            self.plot_data[port] = deque(maxlen=300)
-            self.plot_change[port] = deque(maxlen=300)
-            color = self.port_colors.get(self.port_location[port])
-
-            self.plot_curve[port] = self.graph_value.plot(
-                pen=pg.mkPen(color=color, width=1),
-                name=self.port_location.get(port, port)
-            )
-
-            self.plot_curve_change[port] = self.graph_change.plot(
-                pen=pg.mkPen(color=color, width=1),
-                name=self.port_location.get(port, port)
-            )
 
         self.log_output = QTextEdit()
         self.log_output.setReadOnly(True)
@@ -214,44 +145,6 @@ class Algorithm(QWidget):
             traceback.print_exc()
             return None
 
-    def update_data(self, port, data):
-        if port in self.port_index:
-            try:
-                # data가 문자열이면 직접 변환, 튜플이면 두 번째 요소 사용
-                if isinstance(data, tuple) and len(data) > 1:
-                    value = data[1]  # 튜플의 두 번째 요소(값) 추출
-                else:
-                    value = int(str(data).strip())
-                    
-                self.plot_data[port].append(value)
-                self.plot_change[port].append(value)
-
-                x = list(range(len(self.plot_data[port])))
-                y = list(self.plot_data[port])  
-
-                base_val = self.plot_change[port][0] if len(self.plot_change[port]) > 0 else 0
-                change = [v - base_val for v in self.plot_change[port]]
-
-                self.plot_curve[port].setData(x, y)
-                self.plot_curve_change[port].setData(x, change)
-
-                location = self.port_index[port]
-                self.sensor_table.setItem(0, location, QTableWidgetItem(str(value)))
-                
-                # 로깅 테이블에 정보 추가
-                current_row = self.logging.rowCount()
-                self.logging.insertRow(current_row)
-                self.logging.setItem(current_row, 0, QTableWidgetItem(str(self.weight_a)))
-
-                name = self.port_location.get(port, "")
-                self.logging.setItem(current_row, 1, QTableWidgetItem(name))
-
-                self.logging.setItem(current_row, 2, QTableWidgetItem(str(value)))
-                self.logging.scrollToBottom()
-                
-            except Exception as e:
-                print(f"알고리즘 탭 업데이트 중 오류: {e}")
-
     def start(self):
         """선택한 알고리즘 실행"""
         if not self.selected_algorithm:
@@ -267,41 +160,19 @@ class Algorithm(QWidget):
                 self.log_output.append("알고리즘 로드에 실패했습니다.")
                 return
         
-        # 알고리즘이 AlgorithmBase를 상속했는지 확인
-        if not isinstance(self.algorithm_instance, AlgorithmBase):
-            self.log_output.append("알고리즘이 AlgorithmBase를 상속하지 않아 표준 인터페이스를 사용할 수 없습니다.")
-            # 비표준 알고리즘 처리 시도
-            try:
-                # 센서 데이터 수집
-                input_data = self.collect_sensor_data()
-                
-                if not input_data:
-                    self.log_output.append("센서 데이터를 수집할 수 없습니다.")
-                    return
-                
-                # 비표준 알고리즘은 execute 메서드가 있는지 확인
-                if hasattr(self.algorithm_instance, 'execute'):
-                    results = self.algorithm_instance.execute(input_data)
-                    self.display_results(results)
-                else:
-                    self.log_output.append("알고리즘이 execute 메서드를 제공하지 않습니다.")
-            except Exception as e:
-                self.log_output.append(f"비표준 알고리즘 실행 중 오류 발생: {str(e)}")
-                import traceback
-                traceback.print_exc()
-            return
-        
         # 표준 AlgorithmBase를 상속한 알고리즘 실행
         try:
             # 센서 데이터 수집
             input_data = self.collect_sensor_data()
-            
+
             if not input_data:
                 self.log_output.append("센서 데이터를 수집할 수 없습니다.")
                 return
+
+            sorted_data = dict(sorted(input_data.items(), key=lambda x: x[0]))
             
             # 알고리즘 실행
-            results = self.algorithm_instance.execute(input_data)
+            results = self.algorithm_instance.execute(sorted_data)
             self.display_results(results)
             
             # 실행 이력 기록
@@ -322,71 +193,9 @@ class Algorithm(QWidget):
     def collect_sensor_data(self):
         """실험 클래스에서 센서 데이터 수집"""
         data = {}
-        
-        # parent_experiment가 있는 경우 데이터 수집
-        if self.parent_experiment and hasattr(self.parent_experiment, 'serial_manager'):
-            # SerialManager 인스턴스 접근
-            sm = self.parent_experiment.serial_manager
             
-            # 센서 데이터 수집 - 실시간 데이터 가져오기
-            laser_values = []
-            
-            # 캡체 가능한 데이터 최대한 수집
-            if hasattr(sm, 'threads'):
-                for thread in sm.threads:
-                    if hasattr(thread, 'databuf'):
-                        try:
-                            # 큐에 데이터가 있으면 가져오기
-                            if not thread.databuf.empty():
-                                data_point = thread.databuf.get()
-                                thread.databuf.put(data_point)  # 데이터 다시 넣기
-                                
-                                # 데이터 포인트에서 값 추출
-                                if isinstance(data_point, tuple) and len(data_point) > 1:
-                                    value = data_point[1]  # 두 번째 요소 (값)
-                                    laser_values.append(value)
-                            # 큐가 비어있더라도 캐싱된 값이 있는지 확인
-                            elif hasattr(self.parent_experiment, 'cached_sensor_data'):
-                                cached_data = self.parent_experiment.cached_sensor_data.get(thread.port)
-                                if cached_data is not None:
-                                    if isinstance(cached_data, tuple) and len(cached_data) > 1:
-                                        value = cached_data[1]
-                                    else:
-                                        value = cached_data
-                                    laser_values.append(value)
-                        except Exception as e:
-                            self.log_output.append(f"데이터 수집 중 오류: {str(e)}")
-            
-            # 마지막 방법 - 실험 클래스의 테이블 위젯에서 값 가져오기
-            if len(laser_values) < 1 and hasattr(self.parent_experiment, 'sensor_table'):
-                try:
-                    sensor_table = self.parent_experiment.sensor_table
-                    for col in range(sensor_table.columnCount()):
-                        item = sensor_table.item(0, col)
-                        if item is not None and item.text().strip():
-                            try:
-                                value = float(item.text().strip())
-                                laser_values.append(value)
-                            except ValueError:
-                                continue
-                except Exception as e:
-                    self.log_output.append(f"테이블에서 데이터 수집 중 오류: {str(e)}")
-            
-            # 필요한 레이저 값 수 확인
-            if len(laser_values) < 4:
-                # 부족한 값 0으로 채우기
-                laser_values.extend([0] * (4 - len(laser_values)))
-            elif len(laser_values) > 4:
-                # 초과 값 자르기
-                laser_values = laser_values[:4]
-            
-            data['laser_values'] = laser_values
-            self.log_output.append(f"수집된 센서 데이터: {laser_values}")
-        
-        # 데이터가 없는 경우 더미 데이터 생성
-        if not data:
-            self.log_output.append("더미 데이터를 사용합니다.")
-            data['laser_values'] = [600, 650, 600, 650]  # 더미 데이터
+        # 시리얼 매니저의 그룹화된 데이터 원소 수 확인 후 깊은 복사 수행
+        data = copy.deepcopy(self.serial_manager.getCandidate())
         
         return data
     
@@ -396,19 +205,6 @@ class Algorithm(QWidget):
         
         if isinstance(results, dict):
             # 무게와 위치 정보를 표에 추가
-            if 'weight' in results:
-                current_row = self.logging.rowCount()
-                self.logging.insertRow(current_row)
-                self.logging.setItem(current_row, 0, QTableWidgetItem(str(results['weight'])))
-                
-                # position이 있으면 위치 탭에 추가
-                if 'position' in results:
-                    self.logging.setItem(current_row, 1, QTableWidgetItem(str(results['position'])))
-                
-                # 종합 정보를 로그 탭에 추가
-                log_text = f"입력값: {results.get('input_values', 'N/A')}"
-                self.logging.setItem(current_row, 2, QTableWidgetItem(log_text))
-                self.logging.scrollToBottom()
             
             # 전체 결과는 로그 출력에도 표시
             for key, value in results.items():
@@ -455,12 +251,8 @@ class Algorithm(QWidget):
         layout1.addWidget(groupbox)
         layout1.addLayout(btn_layout)
         layout1.addLayout(btn_layout1)
-        layout1.addWidget(self.logging)
 
         layout2 = QVBoxLayout()
-        layout2.addWidget(self.sensor_table)
-        layout2.addWidget(self.graph_change)
-        layout2.addWidget(self.graph_value)
 
         layout3 = QVBoxLayout()
         layout3.addWidget(self.log_output)
