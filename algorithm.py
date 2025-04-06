@@ -1,3 +1,4 @@
+import copy
 import os
 import sys
 import importlib.util
@@ -267,41 +268,19 @@ class Algorithm(QWidget):
                 self.log_output.append("알고리즘 로드에 실패했습니다.")
                 return
         
-        # 알고리즘이 AlgorithmBase를 상속했는지 확인
-        if not isinstance(self.algorithm_instance, AlgorithmBase):
-            self.log_output.append("알고리즘이 AlgorithmBase를 상속하지 않아 표준 인터페이스를 사용할 수 없습니다.")
-            # 비표준 알고리즘 처리 시도
-            try:
-                # 센서 데이터 수집
-                input_data = self.collect_sensor_data()
-                
-                if not input_data:
-                    self.log_output.append("센서 데이터를 수집할 수 없습니다.")
-                    return
-                
-                # 비표준 알고리즘은 execute 메서드가 있는지 확인
-                if hasattr(self.algorithm_instance, 'execute'):
-                    results = self.algorithm_instance.execute(input_data)
-                    self.display_results(results)
-                else:
-                    self.log_output.append("알고리즘이 execute 메서드를 제공하지 않습니다.")
-            except Exception as e:
-                self.log_output.append(f"비표준 알고리즘 실행 중 오류 발생: {str(e)}")
-                import traceback
-                traceback.print_exc()
-            return
-        
         # 표준 AlgorithmBase를 상속한 알고리즘 실행
         try:
             # 센서 데이터 수집
             input_data = self.collect_sensor_data()
-            
+
             if not input_data:
                 self.log_output.append("센서 데이터를 수집할 수 없습니다.")
                 return
+
+            sorted_data = dict(sorted(input_data.items(), key=lambda x: x[0]))
             
             # 알고리즘 실행
-            results = self.algorithm_instance.execute(input_data)
+            results = self.algorithm_instance.execute(sorted_data)
             self.display_results(results)
             
             # 실행 이력 기록
@@ -328,65 +307,9 @@ class Algorithm(QWidget):
             # SerialManager 인스턴스 접근
             sm = self.parent_experiment.serial_manager
             
-            # 센서 데이터 수집 - 실시간 데이터 가져오기
-            laser_values = []
-            
-            # 캡체 가능한 데이터 최대한 수집
-            if hasattr(sm, 'threads'):
-                for thread in sm.threads:
-                    if hasattr(thread, 'databuf'):
-                        try:
-                            # 큐에 데이터가 있으면 가져오기
-                            if not thread.databuf.empty():
-                                data_point = thread.databuf.get()
-                                thread.databuf.put(data_point)  # 데이터 다시 넣기
-                                
-                                # 데이터 포인트에서 값 추출
-                                if isinstance(data_point, tuple) and len(data_point) > 1:
-                                    value = data_point[1]  # 두 번째 요소 (값)
-                                    laser_values.append(value)
-                            # 큐가 비어있더라도 캐싱된 값이 있는지 확인
-                            elif hasattr(self.parent_experiment, 'cached_sensor_data'):
-                                cached_data = self.parent_experiment.cached_sensor_data.get(thread.port)
-                                if cached_data is not None:
-                                    if isinstance(cached_data, tuple) and len(cached_data) > 1:
-                                        value = cached_data[1]
-                                    else:
-                                        value = cached_data
-                                    laser_values.append(value)
-                        except Exception as e:
-                            self.log_output.append(f"데이터 수집 중 오류: {str(e)}")
-            
-            # 마지막 방법 - 실험 클래스의 테이블 위젯에서 값 가져오기
-            if len(laser_values) < 1 and hasattr(self.parent_experiment, 'sensor_table'):
-                try:
-                    sensor_table = self.parent_experiment.sensor_table
-                    for col in range(sensor_table.columnCount()):
-                        item = sensor_table.item(0, col)
-                        if item is not None and item.text().strip():
-                            try:
-                                value = float(item.text().strip())
-                                laser_values.append(value)
-                            except ValueError:
-                                continue
-                except Exception as e:
-                    self.log_output.append(f"테이블에서 데이터 수집 중 오류: {str(e)}")
-            
-            # 필요한 레이저 값 수 확인
-            if len(laser_values) < 4:
-                # 부족한 값 0으로 채우기
-                laser_values.extend([0] * (4 - len(laser_values)))
-            elif len(laser_values) > 4:
-                # 초과 값 자르기
-                laser_values = laser_values[:4]
-            
-            data['laser_values'] = laser_values
-            self.log_output.append(f"수집된 센서 데이터: {laser_values}")
-        
-        # 데이터가 없는 경우 더미 데이터 생성
-        if not data:
-            self.log_output.append("더미 데이터를 사용합니다.")
-            data['laser_values'] = [600, 650, 600, 650]  # 더미 데이터
+            # 시리얼 매니저의 그룹화된 데이터 원소 수 확인 후 깊은 복사 수행
+            if len(sm.latest_candidate_window) == 4:
+                data = copy.deepcopy(sm.latest_candidate_window)
         
         return data
     

@@ -1,4 +1,5 @@
 import os
+import copy
 from queue import Queue
 import serial
 import serial.tools.list_ports
@@ -165,7 +166,7 @@ class SerialManager:
         """
         슬라이딩 윈도우를 실제 후보 그룹 내 최소/최대 타임스탬프 차이를 기준으로 판단하도록 수정합니다.
         """
-        candidate_window = {}  # 포트 번호 -> 최신 데이터 레코드
+        self.candidate_window = {}  # 포트 번호 -> 최신 데이터 레코드
 
         while True:
             # 각 스레드의 databuf에서 데이터 수집
@@ -208,22 +209,22 @@ class SerialManager:
                 cur_time = record["timestamp_dt"]
                 cur_port = record["Data_port_number"]
                 # 후보 윈도우에 현재 레코드 추가 (동일 포트이면 최신 데이터로 갱신)
-                candidate_window[cur_port] = record
+                self.candidate_window[cur_port] = record
 
                 # 후보 그룹의 최소, 최대 타임스탬프 계산
-                times = [rec["timestamp_dt"] for rec in candidate_window.values()]
+                times = [rec["timestamp_dt"] for rec in self.candidate_window.values()]
                 window_start = min(times)
                 window_end = max(times)
                 elapsed_ms = (window_end - window_start).total_seconds() * 1000
 
                 # 만약 전체 후보 그룹의 타임스탬프 범위가 window_ms를 초과하면
                 # 가장 오래된 데이터를 제거하여 윈도우를 슬라이딩 시킴
-                while elapsed_ms > self.window_ms and candidate_window:
+                while elapsed_ms > self.window_ms and self.candidate_window:
                     # 찾은 최소 타임스탬프를 가진 포트를 제거
-                    oldest_port = min(candidate_window, key=lambda p: candidate_window[p]["timestamp_dt"])
-                    del candidate_window[oldest_port]
-                    if candidate_window:
-                        times = [rec["timestamp_dt"] for rec in candidate_window.values()]
+                    oldest_port = min(self.candidate_window, key=lambda p: self.candidate_window[p]["timestamp_dt"])
+                    del self.candidate_window[oldest_port]
+                    if self.candidate_window:
+                        times = [rec["timestamp_dt"] for rec in self.candidate_window.values()]
                         window_start = min(times)
                         window_end = max(times)
                         elapsed_ms = (window_end - window_start).total_seconds() * 1000
@@ -231,23 +232,24 @@ class SerialManager:
                         break
 
                 # 모든 포트의 데이터가 포함되어 있고, 타임스탬프 범위가 window_ms 이내라면 그룹 처리
-                if set(candidate_window.keys()) == set(self.ports) and elapsed_ms <= self.window_ms:
-                    print("유효한 슬라이딩 윈도우 그룹 형성:")
-                    for port, rec in candidate_window.items():
+                if set(self.candidate_window.keys()) == set(self.ports) and elapsed_ms <= self.window_ms:
+                    # print("유효한 슬라이딩 윈도우 그룹 형성:")
+                    for port, rec in self.candidate_window.items():
                         print(f"{port}: {rec}")
-                    candidate_window = {}  # 그룹 처리 후 초기화
+                    self.latest_candidate_window = copy.deepcopy(self.candidate_window)
+                    self.candidate_window = {}  # 그룹 처리 후 초기화
 
             # 후보 윈도우에 남은 데이터도 주기적으로 확인 (원하는 경우 추가 처리 가능)
-            if candidate_window:
-                if set(candidate_window.keys()) == set(self.ports):
-                    print("유효한 슬라이딩 윈도우 그룹 형성 (후보 잔여):")
-                    for port, rec in candidate_window.items():
+            if self.candidate_window:
+                if set(self.candidate_window.keys()) == set(self.ports):
+                    # print("유효한 슬라이딩 윈도우 그룹 형성 (후보 잔여):")
+                    for port, rec in self.candidate_window.items():
                         print(f"{port}: {rec}")
                 else:
-                    print("윈도우 그룹 불완전 (후보 잔여). 포함된 포트:", set(candidate_window.keys()))
-                    for port, rec in candidate_window.items():
+                    # print("윈도우 그룹 불완전 (후보 잔여). 포함된 포트:", set(self.candidate_window.keys()))
+                    for port, rec in self.candidate_window.items():
                         print(f"{port}: {rec}")
-                    print("========================================")
+                    # print("========================================")
 
     def stop_threads(self):
         for thread in self.threads:
