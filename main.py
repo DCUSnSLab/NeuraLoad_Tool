@@ -15,14 +15,14 @@ class Main(QWidget):
         self.tabs = QTabWidget()
 
         self.tab1 = Experiment()
-        #self.tab2 = Algorithm()
+        self.tab2 = Algorithm()
         #self.tab3 = Analytics()
 
-        #self.tab1.add_subscriber(self.tab2)
+        self.tab1.add_subscriber(self.tab2)
         #self.tab1.add_subscriber(self.tab3)
 
         self.tabs.addTab(self.tab1, '실험')
-        #self.tabs.addTab(self.tab2, '알고리즘')
+        self.tabs.addTab(self.tab2, '알고리즘')
         #self.tabs.addTab(self.tab3, '분석')
 
         vbox = QVBoxLayout()

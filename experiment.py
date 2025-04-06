@@ -75,7 +75,6 @@ class Experiment(QWidget):
         self.sensor_table.setMinimumHeight(150)
         self.sensor_table.setMaximumWidth(1000)
         self.sensor_table.setMinimumWidth(500)
-
         self.save_file_box_log = QTableWidget()
         self.save_file_box_log.setColumnCount(1)
         self.save_file_box_log.setHorizontalHeaderLabels(['저장된 파일'])
@@ -87,10 +86,10 @@ class Experiment(QWidget):
         self.weight_table = QTableWidget(3, 3)
         self.weight_table.setHorizontalHeaderLabels([f"{i + 1}" for i in range(3)])
         self.weight_table.setVerticalHeaderLabels([f"{i + 1}" for i in range(3)])
-        self.weight_table.setMaximumHeight(200)
-        self.weight_table.setMinimumHeight(150)
-        self.weight_table.setMaximumWidth(500)
-        self.weight_table.setMinimumWidth(500)
+        # self.weight_table.setMaximumHeight(400)
+        # self.weight_table.setMinimumHeight(300)
+        # self.weight_table.setMaximumWidth(600)
+        # self.weight_table.setMinimumWidth(600)
         self.weight_table.installEventFilter(self)
         self.weight_table.cellChanged.connect(self.onCellChanged)
 
@@ -604,7 +603,7 @@ class Experiment(QWidget):
         layout_btn2.addWidget(self.weight_btn_z)
         layout_btn2.addLayout(layout_btn1)
         # layout_btn2.addWidget(self.save_btn)
-        layout_btn2.addWidget(self.save_file_box_log)
+        # layout_btn2.addWidget(self.save_file_box_log)
 
         layout1 = QHBoxLayout()
         # layout1.addWidget(self.logging)

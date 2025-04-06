@@ -6,53 +6,33 @@ import pyqtgraph as pg
 from collections import deque
 from arduino_manager import SerialThread, get_arduino_ports
 from experiment import Experiment
+from multiprocessing import Process, Queue
+import importlib.util
+from AlgorithmInterface import AlgorithmBase
+
+
+def run_algorithm_in_process(file_path, result_queue):
+    module_name = os.path.splitext(os.path.basename(file_path))[0]
+    spec = importlib.util.spec_from_file_location(module_name, file_path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    for name in dir(module):
+        obj = getattr(module, name)
+        if isinstance(obj, type) and issubclass(obj, AlgorithmBase) and obj is not AlgorithmBase:
+            instance = obj()
+            while True:
+                result = instance.execute()
+                result_queue.put(str(result))
 
 class Algorithm(QWidget):
     def __init__(self):
         super().__init__()
         self.threads = []
         self.ports = get_arduino_ports()
-        self.port_location = {}
-        self.port_colors = {}
-        self.port_index = {}
-        self.plot_curve = {}
-        self.plot_data = {}
-        self.plot_curve_change = {}
-        self.plot_change = {}
-
-        self.weight_a = [0] * 9
-
-        self.setting()
+        self.select_file = []
         self.setupUI()
         self.setup()
-
-    def set_weight(self, weight):
-        self.weight_a = weight.copy()
-
-    def setting(self):
-        for i, port in enumerate(self.ports):
-            if i == 0:
-                name = 'TopLeft'
-                color = 'r'
-            elif i == 1:
-                name = 'BottomLeft'
-                color = 'g'
-            elif i == 2:
-                name = 'LeftRight'
-                color = 'b'
-            elif i == 3:
-                name = 'RightLeft'
-                color = 'orange'
-            elif i == 4:
-                name = 'IMU'
-                color = 'yellow'
-            else:
-                name = ''
-                color = 'purple'
-
-            self.port_location[port] = name
-            self.port_colors[name] = color
-            self.port_index[port] = i
 
     def setupUI(self):
         self.algorithm_list = QWidget(self)
@@ -66,58 +46,25 @@ class Algorithm(QWidget):
         self.reset_btn = QPushButton('리셋', self)
         self.reset_btn.clicked.connect(self.reset)
 
-        self.stop_btn = QPushButton('정지(K)', self)
-        self.stop_btn.clicked.connect(self.stop)
+        self.file_name = QLabel()
+        self.file_name.setText("실행 중: 없음")
 
-        self.restart_btn = QPushButton('재시작(L)', self)
-        self.restart_btn.clicked.connect(self.restart)
+        self.result_label = QLabel()
+        self.result_label.setText(" - ")
 
-        self.sensor_table = QTableWidget()
-        self.sensor_table.setColumnCount(len(self.ports))
-        self.sensor_table.setRowCount(1)
-        for i, port in enumerate(self.ports):
-            name = self.port_location.get(port, "")
-            self.sensor_table.setHorizontalHeaderItem(i, QTableWidgetItem(name))
-        self.sensor_table.setVerticalHeaderLabels(['value'])
+        # self.stop_btn = QPushButton('정지(K)', self)
+        # self.stop_btn.clicked.connect(self.stop)
 
-        self.logging = QTableWidget()
-        self.logging.setColumnCount(3)
-        self.logging.setHorizontalHeaderLabels(['무게', '위치', '로그'])
-        self.logging.setMinimumHeight(150)
-        self.logging.setMinimumWidth(150)
-        self.logging.horizontalHeader().setStretchLastSection(True)
+        # self.restart_btn = QPushButton('재시작(L)', self)
+        # self.restart_btn.clicked.connect(self.restart)
 
-        self.graph_change = pg.PlotWidget()
-        self.graph_change.setTitle("Sensor Change")
-        self.graph_change.setLabel("left", "Change")
-        self.graph_change.setLabel("bottom", "Time")
-        self.graph_change.addLegend(offset=(30, 30))
-        self.graph_change.setMinimumWidth(500)
+        # self.sensor_table = QTableWidget()
+        # self.sensor_table.setColumnCount(len(self.ports))
+        # self.sensor_table.setRowCount(1)
+        # for i, port in enumerate(self.ports):
+        #     self.sensor_table.setHorizontalHeaderItem(i, QTableWidgetItem(name))
+        # self.sensor_table.setVerticalHeaderLabels(['value'])
 
-        self.graph_value = pg.PlotWidget()
-        self.graph_value.setTitle("Sensor")
-        self.graph_value.setLabel("left", "Value")
-        self.graph_value.setLabel("bottom", "Time")
-        self.graph_value.setMinimumWidth(500)
-
-        for port in self.ports:
-            self.plot_data[port] = deque(maxlen=300)
-            self.plot_change[port] = deque(maxlen=300)
-            color = self.port_colors.get(self.port_location[port])
-
-            self.plot_curve[port] = self.graph_value.plot(
-                pen=pg.mkPen(color=color, width=1),
-                name=self.port_location.get(port, port)
-            )
-
-            self.plot_curve_change[port] = self.graph_change.plot(
-                pen=pg.mkPen(color=color, width=1),
-                name=self.port_location.get(port, port)
-            )
-
-        self.log_output = QTextEdit()
-        self.log_output.setReadOnly(True)
-        self.log_output.setStyleSheet("background-color: #F2F2F2;")
 
     def load_files(self):
         folder = os.path.join(os.getcwd(), 'Algorithm')
@@ -138,54 +85,72 @@ class Algorithm(QWidget):
             child = self.left_layout.takeAt(0)
             if child.widget():
                 child.widget().deleteLater()
-
-    def update_data(self, port, data):
-        if port in self.port_index:
-            try:
-                value = int(data.strip())
-            except ValueError:
-                return
-
-            self.plot_data[port].append(value)
-            self.plot_change[port].append(value)
-
-            x = list(range(len(self.plot_data[port])))
-            y = list(self.plot_data[port])
-
-            base_val = self.plot_change[port][0] if len(self.plot_change[port]) > 0 else 0
-            change = [v - base_val for v in self.plot_change[port]]
-
-            self.plot_curve[port].setData(x, y)
-            self.plot_curve_change[port].setData(x, change)
-
-            location = self.port_index[port]
-            self.sensor_table.setItem(0, location, QTableWidgetItem(data))
-
-            current_row = self.logging.rowCount()
-            self.logging.insertRow(current_row)
-            self.logging.setItem(current_row, 0, QTableWidgetItem(str(self.weight_a)))
-
-            name = self.port_location.get(port, "")
-            self.logging.setItem(current_row, 1, QTableWidgetItem(name))
-
-            self.logging.setItem(current_row, 2, QTableWidgetItem(data))
-            self.logging.scrollToBottom()
+                self.select_file.clear()
 
     def start(self):
-        pass
+        self.select_file.clear()
+        selected_names = []
+
+        for checkbox, (file_name, full_path) in zip(self.checkboxes, self.files):
+            if checkbox.isChecked():
+                selected_names.append(file_name)
+
+                # ✅ 큐 생성 및 저장
+                self.result_queue = Queue()
+
+                # ✅ 프로세스 실행 시 큐 전달
+                p = Process(target=run_algorithm_in_process, args=(full_path, self.result_queue))
+                p.start()
+                self.threads.append(p)
+
+                self.file_name.setText(", ".join(selected_names) + " 실행 결과:")
+
+                # ✅ GUI에서 주기적으로 큐 확인
+                self.timer = QTimer()
+                self.timer.timeout.connect(self.update_result)
+                self.timer.start(500)
 
     def reset(self):
         for checkbox in self.checkboxes:
             checkbox.setChecked(False)
 
-    def stop(self):
-        for thread in self.threads:
-            thread.pause()
-        QCoreApplication.processEvents()
+        for p in self.threads:
+            if p.is_alive():
+                p.terminate()
+                p.join()
+        self.threads.clear()
+        if hasattr(self, 'timer'):
+            self.timer.stop()
 
-    def restart(self):
-        for thread in self.threads:
-            thread.resume()
+        self.file_name.setText("실행 중: 없음")
+        self.result_label.setText(" - ")
+
+    def update_result(self):
+        if self.result_queue and not self.result_queue.empty():
+            result = self.result_queue.get()
+            self.result_label.setText(result)
+
+    def closeEvent(self, event):
+        # 창 닫힐 때 백그라운드 프로세스 모두 정리
+        for p in self.threads:
+            if p.is_alive():
+                p.terminate()
+                p.join()
+        self.threads.clear()
+
+        if hasattr(self, 'timer'):
+            self.timer.stop()
+
+        event.accept()  # 창 닫기 허용
+
+    # def stop(self):
+    #     for thread in self.threads:
+    #         thread.pause()
+    #     QCoreApplication.processEvents()
+
+    # def restart(self):
+    #     for thread in self.threads:
+    #         thread.resume()
 
     def setup(self):
         layout = QVBoxLayout()
@@ -198,32 +163,28 @@ class Algorithm(QWidget):
         btn_layout.addWidget(self.start_btn)
         btn_layout.addWidget(self.reset_btn)
 
-        btn_layout1 = QHBoxLayout()
-        btn_layout1.addWidget(self.stop_btn)
-        btn_layout1.addWidget(self.restart_btn)
+        # btn_layout1 = QHBoxLayout()
+        # btn_layout1.addWidget(self.stop_btn)
+        # btn_layout1.addWidget(self.restart_btn)
 
         layout1 = QVBoxLayout()
         layout1.addWidget(groupbox)
         layout1.addLayout(btn_layout)
-        layout1.addLayout(btn_layout1)
-        layout1.addWidget(self.logging)
+        # layout1.addLayout(btn_layout1)
 
-        layout2 = QVBoxLayout()
-        layout2.addWidget(self.sensor_table)
-        layout2.addWidget(self.graph_change)
-        layout2.addWidget(self.graph_value)
-
-        layout3 = QVBoxLayout()
-        layout3.addWidget(self.log_output)
+        layout3 = QHBoxLayout()
+        layout3.addWidget(self.file_name)
+        layout3.addWidget(self.result_label)
 
         layout4 = QHBoxLayout()
         layout4.addLayout(layout1)
-        layout4.addLayout(layout2)
+        # layout4.addWidget(self.sensor_table)
         layout4.addLayout(layout3)
 
         self.setLayout(layout4)
 
 if __name__ == '__main__':
+   Process.freeze_support()
    app = QApplication(sys.argv)
    ex = Algorithm()
    sys.exit(app.exec_())
