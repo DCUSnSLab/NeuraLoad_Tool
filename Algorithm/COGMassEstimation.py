@@ -31,6 +31,8 @@ class COGMassEstimation(AlgorithmBase):
         }
         self.laser_changes = {i: [] for i in range(4)}
 
+        self.input_data.append("value")
+
     def preprocess_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         if 'laser_values' not in data or len(data['laser_values']) != 4:
             return {'error': '4개의 레이저 변화량이 필요합니다'}
@@ -44,10 +46,10 @@ class COGMassEstimation(AlgorithmBase):
             return {'error': '모든 포트의 변화량이 입력되지 않았습니다'}
 
     def calculate_cog_ratios(self):
-        top_left = sum(self.laser_changes[0]) / len(self.laser_changes[0]) if self.laser_changes[0] else 0
-        top_right = sum(self.laser_changes[2]) / len(self.laser_changes[2]) if self.laser_changes[2] else 0
-        bottom_left = sum(self.laser_changes[1]) / len(self.laser_changes[1]) if self.laser_changes[1] else 0
-        bottom_right = sum(self.laser_changes[3]) / len(self.laser_changes[3]) if self.laser_changes[3] else 0
+        top_left = sum(self.refined_data[0]) / len(self.refined_data[0]) if self.refined_data[0] else 0
+        top_right = sum(self.refined_data[2]) / len(self.refined_data[2]) if self.refined_data[2] else 0
+        bottom_left = sum(self.refined_data[1]) / len(self.refined_data[1]) if self.refined_data[1] else 0
+        bottom_right = sum(self.refined_data[3]) / len(self.refined_data[3]) if self.refined_data[3] else 0
 
         vcog = top_left / (top_left + bottom_left) if (top_left + bottom_left) != 0 else 0
         hcog = top_left / (top_left + top_right) if (top_left + top_right) != 0 else 0
@@ -95,8 +97,6 @@ class COGMassEstimation(AlgorithmBase):
         return None
 
     def process(self) -> Dict[str, Any]:
-        if 'error' in self.input_data:
-            return self.input_data
 
         location = self.determine_loading_position()
         estimated_weight = self.calculate_weight_estimation(location)
@@ -107,15 +107,13 @@ class COGMassEstimation(AlgorithmBase):
         }
 
     def execute(self, input_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        self.data = input_data
+        # 알고리즘 별 입력 데이터 정의에 따라 후처리 수행
+        self.preprocessing()
+
         try:
             self.is_running = True
             start_time = time.time()
-
-            if input_data:
-                self.input_data = self.preprocess_data(input_data)
-
-            if 'error' in self.input_data:
-                return self.input_data
 
             result = self.process()
             self.output_data = result

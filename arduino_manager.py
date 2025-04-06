@@ -1,4 +1,5 @@
 import os
+import copy
 from queue import Queue
 import serial
 import serial.tools.list_ports
@@ -10,9 +11,6 @@ import datetime
 from threading import Thread, Lock
 import time
 
-
-RAW_DATA_TEST_REPLAY = True # False 기존, True 임시값 전송
-
 def find_arduino_port():
     ports = serial.tools.list_ports.comports()
     for port in ports:
@@ -22,20 +20,17 @@ def find_arduino_port():
 
 
 def get_arduino_ports(DEBUG_MODE=False):
-    if RAW_DATA_TEST_REPLAY:
-        return [f"VCOM{i + 1}" for i in range(4)]
-
+    print("get_arduino_ports")
     ports = serial.tools.list_ports.comports()
     ports = [
         port.device for port in ports
         if any(keyword in port.description for keyword in ["Arduino", "USB", "CH340", "Serial", "wch"])
     ]
-
+    print('DEG = ', DEBUG_MODE)
     if DEBUG_MODE:
         remainNumofPort = 4 - len(ports)
-        if len(ports) != 0 and remainNumofPort > 0:
-            for i in range(remainNumofPort):
-                ports.append('VCOM' + str(i + 1))
+        for i in range(remainNumofPort):
+            ports.append('VCOM' + str(i + 1))
         print('Port, ', ports)
     return ports
 
@@ -52,10 +47,6 @@ class SerialThread(QThread):
         self.weight_a = [0] * 9
 
     def run(self):
-        if RAW_DATA_TEST_REPLAY:
-            self._run_dummy()
-            return
-
         if not self.port:
             print("아두이노 포트를 찾을 수 없습니다.")
             return
@@ -80,24 +71,11 @@ class SerialThread(QThread):
                     self.databuf.put((timestamp, value, sub_part1, sub_part2))
             self.msleep(1)
 
-    def _run_dummy(self):
-        try:
-            pidxGap = int(''.join(filter(str.isdigit, self.port))) - 1
-        except ValueError:
-            pidxGap = 0
-        while self.is_running:
-            timestamp = datetime.datetime.now().strftime("%H_%M_%S_%f")[:-3]
-            value = random.randint(400 + (pidxGap * 10), 450 + (pidxGap * 10))
-            sub_part1 = random.randint(400 + (pidxGap * 10), 450 + (pidxGap * 10))
-            sub_part2 = random.randint(400 + (pidxGap * 10), 450 + (pidxGap * 10))
-            self.databuf.put((timestamp, value, sub_part1, sub_part2))
-            self.msleep(100)
-
     def pause(self):
         self.is_paused = True
 
     def resume(self):
-        if not RAW_DATA_TEST_REPLAY and hasattr(self, 'ser'):
+        if hasattr(self, 'ser'):
             self.ser.flushInput()
         self.is_paused = False
 
@@ -150,6 +128,7 @@ class SerialManager:
         self.sliding_thread = Thread(target=self.process_sliding_window, daemon=True)
 
     def start_threads(self):
+        print("start_threads call")
         for i, port in enumerate(self.ports):
             print('make Serial', i, port)
             if port.startswith('V'):
@@ -165,7 +144,7 @@ class SerialManager:
         """
         슬라이딩 윈도우를 실제 후보 그룹 내 최소/최대 타임스탬프 차이를 기준으로 판단하도록 수정합니다.
         """
-        candidate_window = {}  # 포트 번호 -> 최신 데이터 레코드
+        self.candidate_window = {}  # 포트 번호 -> 최신 데이터 레코드
 
         while True:
             # 각 스레드의 databuf에서 데이터 수집
@@ -208,22 +187,22 @@ class SerialManager:
                 cur_time = record["timestamp_dt"]
                 cur_port = record["Data_port_number"]
                 # 후보 윈도우에 현재 레코드 추가 (동일 포트이면 최신 데이터로 갱신)
-                candidate_window[cur_port] = record
+                self.candidate_window[cur_port] = record
 
                 # 후보 그룹의 최소, 최대 타임스탬프 계산
-                times = [rec["timestamp_dt"] for rec in candidate_window.values()]
+                times = [rec["timestamp_dt"] for rec in self.candidate_window.values()]
                 window_start = min(times)
                 window_end = max(times)
                 elapsed_ms = (window_end - window_start).total_seconds() * 1000
 
                 # 만약 전체 후보 그룹의 타임스탬프 범위가 window_ms를 초과하면
                 # 가장 오래된 데이터를 제거하여 윈도우를 슬라이딩 시킴
-                while elapsed_ms > self.window_ms and candidate_window:
+                while elapsed_ms > self.window_ms and self.candidate_window:
                     # 찾은 최소 타임스탬프를 가진 포트를 제거
-                    oldest_port = min(candidate_window, key=lambda p: candidate_window[p]["timestamp_dt"])
-                    del candidate_window[oldest_port]
-                    if candidate_window:
-                        times = [rec["timestamp_dt"] for rec in candidate_window.values()]
+                    oldest_port = min(self.candidate_window, key=lambda p: self.candidate_window[p]["timestamp_dt"])
+                    del self.candidate_window[oldest_port]
+                    if self.candidate_window:
+                        times = [rec["timestamp_dt"] for rec in self.candidate_window.values()]
                         window_start = min(times)
                         window_end = max(times)
                         elapsed_ms = (window_end - window_start).total_seconds() * 1000
@@ -231,23 +210,28 @@ class SerialManager:
                         break
 
                 # 모든 포트의 데이터가 포함되어 있고, 타임스탬프 범위가 window_ms 이내라면 그룹 처리
-                if set(candidate_window.keys()) == set(self.ports) and elapsed_ms <= self.window_ms:
-                    print("유효한 슬라이딩 윈도우 그룹 형성:")
-                    for port, rec in candidate_window.items():
+                if set(self.candidate_window.keys()) == set(self.ports) and elapsed_ms <= self.window_ms:
+                    # print("유효한 슬라이딩 윈도우 그룹 형성:")
+                    for port, rec in self.candidate_window.items():
                         print(f"{port}: {rec}")
-                    candidate_window = {}  # 그룹 처리 후 초기화
+                    self.latest_candidate_window = copy.deepcopy(self.candidate_window)
+                    self.candidate_window = {}  # 그룹 처리 후 초기화
 
             # 후보 윈도우에 남은 데이터도 주기적으로 확인 (원하는 경우 추가 처리 가능)
-            if candidate_window:
-                if set(candidate_window.keys()) == set(self.ports):
-                    print("유효한 슬라이딩 윈도우 그룹 형성 (후보 잔여):")
-                    for port, rec in candidate_window.items():
+            if self.candidate_window:
+                if set(self.candidate_window.keys()) == set(self.ports):
+                    # print("유효한 슬라이딩 윈도우 그룹 형성 (후보 잔여):")
+                    for port, rec in self.candidate_window.items():
                         print(f"{port}: {rec}")
                 else:
-                    print("윈도우 그룹 불완전 (후보 잔여). 포함된 포트:", set(candidate_window.keys()))
-                    for port, rec in candidate_window.items():
+                    # print("윈도우 그룹 불완전 (후보 잔여). 포함된 포트:", set(self.candidate_window.keys()))
+                    for port, rec in self.candidate_window.items():
                         print(f"{port}: {rec}")
-                    print("========================================")
+                    # print("========================================")
+
+    def getCandidate(self):
+        if len(self.latest_candidate_window) == 4:
+            return self.latest_candidate_window
 
     def stop_threads(self):
         for thread in self.threads:

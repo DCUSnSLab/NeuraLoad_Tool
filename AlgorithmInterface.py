@@ -24,7 +24,7 @@ class AlgorithmBase(ABC):
         self.name = name
         self.description = description
         self.model_path = model_path
-        self.input_data = {}
+        self.input_data = []
         self.output_data = {}
         self.execution_time = 0
         self.is_running = False
@@ -71,9 +71,6 @@ class AlgorithmBase(ABC):
         """
         알고리즘 실행
 
-        Args:
-            input_data: 입력 데이터 (선택 사항)
-
         Returns:
             알고리즘 실행 결과
         """
@@ -108,6 +105,13 @@ class AlgorithmBase(ABC):
             raise
         finally:
             self.is_running = False
+
+    def preprocessing(self):
+        self.refined_data = []
+
+        for key, value in self.data.items():
+            for val in self.input_data:
+                self.refined_data.append(value[str(val)])
 
     def clear_data(self) -> None:
         """입력 및 출력 데이터 초기화"""
