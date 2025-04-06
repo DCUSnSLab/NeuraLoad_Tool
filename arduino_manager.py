@@ -1,14 +1,16 @@
 import os
-from queue import Queue
+from queue import Queue, Empty
 import serial
 import serial.tools.list_ports
-from PyQt5.QtCore import QThread, pyqtSignal
+from PyQt5.QtCore import QThread, pyqtSignal, QCoreApplication, QTimer
 from PyQt5.QtWidgets import QApplication
 import sys
 import random
 import datetime
 from threading import Thread, Lock
 import time
+import threading
+
 
 
 RAW_DATA_TEST_REPLAY = True # False 기존, True 임시값 전송
@@ -122,7 +124,7 @@ class SerialThreadVirtual(SerialThread):
 
             # 현재 시간에 0~120ms 범위의 랜덤 오프셋 추가
             base_time = datetime.datetime.now()
-            offset_ms = random.randint(0, 20)
+            offset_ms = random.randint(0, 100)
             timestamp_dt = base_time + datetime.timedelta(milliseconds=offset_ms)
             # 타임스탬프 포맷: "HH_MM_SS_mmm"
             timestamp = timestamp_dt.strftime("%H_%M_%S_%f")[:-3]
@@ -136,126 +138,135 @@ class SerialThreadVirtual(SerialThread):
 
 class SerialManager:
     """
-    디버그 모드 여부에 따라 각 포트를 처리하는 스레드를 생성하고,
-    각 스레드에서 발생한 데이터를 중앙에서 모아 슬라이딩 윈도우 방식으로 그룹화합니다.
-    """
-    def __init__(self, debug_mode=False, window_ms=100):
-        self.debug_mode = debug_mode
-        self.ports = get_arduino_ports(DEBUG_MODE=self.debug_mode)
-        self.threads = []
-        self.window_ms = window_ms  # 슬라이딩 윈도우 기간 (밀리초)
-        self.all_data = []  # 모든 데이터를 모으는 중앙 버퍼
-        self.all_data_lock = Lock()  # 공유 버퍼 보호를 위한 Lock
-        # 슬라이딩 윈도우 처리를 위한 별도 스레드 생성
-        self.sliding_thread = Thread(target=self.process_sliding_window, daemon=True)
+    ROS의 ApproximateTimeSynchronizer와 유사하게 4개의 센서(SerialThreadVirtual)에서 발생하는 데이터를 동기화합니다.
 
-    def start_threads(self):
-        for i, port in enumerate(self.ports):
-            print('make Serial', i, port)
-            if port.startswith('V'):
-                thread = SerialThreadVirtual(port, self.ports)
-            else:
-                thread = SerialThread(port)
+    각 센서에서 발생한 데이터는 다음 딕셔너리 형식으로 저장됩니다.
+      {
+          "timestamp": 원래 문자열 (예: "15_17_48_666"),
+          "value": 센서 값,
+          "sub1": 추가 센서 값,
+          "sub2": 추가 센서 값,
+          "Data_port_number": 센서 이름 (예: "VCOM1"),
+          "timestamp_dt": datetime 객체 (오늘 날짜 기준)
+      }
+
+    동기화 알고리즘은 각 센서 버퍼에서 가장 오래된 메시지를 후보로 삼아,
+    후보들 간의 타임스탬프 차이가 설정한 slop(초) 이하이면 동기화된 그룹으로 인정합니다.
+    동기화된 그룹은 self.candidate_window 변수에 저장되고, callback 함수가 있으면 호출됩니다.
+    """
+
+    def __init__(self, sensor_ids=None, slop=0.1, callback=None):
+        """
+        sensor_ids: 센서 이름 리스트 (예: ["VCOM1", "VCOM2", "VCOM3", "VCOM4"])
+        slop: 허용 오차 (초 단위)
+        callback: 동기화된 그룹이 형성되면 호출할 함수 (예: sync_callback)
+        """
+        # self.sensor_ids = sensor_ids
+        if sensor_ids is None:
+            sensor_ids = get_arduino_ports(True)
+        self.sensor_ids = sensor_ids
+        self.slop = slop  # 초 단위 허용 오차
+        self.callback = callback
+        self.buffers = {sid: [] for sid in sensor_ids}
+        self.lock = threading.Lock()
+        self.candidate_window = {}  # 동기화된 그룹 저장
+
+        # 각 센서별 스레드 생성 및 실행
+        self.threads = []
+        for sid in sensor_ids:
+            thread = SerialThreadVirtual(sid, sensor_ids)
             thread.start()
             self.threads.append(thread)
-            print(f"Started thread for port: {port}")
-        self.sliding_thread.start()
 
-    def process_sliding_window(self):
-        """
-        슬라이딩 윈도우를 실제 후보 그룹 내 최소/최대 타임스탬프 차이를 기준으로 판단하도록 수정합니다.
-        """
-        candidate_window = {}  # 포트 번호 -> 최신 데이터 레코드
+        # 별도의 폴링 스레드에서 센서 스레드의 데이터를 버퍼에 저장
+        self.poll_thread = threading.Thread(target=self.poll_sensors, daemon=True)
+        self.poll_thread.start()
 
+    def poll_sensors(self):
+        """
+        각 센서 스레드의 databuf에서 데이터를 읽어와서,
+        각 센서별 버퍼(self.buffers)에 저장하고 동기화를 시도합니다.
+        """
         while True:
-            # 각 스레드의 databuf에서 데이터 수집
             for thread in self.threads:
-                while not thread.databuf.empty():
-                    data_packet = thread.databuf.get()
-                    # 데이터_packet: (timestamp, value, sub1, sub2)
-                    with self.all_data_lock:
-                        self.all_data.append({
-                            "timestamp": data_packet[0],
-                            "value": data_packet[1],
-                            "sub1": data_packet[2],
-                            "sub2": data_packet[3],
-                            "Data_port_number": thread.port
-                        })
-            # 안전하게 데이터를 복사하고 원본 버퍼 초기화
-            with self.all_data_lock:
-                data_copy = self.all_data[:]  # 항상 data_copy를 빈 리스트 또는 복사된 리스트로 초기화
-                self.all_data = []
-            if not data_copy:
-                time.sleep(0.05)
-                continue
-
-            # 각 데이터의 타임스탬프를 datetime 객체로 변환
-            for row in data_copy:
                 try:
-                    ts_parts = row["timestamp"].split('_')
-                    if len(ts_parts) == 4:
-                        formatted_ts = f"{ts_parts[0]}:{ts_parts[1]}:{ts_parts[2]}.{ts_parts[3]}"
-                    else:
-                        formatted_ts = row["timestamp"]
-                    today = datetime.datetime.now().strftime("%Y-%m-%d")
-                    row["timestamp_dt"] = datetime.datetime.strptime(today + " " + formatted_ts, "%Y-%m-%d %H:%M:%S.%f")
-                except Exception as e:
-                    print("타임스탬프 파싱 오류:", e)
-            # 시간순 정렬
-            data_copy.sort(key=lambda x: x["timestamp_dt"])
+                    while True:
+                        # 데이터 형식: (timestamp, value, sub1, sub2)
+                        msg = thread.databuf.get_nowait()
+                        sensor_id = thread.port
+                        record = {
+                            "timestamp": msg[0],
+                            "value": msg[1],
+                            "sub1": msg[2],
+                            "sub2": msg[3],
+                            "Data_port_number": sensor_id
+                        }
+                        # timestamp 문자열("HH_MM_SS_mmm")을 오늘 날짜 기준 datetime 객체로 변환
+                        try:
+                            ts_parts = record["timestamp"].split('_')
+                            if len(ts_parts) == 4:
+                                formatted_ts = f"{ts_parts[0]}:{ts_parts[1]}:{ts_parts[2]}.{ts_parts[3]}"
+                            else:
+                                formatted_ts = record["timestamp"]
+                            today = datetime.datetime.now().strftime("%Y-%m-%d")
+                            record["timestamp_dt"] = datetime.datetime.strptime(today + " " + formatted_ts,
+                                                                                "%Y-%m-%d %H:%M:%S.%f")
+                        except Exception as e:
+                            print("Timestamp parsing error:", e)
+                            continue
 
-            for record in data_copy:
-                cur_time = record["timestamp_dt"]
-                cur_port = record["Data_port_number"]
-                # 후보 윈도우에 현재 레코드 추가 (동일 포트이면 최신 데이터로 갱신)
-                candidate_window[cur_port] = record
+                        with self.lock:
+                            self.buffers[sensor_id].append(record)
+                            # 버퍼를 타임스탬프 기준으로 정렬
+                            self.buffers[sensor_id].sort(key=lambda x: x["timestamp_dt"])
+                        self.try_sync()
+                except Empty:
+                    pass
+            time.sleep(0.01)
 
-                # 후보 그룹의 최소, 최대 타임스탬프 계산
-                times = [rec["timestamp_dt"] for rec in candidate_window.values()]
-                window_start = min(times)
-                window_end = max(times)
-                elapsed_ms = (window_end - window_start).total_seconds() * 1000
+    def try_sync(self):
+        """
+        각 센서 버퍼의 가장 오래된 메시지를 후보로 선택하여,
+        후보들의 타임스탬프 차이가 slop 이하이면 동기화된 그룹으로 처리합니다.
+        """
+        with self.lock:
+            # 모든 센서에 최소 한 개의 데이터가 있어야 시도
+            if not all(self.buffers[sid] for sid in self.sensor_ids):
+                return
 
-                # 만약 전체 후보 그룹의 타임스탬프 범위가 window_ms를 초과하면
-                # 가장 오래된 데이터를 제거하여 윈도우를 슬라이딩 시킴
-                while elapsed_ms > self.window_ms and candidate_window:
-                    # 찾은 최소 타임스탬프를 가진 포트를 제거
-                    oldest_port = min(candidate_window, key=lambda p: candidate_window[p]["timestamp_dt"])
-                    del candidate_window[oldest_port]
-                    if candidate_window:
-                        times = [rec["timestamp_dt"] for rec in candidate_window.values()]
-                        window_start = min(times)
-                        window_end = max(times)
-                        elapsed_ms = (window_end - window_start).total_seconds() * 1000
-                    else:
-                        break
+            candidate = {sid: self.buffers[sid][0] for sid in self.sensor_ids}
+            times = [rec["timestamp_dt"] for rec in candidate.values()]
+            t_min = min(times)
+            t_max = max(times)
+            elapsed = (t_max - t_min).total_seconds()
+            if elapsed <= self.slop:
+                self.candidate_window = candidate.copy()
+                # 각 센서 버퍼에서 사용한 데이터 제거
+                for sid in self.sensor_ids:
+                    self.buffers[sid].pop(0)
+                if self.callback:
+                    self.callback(self.candidate_window)
+            else:
+                # 동기화 조건 미달 시, 가장 오래된 데이터를 버림
+                oldest_sensor = min(self.sensor_ids, key=lambda s: self.buffers[s][0]["timestamp_dt"])
+                dropped = self.buffers[oldest_sensor].pop(0)
+                print(f"[Dropped] Sensor {oldest_sensor} data {dropped} dropped; elapsed: {elapsed:.3f} seconds")
 
-                # 모든 포트의 데이터가 포함되어 있고, 타임스탬프 범위가 window_ms 이내라면 그룹 처리
-                if set(candidate_window.keys()) == set(self.ports) and elapsed_ms <= self.window_ms:
-                    print("유효한 슬라이딩 윈도우 그룹 형성:")
-                    for port, rec in candidate_window.items():
-                        print(f"{port}: {rec}")
-                    candidate_window = {}  # 그룹 처리 후 초기화
 
-            # 후보 윈도우에 남은 데이터도 주기적으로 확인 (원하는 경우 추가 처리 가능)
-            if candidate_window:
-                if set(candidate_window.keys()) == set(self.ports):
-                    print("유효한 슬라이딩 윈도우 그룹 형성 (후보 잔여):")
-                    for port, rec in candidate_window.items():
-                        print(f"{port}: {rec}")
-                else:
-                    print("윈도우 그룹 불완전 (후보 잔여). 포함된 포트:", set(candidate_window.keys()))
-                    for port, rec in candidate_window.items():
-                        print(f"{port}: {rec}")
-                    print("========================================")
-
-    def stop_threads(self):
-        for thread in self.threads:
-            thread.stop()
+def sync_callback(group):
+    print("Synchronized group:")
+    for sensor, record in group.items():
+        print(f"{sensor}: {record}")
+    print("----")
 
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    serial_manager = SerialManager(debug_mode=True)
-    serial_manager.start_threads()
-    sys.exit(app.exec_())
+    # app = QCoreApplication(sys.argv)
+
+    synchronizer = SerialManager(slop=0.1, callback=sync_callback)
+    print("SerialManager started. Press Ctrl+C to stop.")
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("Stopping...")
