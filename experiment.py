@@ -113,6 +113,10 @@ class Experiment(QWidget):
         self.weight_btn_z = QPushButton('리셋', self)
         self.weight_btn_z.clicked.connect(self.weightZ)
 
+        self.weight_log_box = QTextEdit(self)
+        self.weight_log_box.setReadOnly(True)
+        self.weight_log_box.setText("ㅇㅇ")
+
         self.graph_change = pg.PlotWidget()
         self.graph_change.setTitle("Sensor Change")
         self.graph_change.setLabel("left", "Change")
@@ -397,12 +401,29 @@ class Experiment(QWidget):
         if self.stop_btn.isChecked():
             self.aaaa = True
             self.is_paused_global = False
+            self.countdown_value = 5
+            
+            # 내부 함수로 countdown 정의
+            def countdown():
+                if self.countdown_value > 0:
+                    self.stop_btn.setText(f"{self.countdown_value}초 남음")
+                    self.countdown_value -= 1
+                    QTimer.singleShot(1000, countdown)
+                else:
+                    # 5초 후: 실험 종료 상태로 변경
+                    self.stop_btn.setChecked(False)  # 버튼 체크 해제
+                    self.aaaa = False
+                    self.is_paused_global = True
+                    self.stop_btn.setText("실험 시작")
+                    self.weight_log_box.setText(str(self.weight_a))
+
+            countdown()  # 카운트다운 시작
             QCoreApplication.processEvents()
-            self.stop_btn.setText("실험 종료")
         else:
             self.aaaa = False
             self.is_paused_global = True
             self.stop_btn.setText("실험 시작")
+
 
     def onCellChanged(self, row, col):
         try:
@@ -602,6 +623,7 @@ class Experiment(QWidget):
         layout_btn2.addLayout(weight_input_layout2)
         layout_btn2.addWidget(self.weight_btn_z)
         layout_btn2.addLayout(layout_btn1)
+        layout_btn2.addWidget(self.weight_log_box)
         # layout_btn2.addWidget(self.save_btn)
         # layout_btn2.addWidget(self.save_file_box_log)
 
