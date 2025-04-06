@@ -20,6 +20,7 @@ def find_arduino_port():
 
 
 def get_arduino_ports(DEBUG_MODE=False):
+    print("get_arduino_ports")
     ports = serial.tools.list_ports.comports()
     ports = [
         port.device for port in ports
@@ -28,9 +29,8 @@ def get_arduino_ports(DEBUG_MODE=False):
     print('DEG = ', DEBUG_MODE)
     if DEBUG_MODE:
         remainNumofPort = 4 - len(ports)
-        if len(ports) != 0 and remainNumofPort > 0:
-            for i in range(remainNumofPort):
-                ports.append('VCOM' + str(i + 1))
+        for i in range(remainNumofPort):
+            ports.append('VCOM' + str(i + 1))
         print('Port, ', ports)
     return ports
 
@@ -128,6 +128,7 @@ class SerialManager:
         self.sliding_thread = Thread(target=self.process_sliding_window, daemon=True)
 
     def start_threads(self):
+        print("start_threads call")
         for i, port in enumerate(self.ports):
             print('make Serial', i, port)
             if port.startswith('V'):

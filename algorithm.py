@@ -205,19 +205,6 @@ class Algorithm(QWidget):
         
         if isinstance(results, dict):
             # 무게와 위치 정보를 표에 추가
-            if 'weight' in results:
-                current_row = self.logging.rowCount()
-                self.logging.insertRow(current_row)
-                self.logging.setItem(current_row, 0, QTableWidgetItem(str(results['weight'])))
-                
-                # position이 있으면 위치 탭에 추가
-                if 'position' in results:
-                    self.logging.setItem(current_row, 1, QTableWidgetItem(str(results['position'])))
-                
-                # 종합 정보를 로그 탭에 추가
-                log_text = f"입력값: {results.get('input_values', 'N/A')}"
-                self.logging.setItem(current_row, 2, QTableWidgetItem(log_text))
-                self.logging.scrollToBottom()
             
             # 전체 결과는 로그 출력에도 표시
             for key, value in results.items():

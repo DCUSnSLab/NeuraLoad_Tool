@@ -15,7 +15,7 @@ class Main(QWidget):
     def initUI(self):
         self.tabs = QTabWidget()
 
-        self.DEBUG_MODE = False
+        self.DEBUG_MODE = True
 
         self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE)
         self.serial_manager.start_threads()
