@@ -251,6 +251,10 @@ class SerialManager:
                         print(f"{port}: {rec}")
                     # print("========================================")
 
+    def getCandidate(self):
+        if len(self.latest_candidate_window) == 4:
+            return self.latest_candidate_window
+
     def stop_threads(self):
         for thread in self.threads:
             thread.stop()

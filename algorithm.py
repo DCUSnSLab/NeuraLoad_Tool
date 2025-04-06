@@ -11,8 +11,9 @@ from experiment import Experiment
 from AlgorithmInterface import AlgorithmBase
 
 class Algorithm(QWidget):
-    def __init__(self, parent_experiment=None):
+    def __init__(self, serial_manager):
         super().__init__()
+        self.serial_manager = serial_manager
         self.threads = []
         self.ports = get_arduino_ports()
         self.port_location = {}
@@ -22,7 +23,6 @@ class Algorithm(QWidget):
         self.plot_data = {}
         self.plot_curve_change = {}
         self.plot_change = {}
-        self.parent_experiment = parent_experiment  # 실험 클래스 참조 저장
 
         self.weight_a = [0] * 9
         self.selected_algorithm = None
@@ -301,15 +301,9 @@ class Algorithm(QWidget):
     def collect_sensor_data(self):
         """실험 클래스에서 센서 데이터 수집"""
         data = {}
-        
-        # parent_experiment가 있는 경우 데이터 수집
-        if self.parent_experiment and hasattr(self.parent_experiment, 'serial_manager'):
-            # SerialManager 인스턴스 접근
-            sm = self.parent_experiment.serial_manager
             
-            # 시리얼 매니저의 그룹화된 데이터 원소 수 확인 후 깊은 복사 수행
-            if len(sm.latest_candidate_window) == 4:
-                data = copy.deepcopy(sm.latest_candidate_window)
+        # 시리얼 매니저의 그룹화된 데이터 원소 수 확인 후 깊은 복사 수행
+        data = copy.deepcopy(self.serial_manager.getCandidate())
         
         return data
     

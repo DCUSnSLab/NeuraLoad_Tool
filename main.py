@@ -4,6 +4,7 @@ from algorithm import Algorithm
 from analytics import Analytics
 from experiment import Experiment
 
+from arduino_manager import SerialManager
 
 class Main(QWidget):
 
@@ -14,8 +15,13 @@ class Main(QWidget):
     def initUI(self):
         self.tabs = QTabWidget()
 
-        self.tab1 = Experiment()
-        self.tab2 = Algorithm(parent_experiment=self.tab1)
+        self.DEBUG_MODE = False
+
+        self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE)
+        self.serial_manager.start_threads()
+
+        self.tab1 = Experiment(serial_manager=self.serial_manager)
+        self.tab2 = Algorithm(serial_manager=self.serial_manager)
         self.tab3 = Analytics()
 
         self.tab1.add_subscriber(self.tab2)
