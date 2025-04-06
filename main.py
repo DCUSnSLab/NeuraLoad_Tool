@@ -13,7 +13,6 @@ class Main(QWidget):
 
     def initUI(self):
         self.tabs = QTabWidget()
-
         self.tab1 = Experiment()
         self.tab2 = Algorithm(parent_experiment=self.tab1)
         self.tab3 = Analytics()

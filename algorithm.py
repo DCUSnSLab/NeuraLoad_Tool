@@ -14,7 +14,6 @@ class Algorithm(QWidget):
     def __init__(self, parent_experiment=None):
         super().__init__()
         self.threads = []
-        self.ports = get_arduino_ports()
         self.port_location = {}
         self.port_colors = {}
         self.port_index = {}
@@ -28,37 +27,11 @@ class Algorithm(QWidget):
         self.selected_algorithm = None
         self.algorithm_instance = None
 
-        self.setting()
         self.setupUI()
         self.setup()
 
     def set_weight(self, weight):
         self.weight_a = weight.copy()
-
-    def setting(self):
-        for i, port in enumerate(self.ports):
-            if i == 0:
-                name = 'TopLeft'
-                color = 'r'
-            elif i == 1:
-                name = 'BottomLeft'
-                color = 'g'
-            elif i == 2:
-                name = 'LeftRight'
-                color = 'b'
-            elif i == 3:
-                name = 'RightLeft'
-                color = 'orange'
-            elif i == 4:
-                name = 'IMU'
-                color = 'yellow'
-            else:
-                name = ''
-                color = 'purple'
-
-            self.port_location[port] = name
-            self.port_colors[name] = color
-            self.port_index[port] = i
 
     def setupUI(self):
         self.algorithm_list = QWidget(self)
@@ -77,49 +50,6 @@ class Algorithm(QWidget):
 
         self.restart_btn = QPushButton('재시작(L)', self)
         self.restart_btn.clicked.connect(self.restart)
-
-        self.sensor_table = QTableWidget()
-        self.sensor_table.setColumnCount(len(self.ports))
-        self.sensor_table.setRowCount(1)
-        for i, port in enumerate(self.ports):
-            name = self.port_location.get(port, "")
-            self.sensor_table.setHorizontalHeaderItem(i, QTableWidgetItem(name))
-        self.sensor_table.setVerticalHeaderLabels(['value'])
-
-        self.logging = QTableWidget()
-        self.logging.setColumnCount(3)
-        self.logging.setHorizontalHeaderLabels(['무게', '위치', '로그'])
-        self.logging.setMinimumHeight(150)
-        self.logging.setMinimumWidth(150)
-        self.logging.horizontalHeader().setStretchLastSection(True)
-
-        self.graph_change = pg.PlotWidget()
-        self.graph_change.setTitle("Sensor Change")
-        self.graph_change.setLabel("left", "Change")
-        self.graph_change.setLabel("bottom", "Time")
-        self.graph_change.addLegend(offset=(30, 30))
-        self.graph_change.setMinimumWidth(500)
-
-        self.graph_value = pg.PlotWidget()
-        self.graph_value.setTitle("Sensor")
-        self.graph_value.setLabel("left", "Value")
-        self.graph_value.setLabel("bottom", "Time")
-        self.graph_value.setMinimumWidth(500)
-
-        for port in self.ports:
-            self.plot_data[port] = deque(maxlen=300)
-            self.plot_change[port] = deque(maxlen=300)
-            color = self.port_colors.get(self.port_location[port])
-
-            self.plot_curve[port] = self.graph_value.plot(
-                pen=pg.mkPen(color=color, width=1),
-                name=self.port_location.get(port, port)
-            )
-
-            self.plot_curve_change[port] = self.graph_change.plot(
-                pen=pg.mkPen(color=color, width=1),
-                name=self.port_location.get(port, port)
-            )
 
         self.log_output = QTextEdit()
         self.log_output.setReadOnly(True)
@@ -214,44 +144,6 @@ class Algorithm(QWidget):
             import traceback
             traceback.print_exc()
             return None
-
-    def update_data(self, port, data):
-        if port in self.port_index:
-            try:
-                # data가 문자열이면 직접 변환, 튜플이면 두 번째 요소 사용
-                if isinstance(data, tuple) and len(data) > 1:
-                    value = data[1]  # 튜플의 두 번째 요소(값) 추출
-                else:
-                    value = int(str(data).strip())
-                    
-                self.plot_data[port].append(value)
-                self.plot_change[port].append(value)
-
-                x = list(range(len(self.plot_data[port])))
-                y = list(self.plot_data[port])  
-
-                base_val = self.plot_change[port][0] if len(self.plot_change[port]) > 0 else 0
-                change = [v - base_val for v in self.plot_change[port]]
-
-                self.plot_curve[port].setData(x, y)
-                self.plot_curve_change[port].setData(x, change)
-
-                location = self.port_index[port]
-                self.sensor_table.setItem(0, location, QTableWidgetItem(str(value)))
-                
-                # 로깅 테이블에 정보 추가
-                current_row = self.logging.rowCount()
-                self.logging.insertRow(current_row)
-                self.logging.setItem(current_row, 0, QTableWidgetItem(str(self.weight_a)))
-
-                name = self.port_location.get(port, "")
-                self.logging.setItem(current_row, 1, QTableWidgetItem(name))
-
-                self.logging.setItem(current_row, 2, QTableWidgetItem(str(value)))
-                self.logging.scrollToBottom()
-                
-            except Exception as e:
-                print(f"알고리즘 탭 업데이트 중 오류: {e}")
 
     def start(self):
         """선택한 알고리즘 실행"""
@@ -378,12 +270,8 @@ class Algorithm(QWidget):
         layout1.addWidget(groupbox)
         layout1.addLayout(btn_layout)
         layout1.addLayout(btn_layout1)
-        layout1.addWidget(self.logging)
 
         layout2 = QVBoxLayout()
-        layout2.addWidget(self.sensor_table)
-        layout2.addWidget(self.graph_change)
-        layout2.addWidget(self.graph_value)
 
         layout3 = QVBoxLayout()
         layout3.addWidget(self.log_output)
