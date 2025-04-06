@@ -31,17 +31,39 @@ class COGMassEstimation(AlgorithmBase):
         }
         self.laser_changes = {i: [] for i in range(4)}
 
+    def compute_deltas(self, current_values: List[float]) -> List[float]:
+        if not hasattr(self, 'initial_laser_values'):
+            # 유효한 초기값 조건 확인 (-1이나 0이 아닌 경우만)
+            if all(v not in [-1, 0] for v in current_values):
+                self.initial_laser_values = current_values
+                return [0.0] * len(current_values)
+            else:
+                return [0.0] * len(current_values)  # 유효하지 않은 경우 delta 없음
+
+        deltas = [
+            init - curr for curr, init in zip(current_values, self.initial_laser_values)
+        ]
+        return deltas
     def preprocess_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        if 'laser_values' not in data or len(data['laser_values']) != 4:
-            return {'error': '4개의 레이저 변화량이 필요합니다'}
+        if 'laser_values' in data and len(data['laser_values']) == 4:
+            # laser_values가 있는 경우, 변화량을 계산합니다
+            deltas = self.compute_deltas(data['laser_values'])  # 변화량 계산
+            for port, change in enumerate(deltas):
+                self.laser_changes[port] = [change]
 
-        for port, change in enumerate(data['laser_values']):
-            self.laser_changes[port].append(change)
+            if all(len(self.laser_changes[i]) >= 1 for i in range(4)):
+                return {'processed': True}
+            else:
+                return {'error': '모든 포트의 변화량이 입력되지 않았습니다'}
 
-        if all(len(self.laser_changes[i]) >= 1 for i in range(4)):
-            return {'processed': True}
-        else:
-            return {'error': '모든 포트의 변화량이 입력되지 않았습니다'}
+        # laser_values가 없는 일반 데이터 처리
+        elif 'sensor_values' in data:
+            # 일반적인 데이터 처리 로직 추가 (예: 센서 데이터 가공)
+            processed_data = self.process_sensor_data(data['sensor_values'])  # 센서 데이터를 처리하는 함수 호출
+            return processed_data
+
+        return {'error': '알 수 없는 데이터 형식입니다'}
+
 
     def calculate_cog_ratios(self):
         top_left = sum(self.laser_changes[0]) / len(self.laser_changes[0]) if self.laser_changes[0] else 0
@@ -124,6 +146,7 @@ class COGMassEstimation(AlgorithmBase):
             start_time = time.time()
 
             if input_data:
+                print("input_data : ", input_data)
                 self.input_data = self.preprocess_data(input_data)
 
             if 'error' in self.input_data:
@@ -150,13 +173,21 @@ class COGMassEstimation(AlgorithmBase):
 
 if __name__ == "__main__":
     predictor = COGMassEstimation()
-    test_data = {'laser_values': [13, 10, 8, 12]}
+    test_data_1 = [613, 649, 606, 673]
+    test_data_2 = [610, 638, 607, 666]
+    test_data_3 = [588, 631, 606, 658]
+    # 첫 번째 입력 - 기준값 저장됨
+    result = predictor.execute({'laser_values': test_data_1})
+    result_2 = predictor.execute({'laser_values': test_data_2})
+    # 두 번째 입력 - 변화량 계산
+    print("2차 입력-입력값:", test_data_2)
+    print("delta:", predictor.laser_changes)
+    print()
 
-    result = predictor.execute(test_data)
+    result_3 = predictor.execute({'laser_values': test_data_3})
+    # 세 번째 입력 - 더 많은 변화
+    print("3차 입력-입력값:", test_data_3)
+    print("delta:", predictor.laser_changes)
 
-    print(f"입력값: {test_data}")
-    print(f"예측 무게: {result.get('weight')} kg")
-    print(f"예측 위치: {result.get('position')}")
-
-    print(predictor.get_output_data())
-    print(predictor.get_history())
+    print(f"예측 무게: {result_3.get('weight')} kg")
+    print(f"예측 위치: {result_3.get('position')}")
