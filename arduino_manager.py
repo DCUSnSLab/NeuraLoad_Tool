@@ -212,21 +212,21 @@ class SerialManager:
                 # 모든 포트의 데이터가 포함되어 있고, 타임스탬프 범위가 window_ms 이내라면 그룹 처리
                 if set(self.candidate_window.keys()) == set(self.ports) and elapsed_ms <= self.window_ms:
                     # print("유효한 슬라이딩 윈도우 그룹 형성:")
-                    for port, rec in self.candidate_window.items():
-                        print(f"{port}: {rec}")
+                    # for port, rec in self.candidate_window.items():
+                        # print(f"{port}: {rec}")
                     self.latest_candidate_window = copy.deepcopy(self.candidate_window)
                     self.candidate_window = {}  # 그룹 처리 후 초기화
 
-            # 후보 윈도우에 남은 데이터도 주기적으로 확인 (원하는 경우 추가 처리 가능)
-            if self.candidate_window:
-                if set(self.candidate_window.keys()) == set(self.ports):
-                    # print("유효한 슬라이딩 윈도우 그룹 형성 (후보 잔여):")
-                    for port, rec in self.candidate_window.items():
-                        print(f"{port}: {rec}")
-                else:
-                    # print("윈도우 그룹 불완전 (후보 잔여). 포함된 포트:", set(self.candidate_window.keys()))
-                    for port, rec in self.candidate_window.items():
-                        print(f"{port}: {rec}")
+            # # 후보 윈도우에 남은 데이터도 주기적으로 확인 (원하는 경우 추가 처리 가능)
+            # if self.candidate_window:
+            #     if set(self.candidate_window.keys()) == set(self.ports):
+            #         # print("유효한 슬라이딩 윈도우 그룹 형성 (후보 잔여):")
+            #         for port, rec in self.candidate_window.items():
+            #             print(f"{port}: {rec}")
+            #     else:
+            #         # print("윈도우 그룹 불완전 (후보 잔여). 포함된 포트:", set(self.candidate_window.keys()))
+            #         for port, rec in self.candidate_window.items():
+            #             print(f"{port}: {rec}")
                     # print("========================================")
 
     def getCandidate(self):
