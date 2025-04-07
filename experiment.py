@@ -6,9 +6,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 import pyqtgraph as pg
 from collections import deque
-
 from GUIController import GUIController
-from arduino_manager import SerialManager
 
 
 class Experiment(QWidget):
@@ -700,31 +698,22 @@ class Experiment(QWidget):
         weight_input_layout2.addWidget(self.weight_btn_p)
         weight_input_layout2.addWidget(self.weight_btn_m)
 
-        layout_btn1 = QHBoxLayout()
-        layout_btn1.addWidget(self.stop_btn)
-        # layout_btn1.addWidget(self.restart_btn)
-
         layout_btn2 = QVBoxLayout()
         layout_btn2.addLayout(weight_input_layout2)
         layout_btn2.addWidget(self.weight_btn_z)
-        layout_btn2.addLayout(layout_btn1)
-        # layout_btn2.addWidget(self.save_btn)
-        layout_btn2.addWidget(self.save_file_box_log)
+        layout_btn2.addWidget(self.stop_btn)
 
         layout1 = QHBoxLayout()
-        # layout1.addWidget(self.logging)
         layout1.addWidget(self.sensor_table)
         layout1.addLayout(layout_btn2)
 
         table_layout = QHBoxLayout()
-        # table_layout.addWidget(self.sensor_table)
         table_layout.addLayout(setting_layout)
         table_layout.addWidget(self.weight_table)
 
         graph_layout = QVBoxLayout()
         graph_layout.addWidget(self.graph_change)
         graph_layout.addWidget(self.graph_value)
-        # graph_layout.addWidget(self.log_output)
 
         layout2 = QVBoxLayout()
         layout2.addLayout(table_layout)
