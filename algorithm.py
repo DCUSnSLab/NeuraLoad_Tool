@@ -163,15 +163,9 @@ class Algorithm(QWidget):
                         # 정상 완료 - JSON 결과 파싱
                         try:
                             data = ast.literal_eval(stdout)
-                            # result = json.loads(stdout)
-                            # print("result")
-                            # print(result)
-                            # self.algorithm_results[file_name] = {}
-                            #self.algorithm_results[file_name] = {"weight": 0, "position": 0}
                             print(data)
                             print(data["weight"])
-                            self.algorithm_results[file_name]["weight"] = data["weight"]
-                            self.algorithm_results[file_name]["position"] = data["position"]
+                            self.algorithm_results[file_name] = {"weight": data["weight"], "position": data["position"]}
                         except json.JSONDecodeError:
                             self.algorithm_results[file_name] = {
                                 "error": f"JSON parsing error: {stdout}"
