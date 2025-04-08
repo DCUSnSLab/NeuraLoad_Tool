@@ -157,7 +157,7 @@ class COGMassEstimation(AlgorithmBase):
             start_time = time.time()
 
             if input_data:
-                print("input_data : ", input_data)
+                # print("input_data : ", input_data)
                 self.input_data = self.preprocess_data(input_data)
 
             if 'error' in self.input_data:
