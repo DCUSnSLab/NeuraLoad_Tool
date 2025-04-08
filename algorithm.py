@@ -6,9 +6,12 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 import pyqtgraph as pg
 from collections import deque
+from AlgorithmInterface import AlgorithmBase
 from arduino_manager import SerialThread, get_arduino_ports
 from experiment import Experiment
-from AlgorithmInterface import AlgorithmBase
+import multiprocessing
+from multiprocessing import Process, Queue
+from Algorithm_multiprocess import Algorithm_multiprocess
 
 class Algorithm(QWidget):
     def __init__(self, serial_manager):
@@ -18,6 +21,9 @@ class Algorithm(QWidget):
         self.weight_total = [0] * 9
         self.weight_location = [0] * 9
         self.selected_names = []
+        self.procs = []
+        self.file_input = []
+        self.w = Algorithm_multiprocess(self.file_input)
         self.setupUI()
         self.setup()
 
@@ -27,14 +33,16 @@ class Algorithm(QWidget):
         self.algorithm_list.setLayout(self.checkbox_layout)
         self.load_files()
 
+        self.weight_table = QTableWidget()
+
         self.start_btn = QPushButton('Run the selected algorithm', self)
-        self.start_btn.clicked.connect(self.start)
+        self.start_btn.clicked.connect(lambda: self.run(False))
 
         self.reset_btn = QPushButton('Reset', self)
         self.reset_btn.clicked.connect(self.reset)
 
         self.all_btn = QPushButton('Run all', self)
-        self.all_btn.clicked.connect(self.run)
+        self.all_btn.clicked.connect(lambda: self.run(True))
 
         self.actual_weight_text = QLabel('Actual Weight:')
         self.actual_weight_output = QLabel("-")
@@ -43,8 +51,6 @@ class Algorithm(QWidget):
         self.actual_location_text = QLabel('Actual Location:')
         self.actual_location_output = QLabel("-")
         self.weight_update()
-
-        self.weight_table = QTableWidget()
 
     def load_files(self):
         folder = os.path.join(os.getcwd(), 'Algorithm')
@@ -60,22 +66,6 @@ class Algorithm(QWidget):
             self.checkbox_layout.addWidget(checkbox)
             self.checkboxes.append(checkbox)
 
-    def start(self):
-        for checkbox, (file_name, full_path) in zip(self.checkboxes, self.files):
-            if checkbox.isChecked():
-                self.selected_names.append(file_name)
-
-        self.weight_table.setColumnCount(len(self.selected_names))
-        self.weight_table.setRowCount(3)
-        self.weight_table.setVerticalHeaderItem(0, QTableWidgetItem('추정 무게'))
-        self.weight_table.setVerticalHeaderItem(1, QTableWidgetItem('추정 위치'))
-        self.weight_table.setVerticalHeaderItem(2, QTableWidgetItem('오차율'))
-
-        for i in range(len(self.selected_names)):
-            self.weight_table.setHorizontalHeaderItem(i, QTableWidgetItem(self.selected_names[i]))
-
-        self.weight_table.resizeColumnsToContents()
-
     def reset(self):
         for checkbox in self.checkboxes:
             checkbox.setChecked(False)
@@ -89,21 +79,43 @@ class Algorithm(QWidget):
         for i in range(len(self.selected_names)):
             self.weight_table.setHorizontalHeaderItem(i, QTableWidgetItem(self.selected_names[i]))
 
-    def run(self):
-        for checkbox, (file_name, full_path) in zip(self.checkboxes, self.files):
-            self.selected_names.append(file_name)
-            checkbox.setChecked(True)
+        for p in self.procs:
+            if p.is_alive():
+                p.terminate()
+                p.join()
 
+    def run(self, TF):
+        self.selected_names = []
+        for checkbox, (file_name, full_path) in zip(self.checkboxes, self.files):
+            if TF:
+                checkbox.setChecked(True)
+                self.selected_names.append(file_name)
+            elif checkbox.isChecked():
+                self.selected_names.append(file_name)
+
+        self.weight_table_Header_update()
+        self.multi_algo()
+
+    def weight_table_Header_update(self):
         self.weight_table.setColumnCount(len(self.selected_names))
         self.weight_table.setRowCount(3)
-        self.weight_table.setVerticalHeaderItem(0, QTableWidgetItem('추정 무게'))
-        self.weight_table.setVerticalHeaderItem(1, QTableWidgetItem('추정 위치'))
-        self.weight_table.setVerticalHeaderItem(2, QTableWidgetItem('오차율'))
+        self.weight_table.setVerticalHeaderItem(0, QTableWidgetItem('Estimated weight'))
+        self.weight_table.setVerticalHeaderItem(1, QTableWidgetItem('Estimated location'))
+        self.weight_table.setVerticalHeaderItem(2, QTableWidgetItem('Error rate'))
 
         for i in range(len(self.selected_names)):
             self.weight_table.setHorizontalHeaderItem(i, QTableWidgetItem(self.selected_names[i]))
 
         self.weight_table.resizeColumnsToContents()
+
+    def multi_algo(self):
+        self.procs = []
+        self.file_input = []
+        for file_name_input in self.selected_names:
+            worker = Algorithm_multiprocess(file_name_input)
+            p = multiprocessing.Process(target=worker.run, args=(file_name_input,))
+            self.procs.append(p)
+            p.start()
 
     def weight_update(self):
         self.weight_total = sum(self.weight_total)
@@ -166,7 +178,13 @@ class Algorithm(QWidget):
 
         self.setLayout(layout2)
 
+    def closeEvent(self, event):
+        pass
+
+        event.accept()
+
 if __name__ == '__main__':
-   app = QApplication(sys.argv)
-   ex = Algorithm()
-   sys.exit(app.exec_())
+    Process.freeze_support()
+    app = QApplication(sys.argv)
+    ex = Algorithm()
+    sys.exit(app.exec_())

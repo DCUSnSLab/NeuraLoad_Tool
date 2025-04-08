@@ -48,7 +48,7 @@ class Experiment(QWidget):
 
         self.setupUI()
         self.setup()
-        
+
         # 딕셔너리 초기화
         self.initializePortData()
         self.startGUIThread()
@@ -56,7 +56,6 @@ class Experiment(QWidget):
         self.auto_save_timer = QTimer()
         self.auto_save_timer.timeout.connect(self.auto_save)
         self.auto_save_timer.start(1000)
-
 
     def add_subscriber(self, subscriber):
         self.subscribers.append(subscriber)
@@ -195,7 +194,7 @@ class Experiment(QWidget):
         self.graph_change.addLegend()
 
     def save_port_location(self, port, new_label):
-        index =  self.port_column_index.get(port)
+        index = self.port_column_index.get(port)
         self.sensor_table.setHorizontalHeaderItem(index, QTableWidgetItem(new_label))
         print(f"{port} → {new_label}")  # 디버깅용 출력
 
@@ -212,35 +211,34 @@ class Experiment(QWidget):
 
         self.graph_text_min.clear()
         self.updateGraph()
-        
+
     def initializePortData(self):
         # SerialManager의 포트 정보를 기반으로 데이터 딕셔너리 초기화
         for port in self.ports:
             # 이미 초기화된 포트는 건너뛰기
             if port in self.plot_data:
                 continue
-                
+
             self.plot_data[port] = deque(maxlen=300)
             self.plot_change[port] = deque(maxlen=300)
-            
+
             # 기본 색상 설정
             default_color = 'gray'
             location_name = self.port_comboboxes[port].currentText().strip() if port in self.port_comboboxes else ''
             color = self.port_colors.get(location_name, default_color)
-            
+
             # 그래프 요소 초기화
             self.plot_curve[port] = self.graph_value.plot(
                 pen=pg.mkPen(color=color, width=2),  # 선 두께 증가
                 name=location_name if location_name else port
             )
-            
+
             self.plot_curve_change[port] = self.graph_change.plot(
                 pen=pg.mkPen(color=color, width=2),  # 선 두께 증가
                 name=location_name if location_name else port
             )
-            
-            print(f"포트 초기화 완료: {port}")
 
+            print(f"포트 초기화 완료: {port}")
 
     def startGUIThread(self):
         print('start GUIThread')
@@ -263,23 +261,24 @@ class Experiment(QWidget):
                 if port not in self.plot_data:
                     self.plot_data[port] = deque(maxlen=300)
                     self.plot_change[port] = deque(maxlen=300)
-                    
+
                     # 그래프 요소도 없으면 초기화
                     if port not in self.plot_curve:
                         default_color = 'gray'
-                        location_name = self.port_comboboxes[port].currentText().strip() if port in self.port_comboboxes else ''
+                        location_name = self.port_comboboxes[
+                            port].currentText().strip() if port in self.port_comboboxes else ''
                         color = self.port_colors.get(location_name, default_color)
-                        
+
                         self.plot_curve[port] = self.graph_value.plot(
                             pen=pg.mkPen(color=color, width=2),  # 선 두께 증가
                             name=location_name if location_name else port
                         )
-                        
+
                         self.plot_curve_change[port] = self.graph_change.plot(
                             pen=pg.mkPen(color=color, width=2),  # 선 두께 증가
                             name=location_name if location_name else port
                         )
-                
+
                 # 위치가 설정되지 않은 포트는 건너뛰기
                 location_name = self.port_comboboxes[port].currentText().strip() if port in self.port_comboboxes else ''
                 if location_name == '':
@@ -291,7 +290,7 @@ class Experiment(QWidget):
 
                 # X축 데이터 생성 - 시간에 따른 인덱스
                 x = list(range(len(self.plot_data[port])))
-                
+
                 # Y축 데이터 추출 - 안전 처리
                 y_values = []
                 for point in self.plot_data[port]:
@@ -305,7 +304,7 @@ class Experiment(QWidget):
                             y_values.append(0)
                     else:
                         y_values.append(0)
-                
+
                 # 변화량 데이터 계산
                 change_values = []
                 if len(self.plot_change[port]) > 0:
@@ -318,11 +317,11 @@ class Experiment(QWidget):
                                 break
                             except (ValueError, TypeError):
                                 pass
-                    
+
                     # 기준값이 없으면 0으로 설정
                     if base_val is None:
                         base_val = 0
-                    
+
                     # 변화량 계산
                     for point in self.plot_change[port]:
                         if isinstance(point, (list, tuple)) and len(point) > 1:
@@ -333,25 +332,25 @@ class Experiment(QWidget):
                                 change_values.append(0)
                         else:
                             change_values.append(0)
-                
+
                 # 데이터가 준비되면 그래프 업데이트
                 if len(y_values) > 0 and len(x) == len(y_values):
                     self.plot_curve[port].setData(x, y_values)
-                
+
                 if len(change_values) > 0 and len(x) == len(change_values):
                     self.plot_curve_change[port].setData(x, change_values)
-                
+
                 # 실험 중일 때만 데이터 처리 및 테이블 업데이트
                 if self.aaaa and port in self.port_index:
                     # 최신 값 표시
                     value = -1
                     if len(y_values) > 0:
                         value = y_values[-1]
-                    
+
                     # 테이블 업데이트
                     location = self.port_index[port]
                     self.sensor_table.setItem(0, location, QTableWidgetItem(str(value)))
-                    
+
                     # 데이터 저장 처리
                     self.handle_serial_data(port, self.plot_data[port])
         except Exception as e:
@@ -362,7 +361,7 @@ class Experiment(QWidget):
     def handle_serial_data(self, port, data):
         if port not in self.port_index:
             return
-            
+
         # data가 비어있는지 확인
         if not data:
             # 디버그 수준을 낮추기 위해 경고 출력 생략
@@ -376,9 +375,11 @@ class Experiment(QWidget):
         # 무게 변화 방향
         total = sum(self.weight_a)
         if total > self.weight_total:
-            direction_byte = b'U';  self.last_direction = 'U'
+            direction_byte = b'U';
+            self.last_direction = 'U'
         elif total < self.weight_total:
-            direction_byte = b'D';  self.last_direction = 'D'
+            direction_byte = b'D';
+            self.last_direction = 'D'
         else:
             direction_byte = self.last_direction.encode() if isinstance(self.last_direction, str) else b'N'
         self.weight_total = total
@@ -392,7 +393,7 @@ class Experiment(QWidget):
         if not isinstance(data, list) or len(data) < 1:
             print(f"[경고] 예상치 못한 데이터 형식 또는 길이 부족: {data}")
             return
-            
+
         try:
             last_point = data[-1]
             if not isinstance(last_point, (list, tuple)) or len(last_point) < 4:
@@ -413,7 +414,7 @@ class Experiment(QWidget):
             except (ValueError, IndexError):
                 print(f"[경고] 값 변환 실패: {last_point}")
                 return
-                
+
             # 패킹 및 처리 코드
             weight_bin = struct.pack('<9h', *self.weight_a)
             name_bytes = name.encode('utf-8')[:16]
@@ -427,12 +428,10 @@ class Experiment(QWidget):
         except Exception as e:
             print(f"[오류] 데이터 처리 중 예외 발생: {e}")
 
-
-
     def save_serial_data(self, port, data):
         if port not in self.port_index:
             return
-            
+
         # 데이터가 비어있는지 확인
         if not data:
             # 디버그 수준을 낮추기 위해 경고 출력 생략
@@ -476,15 +475,13 @@ class Experiment(QWidget):
             value1 = float(last_point[1])
             value2 = float(last_point[2])
             value3 = float(last_point[3])
-            
+
             log_line = f"{timestamp}\t{self.weight_a}\t{direction}\t{name}\t{value1}\t{value2}\t{value3}\t{state_flag}\n"
             if hasattr(self, "raw_data_file") and not self.raw_data_file.closed:
                 self.raw_data_file.write(log_line)
                 self.raw_data_file.flush()
         except Exception as e:
             print(f"[오류] 데이터 저장 중 예외 발생: {e}")
-
-
 
     def stop(self):
         self.aaaa = True  # 전역 상태 갱신
@@ -636,7 +633,8 @@ class Experiment(QWidget):
                     values_data = struct.pack('<fff', value1, value2, value3)
 
                     # 최종 패킹
-                    binary_data = struct.pack('<I', timestamp_int) + weight_data + direction + name_data + values_data + state_flag
+                    binary_data = struct.pack('<I',
+                                              timestamp_int) + weight_data + direction + name_data + values_data + state_flag
                     f.write(binary_data)
 
     def btn_save(self):
@@ -769,7 +767,8 @@ class Experiment(QWidget):
 
         event.accept()
 
+
 if __name__ == '__main__':
-   app = QApplication(sys.argv)
-   ex = Experiment()
-   sys.exit(app.exec_())
+    app = QApplication(sys.argv)
+    ex = Experiment()
+    sys.exit(app.exec_())
