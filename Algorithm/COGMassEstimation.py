@@ -9,7 +9,7 @@ from typing import Dict, List, Any, Optional
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
-
+import datetime
 from AlgorithmInterface import AlgorithmBase  # 상속용 추상 클래스
 
 class COGMassEstimation(AlgorithmBase):
@@ -142,9 +142,9 @@ class COGMassEstimation(AlgorithmBase):
 
         return {
             'position': location,
-            'weight': estimated_weight,
-            'delta_values': self.input_data.get('delta_values', [])
+            'weight': estimated_weight
         }
+
     def execute(self, input_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         try:
             self.is_running = True
@@ -180,21 +180,23 @@ if __name__ == "__main__":
     predictor = COGMassEstimation()
 
     # 첫 번째 입력 → 초기값 세팅
-    initial_data = {
-        'VCOM1': {'value': 406},
-        'VCOM2': {'value': 455},
-        'VCOM3': {'value': 422},
-        'VCOM4': {'value': 455}
+    new_test_data = {
+        'VCOM3': {'timestamp': '17_40_42_396', 'value': 422, 'sub1': 460, 'sub2': 464, 'Data_port_number': 'VCOM3', 'timestamp_dt': datetime.datetime(2025, 4, 6, 17, 40, 42, 396000)},
+        'VCOM4': {'timestamp': '17_40_42_397', 'value': 455, 'sub1': 455, 'sub2': 479, 'Data_port_number': 'VCOM4', 'timestamp_dt': datetime.datetime(2025, 4, 6, 17, 40, 42, 397000)},
+        'VCOM1': {'timestamp': '17_40_42_399', 'value': 406, 'sub1': 405, 'sub2': 409, 'Data_port_number': 'VCOM1', 'timestamp_dt': datetime.datetime(2025, 4, 6, 17, 40, 42, 399000)},
+        'VCOM2': {'timestamp': '17_40_42_400', 'value': 455, 'sub1': 443, 'sub2': 420, 'Data_port_number': 'VCOM2', 'timestamp_dt': datetime.datetime(2025, 4, 6, 17, 40, 42, 400000)}
     }
-    predictor.execute(initial_data)
+
+    predictor.execute(new_test_data)
 
     # 두 번째 입력 → 변화량 생김
     changed_data = {
-        'VCOM1': {'value': 390},  # 값이 작아짐 (변화량 생김)
-        'VCOM2': {'value': 440},
-        'VCOM3': {'value': 400},
-        'VCOM4': {'value': 450}
+        'VCOM3': {'timestamp': '17_40_42_396', 'value': 390, 'sub1': 460, 'sub2': 464, 'Data_port_number': 'VCOM3', 'timestamp_dt': datetime.datetime(2025, 4, 6, 17, 40, 42, 396000)},
+        'VCOM4': {'timestamp': '17_40_42_397', 'value': 440, 'sub1': 455, 'sub2': 479, 'Data_port_number': 'VCOM4', 'timestamp_dt': datetime.datetime(2025, 4, 6, 17, 40, 42, 397000)},
+        'VCOM1': {'timestamp': '17_40_42_399', 'value': 400, 'sub1': 405, 'sub2': 409, 'Data_port_number': 'VCOM1', 'timestamp_dt': datetime.datetime(2025, 4, 6, 17, 40, 42, 399000)},
+        'VCOM2': {'timestamp': '17_40_42_400', 'value': 459, 'sub1': 443, 'sub2': 420, 'Data_port_number': 'VCOM2', 'timestamp_dt': datetime.datetime(2025, 4, 6, 17, 40, 42, 400000)}
     }
+
     result = predictor.execute(changed_data)
 
     print(result)
