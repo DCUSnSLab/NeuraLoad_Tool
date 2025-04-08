@@ -1,22 +1,28 @@
-import copy
 import os
-import sys
 import importlib.util
-from PyQt5.QtCore import *
-from PyQt5.QtWidgets import *
-import pyqtgraph as pg
-from collections import deque
-
-from AlgorithmInterface import AlgorithmBase
-from arduino_manager import SerialThread, get_arduino_ports
-from experiment import Experiment
-import multiprocessing
-from multiprocessing import Process, Queue
+import random
 import time
+from multiprocessing import Queue
+from AlgorithmInterface import AlgorithmBase
 
 class Algorithm_multiprocess:
     def __init__(self, file_input):
         self.file_name_input = file_input
+        self.databuf = Queue(maxsize=1000)
+
+    def random_data(self):
+        sensor_values = {
+            'a': random.randint(300, 450),
+            'b': random.randint(300, 450),
+            'c': random.randint(300, 450),
+            'd': random.randint(300, 450)
+        }
+
+        wrapped_data = {
+            'sensor_values': sensor_values
+        }
+
+        self.databuf.put(wrapped_data)
 
     def run(self, file_name_input):
         folder = os.path.join(os.getcwd(), 'Algorithm')
@@ -32,6 +38,10 @@ class Algorithm_multiprocess:
             if isinstance(obj, type) and issubclass(obj, AlgorithmBase) and obj is not AlgorithmBase:
                 instance = obj()
                 while True:
-                    result = instance.execute()
-                    print('aaa => ', result)
+                    self.random_data()
+                    time.sleep(1)
+                    value = self.databuf.get()
+                    result = instance.execute(value)
+
+                    print(result)
                     # result_queue.put(str(result))

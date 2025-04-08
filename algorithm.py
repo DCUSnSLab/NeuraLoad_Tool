@@ -28,30 +28,38 @@ class Algorithm(QWidget):
         self.setup()
 
     def setupUI(self):
+        # 알고리즘 파일 리스트
         self.algorithm_list = QWidget(self)
         self.checkbox_layout = QVBoxLayout()
         self.algorithm_list.setLayout(self.checkbox_layout)
         self.load_files()
 
+        # 추정 무게 테이블
         self.weight_table = QTableWidget()
 
+        # 알고리즘 시작 버튼
         self.start_btn = QPushButton('Run the selected algorithm', self)
         self.start_btn.clicked.connect(lambda: self.run(False))
 
+        # 알고리즘 정지 및 기존 데이터 리셋 버튼
         self.reset_btn = QPushButton('Reset', self)
         self.reset_btn.clicked.connect(self.reset)
 
+        # 알고리즘 전체 실행 버튼
         self.all_btn = QPushButton('Run all', self)
         self.all_btn.clicked.connect(lambda: self.run(True))
 
+        # 실제 무게
         self.actual_weight_text = QLabel('Actual Weight:')
         self.actual_weight_output = QLabel("-")
         self.actual_weight_kg = QLabel("kg")
 
+        # 실제 무게를 올린 위치
         self.actual_location_text = QLabel('Actual Location:')
         self.actual_location_output = QLabel("-")
         self.weight_update()
 
+    # 알고리즘 불러오기
     def load_files(self):
         folder = os.path.join(os.getcwd(), 'Algorithm')
         py_files = [f for f in os.listdir(folder) if f.endswith('.py')]
@@ -66,6 +74,7 @@ class Algorithm(QWidget):
             self.checkbox_layout.addWidget(checkbox)
             self.checkboxes.append(checkbox)
 
+    # 알고리즘 리셋 및 프로세스 종료
     def reset(self):
         for checkbox in self.checkboxes:
             checkbox.setChecked(False)
@@ -84,6 +93,7 @@ class Algorithm(QWidget):
                 p.terminate()
                 p.join()
 
+    # 알고리즘 실행
     def run(self, TF):
         self.selected_names = []
         for checkbox, (file_name, full_path) in zip(self.checkboxes, self.files):
@@ -96,6 +106,7 @@ class Algorithm(QWidget):
         self.weight_table_Header_update()
         self.multi_algo()
 
+    # 추정 무게 테이블 생성
     def weight_table_Header_update(self):
         self.weight_table.setColumnCount(len(self.selected_names))
         self.weight_table.setRowCount(3)
@@ -108,6 +119,7 @@ class Algorithm(QWidget):
 
         self.weight_table.resizeColumnsToContents()
 
+    # 알고리즘 멀티 프로세스 실행
     def multi_algo(self):
         self.procs = []
         self.file_input = []
@@ -117,6 +129,7 @@ class Algorithm(QWidget):
             self.procs.append(p)
             p.start()
 
+    # 실제 무게 및 무게 위치 업데이트
     def weight_update(self):
         self.weight_total = sum(self.weight_total)
         all_weight_location = list(filter(lambda x: self.weight_location[x] == 1, range(len(self.weight_location))))
@@ -129,6 +142,7 @@ class Algorithm(QWidget):
 
         self.actual_weight_output.setText(str(self.weight_total))
 
+    # 실험툴에서 무게 위치 리스트로 변환
     def set_weight(self, weight_a):
         self.weight_total = weight_a
         self.weight_location = [0] * len(weight_a)
@@ -137,7 +151,7 @@ class Algorithm(QWidget):
                 self.weight_location[i] = 1
         self.weight_update()
 
-
+    # GUI
     def setup(self):
         layout = QVBoxLayout()
         layout.addWidget(self.algorithm_list)
@@ -178,13 +192,16 @@ class Algorithm(QWidget):
 
         self.setLayout(layout2)
 
+    # 프로세스 자동 종료
     def closeEvent(self, event):
-        pass
-
+        for p in self.procs:
+            if p.is_alive():
+                p.terminate()
+                p.join()
         event.accept()
 
 if __name__ == '__main__':
-    Process.freeze_support()
+    multiprocessing.freeze_support()
     app = QApplication(sys.argv)
     ex = Algorithm()
     sys.exit(app.exec_())
