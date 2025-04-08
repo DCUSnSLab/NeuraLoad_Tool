@@ -82,8 +82,6 @@ class RandomForestPredictor(AlgorithmBase):
         try:
             # 모델 예측 수행
             predictions = self.model.predict([self.refined_data])
-
-            #print(self.refined_data)
             #print(predictions)
 
             # 예측 결과 파싱

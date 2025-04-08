@@ -1,6 +1,7 @@
 import os
 import sys
 import time
+import datetime
 import numpy as np
 import joblib
 from typing import Union, Dict, Any, Optional
@@ -22,6 +23,8 @@ class MLPPredictor(AlgorithmBase):
             model_path="../model/mlp_20250403_135334_best.h5"
         )
         self.scaler_path = "../model/scaler_20250403_135334.save"
+
+        self.input_data.append("value")
 
         try:
             self.model = self._load_model()
@@ -46,40 +49,13 @@ class MLPPredictor(AlgorithmBase):
             print("scaler error")
             raise FileNotFoundError(f"스케일러 파일 없음: {path}")
 
-    def preprocess_data(self, data: Union[list, dict]) -> Dict[str, Any]:
-        if self.model is None or self.scaler is None:
-            return {'error': "모델 또는 스케일러가 로드되지 않았습니다."}
-
-        sensor_values = []
-
-        # 직접 리스트로 받은 경우
-        if isinstance(data, list) and len(data) == 4:
-            try:
-                sensor_values = [float(x) for x in data]
-            except Exception:
-                return {'error': '센서 값 형식 오류'}
-        # JSON 형태(dict)인 경우도 여전히 지원
-        elif isinstance(data, dict) and all(k in data for k in ['A', 'B', 'C', 'D']):
-            try:
-                sensor_values = [float(data[k]) for k in ['A', 'B', 'C', 'D']]
-            except Exception:
-                return {'error': '센서 값 형식 오류'}
-        else:
-            return {'error': '유효한 센서 입력이 없습니다'}
-
-        input_array = np.array([sensor_values])
-        scaled_input = self.scaler.transform(input_array)
-
-        return {'processed_values': scaled_input}
-
     def process(self) -> Dict[str, Any]:
-        if 'error' in self.input_data:
-            return self.input_data
-        if 'processed_values' not in self.input_data:
-            return {'error': '입력 데이터가 누락되었습니다'}
 
         try:
-            prediction = self.model.predict(self.input_data['processed_values'], verbose=0)[0]
+            # prediction = self.model.predict(self.input_data['processed_values'], verbose=0)[0]
+            input_array = np.array([self.refined_data])
+            scaled_input = self.scaler.transform(input_array)
+            prediction = self.model.predict(scaled_input, verbose=0)[0]
             weight = float(prediction[0])
             position = int(np.rint(prediction[1]))
 
@@ -87,24 +63,24 @@ class MLPPredictor(AlgorithmBase):
                 'weight': weight,
                 'position': position,
                 'raw_predictions': prediction.tolist(),
-                'input_values': self.input_data['processed_values'].tolist()
+                'input_values': self.refined_data
             }
         except Exception as e:
             return {'error': f"모델 예측 중 오류: {e}"}
 
     def execute(self, input_data: Optional[Union[list, dict]] = None) -> Dict[str, Any]:
+        self.data = input_data
+        # 알고리즘 별 입력 데이터 정의에 따라 후처리 수행
+        self.preprocessing()
         try:
             self.is_running = True
             start_time = time.time()
 
-            if input_data is not None:
-                self.input_data = self.preprocess_data(input_data)
-
-            if not self.input_data or 'error' in self.input_data:
-                return self.input_data or {'error': '입력 오류'}
-
             result = self.process()
             self.output_data = result
+
+            print(self.output_data)
+
             self.execution_time = time.time() - start_time
 
             self.execution_history.append({
@@ -125,14 +101,18 @@ class MLPPredictor(AlgorithmBase):
 if __name__ == "__main__":
     predictor = MLPPredictor()
 
+    new_test_data = {
+        'VCOM3': {'timestamp': '17_40_42_396', 'value': 422, 'sub1': 460, 'sub2': 464, 'Data_port_number': 'VCOM3',
+                  'timestamp_dt': datetime.datetime(2025, 4, 6, 17, 40, 42, 396000)},
+        'VCOM4': {'timestamp': '17_40_42_397', 'value': 455, 'sub1': 455, 'sub2': 479, 'Data_port_number': 'VCOM4',
+                  'timestamp_dt': datetime.datetime(2025, 4, 6, 17, 40, 42, 397000)},
+        'VCOM1': {'timestamp': '17_40_42_399', 'value': 406, 'sub1': 405, 'sub2': 409, 'Data_port_number': 'VCOM1',
+                  'timestamp_dt': datetime.datetime(2025, 4, 6, 17, 40, 42, 399000)},
+        'VCOM2': {'timestamp': '17_40_42_400', 'value': 455, 'sub1': 443, 'sub2': 420, 'Data_port_number': 'VCOM2',
+                  'timestamp_dt': datetime.datetime(2025, 4, 6, 17, 40, 42, 400000)}
+    }
+
     # 센서에서 직접 수신한 형태 (예: list로 들어오는 경우)
     test_input = [2, 6, 76, -33]
 
-    result = predictor.execute(test_input)
-
-    print(f"\n입력값: {test_input}")
-    if result.get("weight") is not None and result.get("position") is not None:
-        print(f"예측 무게: {result.get('weight'):.2f} kg")
-        print(f"예측 위치: {result.get('position')}")
-    else:
-        print(f"예측 실패: {result.get('error')}")
+    result = predictor.execute(new_test_data)
