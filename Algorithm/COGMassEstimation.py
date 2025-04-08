@@ -139,10 +139,16 @@ class COGMassEstimation(AlgorithmBase):
 
         location = self.determine_loading_position()
         estimated_weight = self.calculate_weight_estimation(location)
+        initial_values = getattr(self, 'initial_laser_values', [0, 0, 0, 0])
+        current_values = self.input_data.get('laser_values', [0, 0, 0, 0])
+        recent_deltas = [changes[-1] if changes else 0 for changes in self.laser_changes.values()]
 
         return {
             'position': location,
-            'weight': estimated_weight
+            'weight': estimated_weight,
+            'init_values' : initial_values,
+            'current_values' : current_values,
+            'delta_values': recent_deltas
         }
 
     def execute(self, input_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
