@@ -126,8 +126,6 @@ class RandomForestPredictor(AlgorithmBase):
             # 출력 데이터 설정
             self.output_data = results
 
-            print(self.output_data)
-
             self.execution_time = time.time() - start_time
 
             # 실행 이력 업데이트

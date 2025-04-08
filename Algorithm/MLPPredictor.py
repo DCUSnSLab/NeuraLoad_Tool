@@ -79,8 +79,6 @@ class MLPPredictor(AlgorithmBase):
             result = self.process()
             self.output_data = result
 
-            print(self.output_data)
-
             self.execution_time = time.time() - start_time
 
             self.execution_history.append({

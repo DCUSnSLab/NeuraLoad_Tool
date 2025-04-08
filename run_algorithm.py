@@ -81,3 +81,5 @@ if __name__ == "__main__":
     
     # 알고리즘 실행 및 결과 출력
     result = run_algorithm(file_path, sensor_data)
+
+    print(result)
