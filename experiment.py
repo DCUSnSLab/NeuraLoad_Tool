@@ -258,7 +258,7 @@ class Experiment(QWidget):
     def startGUIThread(self):
         print('start GUIThread')
         # 쓰레드에 SerialManager의 쓰레드도 전달
-        self.GUIThread = GUIController(self, self.serial_manager.threads)
+        self.GUIThread = GUIController(self, self.serial_manager)
         self.GUIThread.plot_updated.connect(self.updateGraph)
         self.GUIThread.start()
 

@@ -171,7 +171,7 @@ class SerialManager:
                             "value": msg[1],
                             "sub1": msg[2],
                             "sub2": msg[3],
-                            "Data_port_number": port
+                            "port": port
                         }
                         # timestamp 문자열("HH_MM_SS_mmm")을 오늘 날짜 기준 datetime 객체로 변환
                         try:
