@@ -13,7 +13,6 @@ class Experiment(QWidget):
     def __init__(self, serial_manager):
         super().__init__()
         self.serial_manager = serial_manager
-        self.DEBUG_MODE = True
         self.threads = []
         self.GUIThread = None
         self.subscribers = []
