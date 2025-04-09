@@ -8,14 +8,12 @@ import pyqtgraph as pg
 from collections import deque
 
 from GUIController import GUIController
-from arduino_manager import SerialManager
 
 
 class Experiment(QWidget):
     def __init__(self, serial_manager):
         super().__init__()
         self.serial_manager = serial_manager
-        self.DEBUG_MODE = True
         self.threads = []
         self.GUIThread = None
         self.subscribers = []
@@ -485,8 +483,6 @@ class Experiment(QWidget):
                 self.raw_data_file.flush()
         except Exception as e:
             print(f"[오류] 데이터 저장 중 예외 발생: {e}")
-
-
 
     def stop(self):
         self.aaaa = True  # 전역 상태 갱신
