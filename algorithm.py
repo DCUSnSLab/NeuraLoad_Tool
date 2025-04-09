@@ -8,7 +8,6 @@ import pyqtgraph as pg
 from collections import deque
 from AlgorithmInterface import AlgorithmBase
 from arduino_manager import SerialThread, get_arduino_ports
-from experiment import Experiment
 
 import multiprocessing
 from multiprocessing import Process, Queue
@@ -18,8 +17,6 @@ from Algorithm_multiprocess import Algorithm_multiprocess
 class Algorithm(QWidget):
     def __init__(self, serial_manager):
         super().__init__()
-        self.experiment = Experiment(serial_manager)
-        self.experiment.subscribers.append(self)
         self.weight_total = [0] * 9
         self.weight_location = [0] * 9
         self.selected_names = []
