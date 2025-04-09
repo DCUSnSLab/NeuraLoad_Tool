@@ -6,8 +6,13 @@ from experiment import Experiment
 
 from arduino_manager import SerialManager
 
-class Main(QWidget):
+def sync_callback(group):
+    print("Synchronized group:")
+    for port, record in group.items():
+        print(f"{port}: {record}")
+    print("----")
 
+class Main(QWidget):
     def __init__(self):
         super().__init__()
         self.initUI()
@@ -17,6 +22,7 @@ class Main(QWidget):
 
         self.DEBUG_MODE = True
 
+        # self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE, callback=sync_callback)
         self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE)
         self.serial_manager.start_threads()
 
