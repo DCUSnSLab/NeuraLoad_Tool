@@ -82,9 +82,7 @@ class RandomForestPredictor(AlgorithmBase):
         try:
             # 모델 예측 수행
             predictions = self.model.predict([self.refined_data])
-
-            print(self.refined_data)
-            print(predictions)
+            #print(predictions)
 
             # 예측 결과 파싱
             predicted_weights = predictions[:, 0]  # 첫 번째 열: 무게
@@ -162,9 +160,9 @@ if __name__ == "__main__":
     # execute 메서드 사용
     result = predictor.execute(new_test_data)
 
-    print(f"입력값: {new_test_data}")
-    print(f"예측 무게: {result.get('weight')} kg")
-    print(f"예측 위치: {result.get('position')}")
+    #print(f"입력값: {new_test_data}")
+    #print(f"예측 무게: {result.get('weight')} kg")
+    #print(f"예측 위치: {result.get('position')}")
 
-    print(predictor.get_output_data())
-    print(predictor.get_history())
+    #print(predictor.get_output_data())
+    #print(predictor.get_history())

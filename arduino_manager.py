@@ -4,14 +4,12 @@ from queue import Queue, Empty
 import serial
 import serial.tools.list_ports
 from PyQt5.QtCore import QThread, pyqtSignal, QCoreApplication, QTimer
+from PyQt5.QtWidgets import QApplication
+import sys
 import random
 import datetime
 from threading import Thread, Lock
 import time
-
-
-
-# RAW_DATA_TEST_REPLAY = True # False 기존, True 임시값 전송
 
 def find_arduino_port():
     ports = serial.tools.list_ports.comports()
@@ -111,7 +109,6 @@ class SerialThreadVirtual(SerialThread):
             sub_part2 = random.randint(400 + (pidxGap * 10), 450 + (pidxGap * 10))
             self.databuf.put((timestamp, value, sub_part1, sub_part2))
             self.msleep(100)
-
 
 
 class SerialManager:
@@ -227,6 +224,9 @@ class SerialManager:
         if len(self.candidate_window) == 4:
             return self.candidate_window
 
+    def stop_threads(self):
+        for thread in self.threads:
+            thread.stop()
 
 def sync_callback(group):
     print("Synchronized group:")
@@ -236,14 +236,9 @@ def sync_callback(group):
 
 
 if __name__ == "__main__":
+    app = QApplication(sys.argv)
     synchronizer = SerialManager(debug_mode=True, slop=0.1, callback=sync_callback)
     # synchronizer = SerialManager(debug_mode=True, slop=0.1)
     synchronizer.start_threads()
     print("SerialManager started.")
-
-    try:
-        while True:
-            # print(synchronizer.getCandidate())
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print("Stopping...")
+    sys.exit(app.exec_())
