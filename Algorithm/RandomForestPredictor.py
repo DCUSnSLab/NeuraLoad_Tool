@@ -32,7 +32,7 @@ class RandomForestPredictor(AlgorithmBase):
         super().__init__(
             name="RandomForestPredictor",
             description="랜덤 포레스트 모델을 사용한 무게 및 위치 예측 알고리즘",
-            model_path="../models/GPT_new_best_regression_model.joblib"
+            model_path="../model/GPT_new_best_regression_model.joblib"
         )
 
         '''

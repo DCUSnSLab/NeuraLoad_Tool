@@ -21,8 +21,6 @@ class Algorithm(QWidget):
     def __init__(self, serial_manager):
         super().__init__()
         self.serial_manager = serial_manager  # SerialManager 인스턴스 저장
-        self.experiment = Experiment(serial_manager)
-        self.experiment.subscribers.append(self)
         self.weight_total = [0] * 9
         self.weight_location = [0] * 9
         self.selected_names = []
@@ -30,6 +28,10 @@ class Algorithm(QWidget):
         self.algorithm_results = {}    # 알고리즘 결과 저장
         self.setupUI()
         self.setup()
+
+        self.result_timer = QTimer(self)
+        self.result_timer.timeout.connect(self.check_algorithm_results)
+        self.result_timer.start(500)  # 500ms마다 결과 확인
 
     def setupUI(self):
         self.algorithm_list = QWidget(self)
