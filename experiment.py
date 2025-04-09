@@ -720,9 +720,7 @@ class Experiment(QWidget):
         layout_btn2.addLayout(weight_input_layout2)
         layout_btn2.addWidget(self.weight_btn_z)
 
-        layout_btn2.addLayout(layout_btn1)
         layout_btn2.addWidget(self.weight_log_box)
-        # layout_btn2.addWidget(self.save_file_box_log)
         layout_btn2.addWidget(self.stop_btn)
 
         layout1 = QHBoxLayout()
