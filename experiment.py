@@ -148,12 +148,15 @@ class Experiment(QWidget):
         self.graph_text_min = QLineEdit()
         self.graph_text_min.returnPressed.connect(self.saveGraphMin)
 
+        self.start_btn = QPushButton('시작')
+        self.start_btn.clicked.connect(self.start_graph)
+
         self.port_label_layout = QVBoxLayout()
         self.port_location_selection = {}
         for idx, port in enumerate(self.ports):
             port_label = QLabel(port)
             port_location_cb = QComboBox()
-            port_location_cb.addItems([' ', 'BottomLeft', 'TopRight', 'TopLeft', 'BottomRight', 'IMU', 'etc'])
+            port_location_cb.addItems(['', 'BottomLeft', 'TopRight', 'TopLeft', 'BottomRight', 'IMU', 'etc'])
             port_location_cb.adjustSize()
 
             self.port_comboboxes[port] = port_location_cb
@@ -175,23 +178,33 @@ class Experiment(QWidget):
         print(f"{port} → 센서 테이블 헤더 이름 변경됨: {new_label}")
         self.port_location[port] = new_label
 
-        # 기존 그래프 제거
-        if port in self.plot_curve:
-            self.graph_value.removeItem(self.plot_curve[port])
-        if port in self.plot_curve_change:
-            self.graph_change.removeItem(self.plot_curve_change[port])
-
-        color = self.port_colors.get(new_label, 'gray')
-
-        # 새로운 그래프 추가 (legend 포함)
-        self.plot_curve[port] = self.graph_value.plot(
-            pen=pg.mkPen(color=color, width=1),
-            name=new_label
+    def start_graph(self):
+        all_labeled = all(
+            cb.currentText().strip() != '' and cb.currentText().strip() != ' '
+            for cb in self.port_comboboxes.values()
         )
-        self.plot_curve_change[port] = self.graph_change.plot(
-            pen=pg.mkPen(color=color, width=1),
-            name=new_label
-        )
+
+        if not all_labeled:
+            QMessageBox.warning(self, "경고", "모든 포트에 라벨을 지정해주세요.")
+            return
+
+        for port, combo_box in self.port_comboboxes.items():
+            new_label = combo_box.currentText().strip()
+            color = self.port_colors.get(new_label, 'gray')
+
+            if port in self.plot_curve:
+                self.graph_value.removeItem(self.plot_curve[port])
+            if port in self.plot_curve_change:
+                self.graph_change.removeItem(self.plot_curve_change[port])
+
+            self.plot_curve[port] = self.graph_value.plot(
+                pen=pg.mkPen(color=color, width=1),
+                name=new_label
+            )
+            self.plot_curve_change[port] = self.graph_change.plot(
+                pen=pg.mkPen(color=color, width=1),
+                name=new_label
+            )
 
         self.graph_value.addLegend()
         self.graph_change.addLegend()
@@ -226,7 +239,7 @@ class Experiment(QWidget):
             self.plot_change[port] = deque(maxlen=300)
 
             # 기본 색상 설정
-            default_color = 'gray'
+            default_color = 'black'
             location_name = self.port_comboboxes[port].currentText().strip() if port in self.port_comboboxes else ''
             color = self.port_colors.get(location_name, default_color)
 
@@ -711,6 +724,7 @@ class Experiment(QWidget):
         setting_layout.addLayout(graph_max_layout)
         setting_layout.addLayout(graph_min_layout)
         setting_layout.addLayout(self.port_label_layout)
+        setting_layout.addWidget(self.start_btn)
 
         weight_input_layout2 = QHBoxLayout()
         weight_input_layout2.addWidget(self.weight_btn_p)
