@@ -98,7 +98,6 @@ class KerasMLPPredictor(AlgorithmBase):
         try:
             self.is_running = True
             start_time = time.time()
-
             results = self.process()
 
             self.output_data = results

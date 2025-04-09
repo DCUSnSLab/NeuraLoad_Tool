@@ -9,9 +9,11 @@ from collections import deque
 from AlgorithmInterface import AlgorithmBase
 from arduino_manager import SerialThread, get_arduino_ports
 from experiment import Experiment
+
 import multiprocessing
 from multiprocessing import Process, Queue
 from Algorithm_multiprocess import Algorithm_multiprocess
+
 
 class Algorithm(QWidget):
     def __init__(self, serial_manager):
@@ -180,7 +182,6 @@ class Algorithm(QWidget):
         layout.addLayout(weight_layout1)
         layout.addLayout(weight_layout2)
         layout.addWidget(self.weight_table)
-
         layout1 = QVBoxLayout()
         layout1.addWidget(groupbox)
         layout1.addLayout(btn_layout)

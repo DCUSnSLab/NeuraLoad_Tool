@@ -8,10 +8,7 @@
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/algorithm.py" beforeDir="false" afterPath="$PROJECT_DIR$/algorithm.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/arduino_manager.py" beforeDir="false" afterPath="$PROJECT_DIR$/arduino_manager.py" afterDir="false" />
-<<<<<<< HEAD
       <change beforePath="$PROJECT_DIR$/experiment.py" beforeDir="false" afterPath="$PROJECT_DIR$/experiment.py" afterDir="false" />
-=======
->>>>>>> 9940befb66c749e07769f497223d97cc71f25b64
       <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -29,11 +26,7 @@
   <component name="Git.Settings">
     <option name="RECENT_BRANCH_BY_REPOSITORY">
       <map>
-<<<<<<< HEAD
-        <entry key="$PROJECT_DIR$" value="GEN-610_Data_Grouping" />
-=======
         <entry key="$PROJECT_DIR$" value="main" />
->>>>>>> 9940befb66c749e07769f497223d97cc71f25b64
       </map>
     </option>
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
@@ -75,13 +68,10 @@
     "Python.main.executor": "Run",
     "RunOnceActivity.OpenProjectViewOnStart": "true",
     "RunOnceActivity.ShowReadmeOnStart": "true",
-<<<<<<< HEAD
     "WebServerToolWindowFactoryState": "false",
     "git-widget-placeholder": "GEN-613__Tool-improve",
     "last_opened_file_path": "C:/Users/junhp/PycharmProjects/NeuraLoad_Tool/model",
-=======
     "git-widget-placeholder": "GEN-613__Tool-improve",
->>>>>>> 9940befb66c749e07769f497223d97cc71f25b64
     "node.js.detected.package.eslint": "true",
     "node.js.detected.package.tslint": "true",
     "node.js.selected.package.eslint": "(autodetect)",
@@ -91,7 +81,6 @@
     "vue.rearranger.settings.migration": "true"
   }
 }]]></component>
-<<<<<<< HEAD
   <component name="RecentsManager">
     <key name="CopyFile.RECENT_KEYS">
       <recent name="C:\Users\junhp\PycharmProjects\NeuraLoad_Tool\model" />
@@ -100,47 +89,6 @@
   <component name="RunManager" selected="Python.MLPPredictor">
     <configuration name="COGMassEstimation" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="NeuraLoad_Tool" />
-=======
-  <component name="RunManager" selected="Python.main">
-    <configuration default="true" type="DjangoTestsConfigurationType">
-      <module name="NeuraLoad_Tool" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <envs>
-        <env name="PYTHONUNBUFFERED" value="1" />
-      </envs>
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="" />
-      <option name="IS_MODULE_SDK" value="false" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="TARGET" value="" />
-      <option name="SETTINGS_FILE" value="" />
-      <option name="CUSTOM_SETTINGS" value="false" />
-      <option name="USE_OPTIONS" value="false" />
-      <option name="OPTIONS" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration default="true" type="PyBehaveRunConfigurationType" factoryName="Behave">
-      <module name="NeuraLoad_Tool" />
-      <option name="ENV_FILES" value="" />
-      <option name="INTERPRETER_OPTIONS" value="" />
-      <option name="PARENT_ENVS" value="true" />
-      <option name="SDK_HOME" value="" />
-      <option name="WORKING_DIRECTORY" value="" />
-      <option name="IS_MODULE_SDK" value="true" />
-      <option name="ADD_CONTENT_ROOTS" value="true" />
-      <option name="ADD_SOURCE_ROOTS" value="true" />
-      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
-      <option name="ADDITIONAL_ARGS" value="" />
-      <method v="2" />
-    </configuration>
-    <configuration name="COGMassEstimation" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
-      <module name="NeuraLoad_Tool" />
-      <option name="ENV_FILES" value="" />
->>>>>>> 9940befb66c749e07769f497223d97cc71f25b64
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
@@ -163,10 +111,6 @@
     </configuration>
     <configuration name="MLPPredictor" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
       <module name="NeuraLoad_Tool" />
-<<<<<<< HEAD
-=======
-      <option name="ENV_FILES" value="" />
->>>>>>> 9940befb66c749e07769f497223d97cc71f25b64
       <option name="INTERPRETER_OPTIONS" value="" />
       <option name="PARENT_ENVS" value="true" />
       <envs>
@@ -378,17 +322,10 @@
     </configuration>
     <recent_temporary>
       <list>
-<<<<<<< HEAD
         <item itemvalue="Python.MLPPredictor" />
         <item itemvalue="Python.main" />
         <item itemvalue="Python.RandomForestPredictor" />
         <item itemvalue="Python.COGMassEstimation" />
-=======
-        <item itemvalue="Python.main" />
-        <item itemvalue="Python.COGMassEstimation" />
-        <item itemvalue="Python.MLPPredictor" />
-        <item itemvalue="Python.RandomForestPredictor" />
->>>>>>> 9940befb66c749e07769f497223d97cc71f25b64
         <item itemvalue="Python.arduino_manager" />
       </list>
     </recent_temporary>
@@ -413,7 +350,9 @@
       <workItem from="1743657119664" duration="12567000" />
       <workItem from="1743674584308" duration="2534000" />
       <workItem from="1743728198661" duration="10517000" />
-      <workItem from="1743925771095" duration="7664000" />
+      <workItem from="1743844368113" duration="13000" />
+      <workItem from="1743888384567" duration="8260000" />
+      <workItem from="1743902135098" duration="667000" />
     </task>
     <servers />
   </component>
@@ -446,7 +385,6 @@
     </breakpoint-manager>
   </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
-<<<<<<< HEAD
     <SUITE FILE_PATH="coverage/NeuraLoad_Tool$bin_viewer.coverage" NAME="bin_viewer Coverage Results" MODIFIED="1743868251691" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/log/utils" />
     <SUITE FILE_PATH="coverage/NeuraLoad_Tool$RandomForestPredictor.coverage" NAME="RandomForestPredictor Coverage Results" MODIFIED="1743932079091" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Algorithm" />
     <SUITE FILE_PATH="coverage/NeuraLoad_Tool$AlgorithmInterface.coverage" NAME="AlgorithmInterface 커버리지 결과" MODIFIED="1743664953415" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
@@ -455,15 +393,5 @@
     <SUITE FILE_PATH="coverage/NeuraLoad_Tool$new_arduino_manager.coverage" NAME="new_arduino_manager Coverage Results" MODIFIED="1743856283439" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/NeuraLoad_Tool$MLPPredictor.coverage" NAME="MLPPredictor Coverage Results" MODIFIED="1743932134907" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Algorithm" />
     <SUITE FILE_PATH="coverage/NeuraLoad_Tool$main.coverage" NAME="main Coverage Results" MODIFIED="1743937210991" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-=======
-    <SUITE FILE_PATH="coverage/NeuraLoad_Tool$MLPPredictor.coverage" NAME="MLPPredictor 커버리지 결과" MODIFIED="1743934335048" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Algorithm" />
-    <SUITE FILE_PATH="coverage/NeuraLoad_Tool$algorithm.coverage" NAME="algorithm 커버리지 결과" MODIFIED="1743927588211" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/NeuraLoad_Tool$main.coverage" NAME="main 커버리지 결과" MODIFIED="1743934885735" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/NeuraLoad_Tool$RandomForestPredictor.coverage" NAME="RandomForestPredictor 커버리지 결과" MODIFIED="1743932911308" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Algorithm" />
-    <SUITE FILE_PATH="coverage/NeuraLoad_Tool$COGMassEstimation.coverage" NAME="COGMassEstimation 커버리지 결과" MODIFIED="1743934845413" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/Algorithm" />
-    <SUITE FILE_PATH="coverage/NeuraLoad_Tool$arduino_manager.coverage" NAME="arduino_manager 커버리지 결과" MODIFIED="1743930440181" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/NeuraLoad_Tool$AlgorithmInterface.coverage" NAME="AlgorithmInterface 커버리지 결과" MODIFIED="1743664953415" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/NeuraLoad_Tool$GUIController.coverage" NAME="GUIController 커버리지 결과" MODIFIED="1743927610463" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
->>>>>>> 9940befb66c749e07769f497223d97cc71f25b64
   </component>
 </project>
