@@ -193,7 +193,7 @@ class SerialManager:
                         self.try_sync()
                 except Empty:
                     pass
-            # time.sleep(0.01)
+            time.sleep(0.01)
 
     def try_sync(self):
         """
