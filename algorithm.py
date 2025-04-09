@@ -9,9 +9,13 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 import pyqtgraph as pg
 from collections import deque
-from arduino_manager import SerialThread, get_arduino_ports
-from experiment import Experiment
 from AlgorithmInterface import AlgorithmBase
+from arduino_manager import SerialThread, get_arduino_ports
+
+import multiprocessing
+from multiprocessing import Process, Queue
+from Algorithm_multiprocess import Algorithm_multiprocess
+
 
 class Algorithm(QWidget):
     def __init__(self, serial_manager):
@@ -26,11 +30,6 @@ class Algorithm(QWidget):
         self.algorithm_results = {}    # 알고리즘 결과 저장
         self.setupUI()
         self.setup()
-        
-        # 결과 체크를 위한 타이머 설정
-        self.result_timer = QTimer(self)
-        self.result_timer.timeout.connect(self.check_algorithm_results)
-        self.result_timer.start(500)  # 500ms마다 결과 확인
 
     def setupUI(self):
         self.algorithm_list = QWidget(self)
@@ -76,16 +75,16 @@ class Algorithm(QWidget):
         self.selected_names = []
         self.algorithm_processes = {}
         self.algorithm_results = {}
-        
+
         # 선택된 알고리즘 파일 확인
         for checkbox, (file_name, full_path) in zip(self.checkboxes, self.files):
             if checkbox.isChecked():
                 self.selected_names.append(file_name)
-        
+
         if not self.selected_names:
             QMessageBox.warning(self, "알림", "실행할 알고리즘을 선택해주세요.")
             return
-            
+
         # 테이블 설정
         self.weight_table.setColumnCount(len(self.selected_names))
         self.weight_table.setRowCount(3)
@@ -95,9 +94,9 @@ class Algorithm(QWidget):
 
         for i, name in enumerate(self.selected_names):
             self.weight_table.setHorizontalHeaderItem(i, QTableWidgetItem(name))
-            
+
         self.weight_table.resizeColumnsToContents()
-        
+
         # 선택된 알고리즘 별도 프로세스로 실행
         self.run_algorithms_as_subprocess()
 
@@ -107,36 +106,36 @@ class Algorithm(QWidget):
         if not hasattr(self.serial_manager, 'latest_candidate_window') or not self.serial_manager.latest_candidate_window:
             QMessageBox.warning(self, "데이터 없음", "센서 데이터가 없습니다. 실험을 먼저 시작해주세요.")
             return
-            
+
         # latest_candidate_window를 JSON으로 직렬화
         try:
             # 직접 객체를 직렬화할 수 없는 경우 필요한 변환을 수행
             serializable_data = {}
             for port, data in self.serial_manager.latest_candidate_window.items():
                 # datetime 객체를 문자열로 변환하여 serializable하게 만듦
-                serializable_port_data = {k: (v.isoformat() if k == 'timestamp_dt' else v) 
+                serializable_port_data = {k: (v.isoformat() if k == 'timestamp_dt' else v)
                                          for k, v in data.items()}
                 serializable_data[port] = serializable_port_data
-                
+
             sensor_data_json = json.dumps(serializable_data)
         except Exception as e:
             QMessageBox.critical(self, "데이터 변환 오류", f"센서 데이터 변환 중 오류가 발생했습니다: {str(e)}")
             return
-        
+
         # 선택된 각 알고리즘에 대해 별도 프로세스 실행
         for file_name, full_path in self.files:
             if file_name in self.selected_names:
                 cmd = [sys.executable, 'run_algorithm.py', full_path, sensor_data_json]
-                
+
                 # 별도 프로세스로 알고리즘 실행
                 try:
                     process = subprocess.Popen(
-                        cmd, 
-                        stdout=subprocess.PIPE, 
+                        cmd,
+                        stdout=subprocess.PIPE,
                         stderr=subprocess.PIPE,
                         text=True
                     )
-                    
+
                     # 프로세스 저장
                     self.algorithm_processes[file_name] = process
                     print(f"{file_name} 알고리즘이 별도 프로세스로 실행되었습니다.")
@@ -146,14 +145,14 @@ class Algorithm(QWidget):
     def check_algorithm_results(self):
         """실행 중인 알고리즘 프로세스 결과 확인"""
         finished_algos = []
-        
+
         for file_name, process in self.algorithm_processes.items():
             # 프로세스가 완료되었는지 확인
             if process.poll() is not None:
                 try:
                     # 프로세스 출력 읽기
                     stdout, stderr = process.communicate()
-                    
+
                     if process.returncode != 0:
                         # 오류 발생
                         self.algorithm_results[file_name] = {
@@ -170,46 +169,46 @@ class Algorithm(QWidget):
                             self.algorithm_results[file_name] = {
                                 "error": f"JSON parsing error: {stdout}"
                             }
-                
+
                 except Exception as e:
                     self.algorithm_results[file_name] = {
                         "error": f"Error processing result: {str(e)}"
                     }
-                
+
                 # 완료된 알고리즘 목록에 추가
                 finished_algos.append(file_name)
-                
+
         # 완료된 알고리즘 프로세스 정리
         for file_name in finished_algos:
             del self.algorithm_processes[file_name]
             self.update_result_table(file_name)
-            
+
     def update_result_table(self, file_name):
         """알고리즘 결과로 테이블 업데이트"""
         if file_name not in self.selected_names:
             return
-            
+
         result = self.algorithm_results.get(file_name, {})
         col_index = self.selected_names.index(file_name)
-        
+
         if "error" in result:
             # 오류 메시지 표시
             for row in range(3):
                 self.weight_table.setItem(row, col_index, QTableWidgetItem("Error"))
             QMessageBox.critical(self, "알고리즘 오류", f"{file_name}: {result['error']}")
             return
-            
+
         try:
             # 무게 정보 표시
             if "weight" in result:
                 weight_item = QTableWidgetItem(str(result["weight"]))
                 self.weight_table.setItem(0, col_index, weight_item)
-                
+
             # 위치 정보 표시
             if "position" in result:
                 position_item = QTableWidgetItem(str(result["position"]))
                 self.weight_table.setItem(1, col_index, position_item)
-                
+
             # 오차율 계산 및 표시
             if "weight" in result and isinstance(self.weight_total, (int, float)):
                 try:
@@ -219,7 +218,7 @@ class Algorithm(QWidget):
                 except (TypeError, ValueError):
                     error_item = QTableWidgetItem("N/A")
                     self.weight_table.setItem(2, col_index, error_item)
-        
+
         except Exception as e:
             QMessageBox.warning(self, "결과 처리 오류", f"{file_name} 결과 처리 중 오류 발생: {str(e)}")
 
@@ -231,11 +230,11 @@ class Algorithm(QWidget):
 
         # 선택된 알고리즘 목록 초기화
         self.selected_names.clear()
-        
+
         # 실행 중인 프로세스 종료
         for process in self.algorithm_processes.values():
             process.terminate()
-        
+
         self.algorithm_processes.clear()
         self.algorithm_results.clear()
 
@@ -249,12 +248,12 @@ class Algorithm(QWidget):
         # 모든 체크박스 선택
         for checkbox in self.checkboxes:
             checkbox.setChecked(True)
-            
+
         # 선택된 알고리즘 목록 초기화 및 모든 알고리즘 추가
         self.selected_names = []
         for file_name, _ in self.files:
             self.selected_names.append(file_name)
-            
+
         # 테이블 설정
         self.weight_table.setColumnCount(len(self.selected_names))
         self.weight_table.setRowCount(3)
@@ -264,9 +263,9 @@ class Algorithm(QWidget):
 
         for i, name in enumerate(self.selected_names):
             self.weight_table.setHorizontalHeaderItem(i, QTableWidgetItem(name))
-            
+
         self.weight_table.resizeColumnsToContents()
-        
+
         # 모든 알고리즘 별도 프로세스로 실행
         self.run_algorithms_as_subprocess()
 
@@ -277,7 +276,7 @@ class Algorithm(QWidget):
             total_weight = sum(self.weight_total)
         else:
             total_weight = self.weight_total
-            
+
         # 무게 위치 처리
         all_weight_location = list(filter(lambda x: self.weight_location[x] == 1, range(len(self.weight_location))))
         all_weight_location = [i+1 for i in all_weight_location]
@@ -342,7 +341,7 @@ class Algorithm(QWidget):
         layout2.addLayout(layout)
 
         self.setLayout(layout2)
-        
+
     def closeEvent(self, event):
         """창이 닫힐 때 실행 중인 프로세스 종료"""
         for process in self.algorithm_processes.values():
