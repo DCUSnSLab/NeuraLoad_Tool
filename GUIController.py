@@ -13,15 +13,15 @@ class GUIController(QThread):
         while True:
             candidate = self.serialManager.candidate_window
             if candidate and len(candidate) == len(self.serialManager.ports):
-                for port, record in candidate.items():
-                    self.dataUpdate(port, record)
+                for port, data in candidate.items():
+                    self.dataUpdate(port, data)
             self.plot_updated.emit()
-            self.msleep(1)
+            self.msleep(15)
 
 
-    def dataUpdate(self, port, record):
+    def dataUpdate(self, port, data):
         """
-                record는 딕셔너리 형태:
+                data는 딕셔너리 형태:
                   {
                     "timestamp": "22_18_09_834",
                     "value": 419,
@@ -30,13 +30,16 @@ class GUIController(QThread):
                     "Data_port_number": "VCOM1",
                     "timestamp_dt": datetime.datetime(...)
                   }
-                """
+
+            sensor change 그래프 0으로 바뀌는 현상 수정해야함
+
+            """
 
         plot_data = self.guiModule.plot_data.get(port)
         plot_change = self.guiModule.plot_change.get(port)
 
         if plot_data is not None:
             # 기존에는 모듈의 raw 데이터를 append하던 부분 대신, 동기화된 데이터의 tuple을 추가합니다.
-            plot_data.append((record["timestamp"], record["value"], record["sub1"], record["sub2"]))
+            plot_data.append((data["timestamp"], data["value"], data["sub1"], data["sub2"]))
         if plot_change is not None:
-            plot_change.append((record["timestamp"], record["value"], record["sub1"], record["sub2"]))
+            plot_change.append((data["timestamp"], data["value"], data["sub1"], data["sub2"]))
