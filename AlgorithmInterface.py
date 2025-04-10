@@ -3,7 +3,7 @@ import logging
 import os
 import time
 from typing import Dict, List, Any, Optional
-
+from time import sleep
 
 class AlgorithmBase(ABC):
     """
@@ -67,44 +67,55 @@ class AlgorithmBase(ABC):
         """
         return self.execution_history
 
+    @abstractmethod
+    def initAlgorithm(self):
+        pass
+
+    def runProc(self):
+        print('init Algorithm..',self.name)
+        self.initAlgorithm()
+        i = 0
+        while i < 10:
+            print('run algorithm->',self.name)
+            i += 1
+            sleep(1)
+
+
     def execute(self, input_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """
-        알고리즘 실행
+        if input_data is None:
+            pass
+        else:
+            try:
+                self.is_running = True
 
-        Returns:
-            알고리즘 실행 결과
-        """
-        try:
-            self.is_running = True
+                start_time = time.time()
 
-            start_time = time.time()
+                # 입력 데이터가 제공되면 업데이트
+                if input_data is not None:
+                    self.set_input_data(input_data)
 
-            # 입력 데이터가 제공되면 업데이트
-            if input_data is not None:
-                self.set_input_data(input_data)
+                # 알고리즘 처리
+                results = self.process()
 
-            # 알고리즘 처리
-            results = self.process()
+                # 출력 데이터 설정
+                self.output_data = results
 
-            # 출력 데이터 설정
-            self.output_data = results
+                self.execution_time = time.time() - start_time
 
-            self.execution_time = time.time() - start_time
+                # 실행 이력 업데이트
+                self.execution_history.append({
+                    'timestamp': time.time(),
+                    'input_keys': list(self.input_data.keys()),
+                    'output_keys': list(self.output_data.keys()),
+                    'execution_time': self.execution_time
+                })
 
-            # 실행 이력 업데이트
-            self.execution_history.append({
-                'timestamp': time.time(),
-                'input_keys': list(self.input_data.keys()),
-                'output_keys': list(self.output_data.keys()),
-                'execution_time': self.execution_time
-            })
+                return self.output_data
 
-            return self.output_data
-
-        except Exception:
-            raise
-        finally:
-            self.is_running = False
+            except Exception:
+                raise
+            finally:
+                self.is_running = False
 
     def preprocessing(self):
         self.refined_data = []
