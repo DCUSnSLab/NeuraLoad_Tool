@@ -39,7 +39,7 @@ class Main(QWidget):
 
         self.tabs = QTabWidget()
 
-        self.DEBUG_MODE = False
+        self.DEBUG_MODE = True
 
         # self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE, callback=sync_callback)
         self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE)
