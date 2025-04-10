@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import logging
 import os
 import time
+from multiprocessing import Manager
 from typing import Dict, List, Any, Optional
 from time import sleep
 
@@ -29,6 +30,8 @@ class AlgorithmBase(ABC):
         self.execution_time = 0
         self.is_running = False
         self.execution_history = []
+        self.manage = Manager()
+        self.databuf = self.manage.Queue()
 
     @abstractmethod
     def process(self) -> Dict[str, Any]:
@@ -128,3 +131,6 @@ class AlgorithmBase(ABC):
         """입력 및 출력 데이터 초기화"""
         self.input_data = {}
         self.output_data = {}
+
+    def getDatabuf(self):
+        return self.databuf
