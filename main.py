@@ -23,8 +23,8 @@ class Main(QWidget):
 
         self.DEBUG_MODE = True
 
-        self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE, callback=sync_callback)
-        # self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE)
+        # self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE, callback=sync_callback)
+        self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE)
         self.serial_manager.start_threads()
 
         self.tab1 = Experiment(serial_manager=self.serial_manager)

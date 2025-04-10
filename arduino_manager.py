@@ -152,7 +152,7 @@ class SerialManager:
 
         # 별도의 폴링 스레드에서 센서 스레드의 데이터를 버퍼에 저장
         self.poll_thread = Thread(target=self.poll_sensors, daemon=True)
-        #self.poll_thread.start()
+        self.poll_thread.start()
 
     def poll_sensors(self):
         """
