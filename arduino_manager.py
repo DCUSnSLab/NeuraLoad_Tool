@@ -29,6 +29,22 @@ def get_arduino_ports(DEBUG_MODE=False):
     ]
     return ports
 
+class SensorData():
+    def __init__(self, sname, serialport, timestamp, value, sub_part1, sub_part2):
+        """
+        sname : 센서명
+        serialport : 시리얼포트
+        timestamp : 시간값
+        value : 센서값
+        sub1 : 추가 센서값
+        sub2 : 추가 센서값
+        """
+        self.sname = sname
+        self.serialport = serialport
+        self.timestamp = timestamp
+        self.value = value
+        self.sub1 = sub_part1
+        self.sub2 = sub_part2
 
 class SerialThread(QThread):
     def __init__(self, port, baudrate=9600):
@@ -60,6 +76,7 @@ class SerialThread(QThread):
 
                 timestamp = datetime.datetime.now().strftime("%H_%M_%S_%f")[:-3]
                 if data:
+
                     parts = data.split(',')
                     if len(parts) < 3:
                         continue
@@ -71,7 +88,10 @@ class SerialThread(QThread):
                         continue
                     value = int(main_part)
 
-                    self.databuf.put((timestamp, value, sub_part1, sub_part2))
+                    sdata = SensorData("Laser", self.port, timestamp, value, sub_part1, sub_part2)
+
+                    # self.databuf.put((timestamp, value, sub_part1, sub_part2))
+                    self.databuf.put(sdata)
             self.msleep(1)
 
     def pause(self):
@@ -107,7 +127,13 @@ class SerialThreadVirtual(SerialThread):
             value = random.randint(400+(pidxGap*10), 450+(pidxGap*10))
             sub_part1 = random.randint(400 + (pidxGap * 10), 450 + (pidxGap * 10))
             sub_part2 = random.randint(400 + (pidxGap * 10), 450 + (pidxGap * 10))
-            self.databuf.put((timestamp, value, sub_part1, sub_part2))
+
+            sdata = SensorData("Laser", self.port, timestamp, value, sub_part1, sub_part2)
+
+            # self.databuf.put((timestamp, value, sub_part1, sub_part2))
+
+            # self.databuf.put((timestamp, value, sub_part1, sub_part2))
+            self.databuf.put(sdata)
             self.msleep(100)
 
 
@@ -167,10 +193,10 @@ class SerialManager:
                         msg = thread.databuf.get_nowait()
                         port = thread.port
                         record = {
-                            "timestamp": msg[0],
-                            "value": msg[1],
-                            "sub1": msg[2],
-                            "sub2": msg[3],
+                            "timestamp": msg.timestamp,
+                            "value": msg.value,
+                            "sub1": msg.sub1,
+                            "sub2": msg.sub2,
                             "port": port
                         }
                         # timestamp 문자열("HH_MM_SS_mmm")을 오늘 날짜 기준 datetime 객체로 변환
