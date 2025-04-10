@@ -151,6 +151,9 @@ class COGMassEstimation(AlgorithmBase):
             'delta_values': recent_deltas
         }
 
+    def initAlgorithm(self):
+        print('init Algorithm -> ', self.name)
+
     def execute(self, input_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         try:
             self.is_running = True
