@@ -1,20 +1,10 @@
 import os
 import sys
 import ast
-import importlib.util
 import subprocess
 import json
-import tempfile
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
-import pyqtgraph as pg
-from collections import deque
-from AlgorithmInterface import AlgorithmBase
-from arduino_manager import SerialThread, get_arduino_ports
-
-import multiprocessing
-from multiprocessing import Process, Queue
-from Algorithm_multiprocess import Algorithm_multiprocess
 
 
 class Algorithm(QWidget):
