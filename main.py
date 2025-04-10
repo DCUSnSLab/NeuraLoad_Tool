@@ -1,6 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QTabWidget, QVBoxLayout
 from algorithm import Algorithm
+from algorithm_multiproc import AlgorithmMultiProc
 from analytics import Analytics
 from experiment import Experiment
 
@@ -27,7 +28,7 @@ class Main(QWidget):
         self.serial_manager.start_threads()
 
         self.tab1 = Experiment(serial_manager=self.serial_manager)
-        self.tab2 = Algorithm(serial_manager=self.serial_manager)
+        self.tab2 = AlgorithmMultiProc(serial_manager=self.serial_manager)
         self.tab3 = Analytics()
 
         self.tab1.add_subscriber(self.tab2)

@@ -36,6 +36,7 @@ class KerasMLPPredictor(AlgorithmBase):
         # 센서 초기값 저장용
         self.initial_values = {}
 
+    def initAlgorithm(self):
         # 모델 및 스케일러 로드
         model_abspath = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.model_path)
         scaler_abspath = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.scaler_path)
@@ -43,9 +44,9 @@ class KerasMLPPredictor(AlgorithmBase):
         try:
             self.model = load_model(model_abspath, compile=False)
             self.scaler = joblib_load(scaler_abspath)
-            #print("모델과 스케일러 로드 완료")
+            # print("모델과 스케일러 로드 완료")
         except Exception as e:
-            #print(f"모델 또는 스케일러 로드 실패: {e}")
+            # print(f"모델 또는 스케일러 로드 실패: {e}")
             self.model = None
             self.scaler = None
 

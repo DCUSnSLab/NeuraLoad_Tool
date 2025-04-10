@@ -23,7 +23,7 @@ class Experiment(QWidget):
         self.count_t = 't'
         self.last_direction = '-'
         self.is_paused_global = True
-        self.aaaa = False
+        self.is_experiment_active = False
         self.save_graph_max = 500
         self.save_graph_min = 0
 
@@ -258,7 +258,7 @@ class Experiment(QWidget):
     def startGUIThread(self):
         print('start GUIThread')
         # 쓰레드에 SerialManager의 쓰레드도 전달
-        self.GUIThread = GUIController(self, self.serial_manager.threads)
+        self.GUIThread = GUIController(self, self.serial_manager)
         self.GUIThread.plot_updated.connect(self.updateGraph)
         self.GUIThread.start()
 
@@ -356,7 +356,7 @@ class Experiment(QWidget):
                     self.plot_curve_change[port].setData(x, change_values)
 
                 # 실험 중일 때만 데이터 처리 및 테이블 업데이트
-                if self.aaaa and port in self.port_index:
+                if self.is_experiment_active and port in self.port_index:
                     # 최신 값 표시
                     value = -1
                     if len(y_values) > 0:
@@ -499,16 +499,16 @@ class Experiment(QWidget):
             print(f"[오류] 데이터 저장 중 예외 발생: {e}")
 
     def stop(self):
-        self.aaaa = True  # 전역 상태 갱신
+        self.is_experiment_active = True  # 전역 상태 갱신
 
         QCoreApplication.processEvents()
 
     def restart(self):
-        self.aaaa = False  # 전역 상태 갱신
+        self.is_experiment_active = False  # 전역 상태 갱신
 
     def toggle_btn(self):
         if self.stop_btn.isChecked():
-            self.aaaa = True
+            self.is_experiment_active = True
             self.is_paused_global = False
             self.countdown_value = 5
             
@@ -521,7 +521,7 @@ class Experiment(QWidget):
                 else:
                     # 5초 후: 실험 종료 상태로 변경
                     self.stop_btn.setChecked(False)  # 버튼 체크 해제
-                    self.aaaa = False
+                    self.is_experiment_active = False
                     self.is_paused_global = True
                     self.stop_btn.setText("실험 시작")
                     self.weight_log_box.setText(str(self.weight_a))
@@ -529,7 +529,7 @@ class Experiment(QWidget):
             countdown()  # 카운트다운 시작
             QCoreApplication.processEvents()
         else:
-            self.aaaa = False
+            self.is_experiment_active = False
             self.is_paused_global = True
             self.stop_btn.setText("실험 시작")
 
