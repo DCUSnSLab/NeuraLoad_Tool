@@ -170,9 +170,6 @@ class SerialManager:
         # 공유 큐들을 저장할 리스트
         self.algo_buffers = []  # 각 요소는 알고리즘에서 전달받은 Queue 객체
 
-    def testprint(self):
-        print("serial manager complete!")
-
     def add_buffer(self, buffer):
         with self.lock:
             if buffer not in self.algo_buffers:
