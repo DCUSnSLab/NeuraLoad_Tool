@@ -7,6 +7,8 @@ from PyQt5.QtWidgets import *
 import pyqtgraph as pg
 from collections import deque
 
+from pyqtgraph import disconnect
+
 from GUIController import GUIController
 
 
@@ -238,6 +240,7 @@ class Experiment(QWidget):
 
     def update_graph_start(self, port, value):
         self.port_actual_distances[port] = value
+        print(f"{port}의 그래프 초기값 {value}로 설정")
 
     def save_port_location(self, port, new_label):
         index = self.port_column_index.get(port)
@@ -297,7 +300,7 @@ class Experiment(QWidget):
         try:
             # 그래프 Y축 범위 설정
             self.graph_change.getPlotItem().setYRange(min=self.save_graph_min, max=self.save_graph_max)
-            self.graph_value.getPlotItem().setYRange(min=self.save_graph_min, max=self.save_graph_max)
+            self.graph_value.getPlotItem().setYRange(min=0, max=800)
 
             # 특정 포트만 업데이트하거나 모든 포트 업데이트
             ports_to_update = [port] if port else self.ports
