@@ -167,6 +167,19 @@ class SerialManager:
         # 각 포트별 스레드 생성 및 실행
         self.threads = []
 
+        # 공유 큐들을 저장할 리스트
+        self.algo_buffers = []  # 각 요소는 알고리즘에서 전달받은 Queue 객체
+
+    def add_buffer(self, buffer):
+        with self.lock:
+            if buffer not in self.algo_buffers:
+                self.algo_buffers.append(buffer)
+
+    def remove_buffer(self, buffer):
+        with self.lock:
+            if buffer in self.algo_buffers:
+                self.algo_buffers.remove(buffer)
+
     def start_threads(self):
         for port in self.ports:
             if self.debug_mode:
@@ -241,6 +254,8 @@ class SerialManager:
                     self.buffers[port].pop(0)
                 if self.callback:
                     self.callback(self.candidate_window)
+                for buf in self.algo_buffers:
+                    buf.put(candidate.copy())
             else:
                 oldest_port = min(self.ports, key=lambda p: self.buffers[p][0]["timestamp_dt"])
                 dropped = self.buffers[oldest_port].pop(0)
