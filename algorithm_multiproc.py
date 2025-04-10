@@ -3,7 +3,7 @@ from multiprocessing import Process
 
 from PyQt5.QtWidgets import *
 
-# from AlgorithmLauncher import launch_algorithm
+from AlgorithmLauncher import launch_algorithm
 
 
 class AlgorithmMultiProc(QWidget):
