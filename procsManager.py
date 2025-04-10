@@ -22,11 +22,16 @@ class ProcsManager:
 
     def start(self):
         for n, val in self.procs.items():
+            readySig = mp.Event()
+            databufQue = mp.Queue()
+
+            val.event_readyBuffer(readySig, databufQue)
+
             p = mp.Process(name=n, target=val.run)
             val.start(p)
-            val.getSerialManager(self.sm)
 
-        #프로세스가 시작됐는지(정확히는, databuf 가 만들어졌는지 확인 한 후에, SerialManager에 그 버퍼를 등록해 줘야 함
+            readySig.wait()  # 자식이 큐 준비 신호를 보낼때 까지 기다림
+            self.sm.add_buffer(databufQue.get())
 
     def terminate(self):
         for val in self.procs.values():
@@ -36,6 +41,6 @@ class ProcsManager:
     def join(self):
         pass
 
-    def __print(self, data):
-        print('[%d-%s] - %s'%(self.getPID(), self.name, data))
+    def __print(self, name, pid):
+        print('[%d] - %s'%(pid, name))
 

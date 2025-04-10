@@ -8,16 +8,21 @@ class processImpl(metaclass=ABCMeta):
     def __init__(self,name):
         self.name = name
         self.process = None
+        self.readySig = None
 
     def _initialize_buffers(self):
         self.manage = mp.Manager()
         self.databuf = self.manage.Queue()
-        self.databuf.put(self.name)
-        print(self.databuf.get())
+        if self.readySig:
+            self.readyQue.put(self.databuf)
+            self.readySig.set()
 
-    def getSerialManager(self, sm):
-        self.sm = sm
-        self.sm.testprint()
+    def getDatabuf(self):
+        return self.databuf
+
+    def event_readyBuffer(self, event, queue):
+        self.readySig = event
+        self.readyQue = queue
 
     def start(self, proc:multiprocessing.context.Process):
         self.process = proc

@@ -256,7 +256,7 @@ class SerialManager:
                     self.callback(self.candidate_window)
                 for buf in self.algo_buffers:
                     buf.put(candidate.copy())
-                print(self.algo_buffers)
+                #print(self.algo_buffers)
             else:
                 oldest_port = min(self.ports, key=lambda p: self.buffers[p][0]["timestamp_dt"])
                 dropped = self.buffers[oldest_port].pop(0)

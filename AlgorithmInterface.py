@@ -80,10 +80,15 @@ class AlgorithmBase(processImpl):
         print('init Algorithm..',self.name)
         self.initAlgorithm()
         i = 0
-        while i < 10:
-            print('run algorithm->',self.name)
+        while True:
+            if not self.databuf.empty():
+                data = self.databuf.get()#print('run algorithm->',self.name,' : ',self.databuf.get())
+                print(data)
+                res = self.execute(data)
+                #print('run algorithm->', self.name, ' : ', res)
+            #print('run algorithm->',self.name)
             i += 1
-            sleep(1)
+            sleep(0.5)
 
 
     def execute(self, input_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:

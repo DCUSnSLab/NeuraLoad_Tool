@@ -36,6 +36,9 @@ class AlgorithmMultiProc(QWidget):
         self.all_btn = QPushButton('Run all', self)
         self.all_btn.clicked.connect(self.run_all)
 
+        self.stop_btn = QPushButton('Stop and Reset', self)
+        self.stop_btn.clicked.connect(self.finishAllAlgorithms)
+
         layout = QVBoxLayout()
         layout.addWidget(self.algorithm_list)
 
@@ -66,6 +69,7 @@ class AlgorithmMultiProc(QWidget):
         layout1.addWidget(groupbox)
         layout1.addLayout(btn_layout)
         layout1.addWidget(self.all_btn)
+        layout1.addWidget(self.stop_btn)
 
         layout2 = QHBoxLayout()
         layout2.addLayout(layout1)
