@@ -1,8 +1,7 @@
 import os
-from multiprocessing import Process
-
+from multiprocessing import Process, Manager
+from PyQt5.QtCore import QTimer
 from PyQt5.QtWidgets import *
-
 from AlgorithmLauncher import launch_algorithm
 
 
@@ -113,11 +112,33 @@ class AlgorithmMultiProc(QWidget):
         self.runAlgorithm()
 
     def runAlgorithm(self):
-        self.setOutputLabels()
+        self.algo_processes = {}
+        parent_manager = Manager()
+
         for cbx in self.algorithm_checkbox:
             if cbx.isChecked():
-                print('run - ', cbx.text())
-                if cbx.text() in self.files:
-                    print('select algorithm file -> ',cbx.text(), self.files[cbx.text()])
-                    pr = Process(name=cbx.text(), target=launch_algorithm, args=(cbx.text(),))
+                algo_file = cbx.text()
+                if algo_file in self.files:
+                    # 부모에서 공유 큐를 생성
+                    shared_buffer = parent_manager.Queue()
+                    # 등록: 공유 큐를 serial_manager에 등록
+                    self.serial_manager.add_buffer(shared_buffer)
+
+                    # Process 생성: launch_algorithm 함수에 file_path와 shared_buffer 전달
+                    pr = Process(
+                        name=algo_file,
+                        target=launch_algorithm,
+                        args=(self.files[algo_file], shared_buffer)
+                    )
                     pr.start()
+                    self.algo_processes[algo_file] = (pr, shared_buffer)
+
+        # 5초 후에 cleanup 함수를 호출 (각 프로세스 join 후 공유 큐 제거)
+        QTimer.singleShot(5000, self.cleanupAlgoBuffers)
+
+    def cleanupAlgoBuffers(self):
+        for algo_file, (process, shared_buffer) in self.algo_processes.items():
+            process.join()  # 프로세스 종료 대기
+            # 등록했던 공유 큐 제거
+            self.serial_manager.remove_buffer(shared_buffer)
+        self.algo_processes.clear()
