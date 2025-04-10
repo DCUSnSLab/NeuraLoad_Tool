@@ -11,6 +11,7 @@ import datetime
 from threading import Thread, Lock
 import time
 
+
 def find_arduino_port():
     ports = serial.tools.list_ports.comports()
     for port in ports:
@@ -67,32 +68,36 @@ class SerialThread(QThread):
             return
 
         while self.is_running:
-            if not self.is_paused and self.ser.in_waiting > 0:
-                try:
-                    data = self.ser.readline().decode('utf-8', errors='ignore').strip()
-                except Exception as e:
-                    print(f"데이터 수신 오류: {e}")
-                    continue
-
-                timestamp = datetime.datetime.now().strftime("%H_%M_%S_%f")[:-3]
-                if data:
-
-                    parts = data.split(',')
-                    if len(parts) < 3:
+            try:
+                if not self.is_paused and self.ser.in_waiting > 0:
+                    try:
+                        data = self.ser.readline().decode('utf-8', errors='ignore').strip()
+                    except Exception as e:
+                        print(f"데이터 수신 오류: {e}")
                         continue
-                    main_part = parts[0].strip()
-                    sub_part1 = parts[1].strip()
-                    sub_part2 = parts[2].strip()
 
-                    if not main_part.isdigit():
-                        continue
-                    value = int(main_part)
+                    timestamp = datetime.datetime.now().strftime("%H_%M_%S_%f")[:-3]
+                    if data:
 
-                    sdata = SensorData("Laser", self.port, timestamp, value, sub_part1, sub_part2)
+                        parts = data.split(',')
+                        if len(parts) < 3:
+                            continue
+                        main_part = parts[0].strip()
+                        sub_part1 = parts[1].strip()
+                        sub_part2 = parts[2].strip()
 
-                    # self.databuf.put((timestamp, value, sub_part1, sub_part2))
-                    self.databuf.put(sdata)
-            self.msleep(1)
+                        if not main_part.isdigit():
+                            continue
+                        value = int(main_part)
+
+                        sdata = SensorData("Laser", self.port, timestamp, value, sub_part1, sub_part2)
+
+                        # self.databuf.put((timestamp, value, sub_part1, sub_part2))
+                        self.databuf.put(sdata)
+                self.msleep(1)
+            except serial.SerialException:
+                print('센서 연결 끊김')
+                break
 
     def pause(self):
         self.is_paused = True
