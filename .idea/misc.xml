@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="Python 3.12 (NeuraLoad_Tool)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="NeuraLoad_Tool" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.12 (NeuraLoad_Tool)" project-jdk-type="Python SDK" />
 </project>
