@@ -170,6 +170,9 @@ class SerialManager:
         # 공유 큐들을 저장할 리스트
         self.algo_buffers = []  # 각 요소는 알고리즘에서 전달받은 Queue 객체
 
+    def testprint(self):
+        print("serial manager complete!")
+
     def add_buffer(self, buffer):
         with self.lock:
             if buffer not in self.algo_buffers:
@@ -256,6 +259,7 @@ class SerialManager:
                     self.callback(self.candidate_window)
                 for buf in self.algo_buffers:
                     buf.put(candidate.copy())
+                print(self.algo_buffers)
             else:
                 oldest_port = min(self.ports, key=lambda p: self.buffers[p][0]["timestamp_dt"])
                 dropped = self.buffers[oldest_port].pop(0)

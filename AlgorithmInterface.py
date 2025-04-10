@@ -6,7 +6,10 @@ from multiprocessing import Manager
 from typing import Dict, List, Any, Optional
 from time import sleep
 
-class AlgorithmBase(ABC):
+from procImpl import processImpl
+
+
+class AlgorithmBase(processImpl):
     """
     화물과적 중심 탄소중립을 위한 데이터 수집 툴 알고리즘 추상 클래스
 
@@ -15,6 +18,7 @@ class AlgorithmBase(ABC):
     """
 
     def __init__(self, name: str, description: str = "", model_path: str = ""):
+        super().__init__(name)
         """
         알고리즘 클래스 초기화
 
@@ -30,8 +34,6 @@ class AlgorithmBase(ABC):
         self.execution_time = 0
         self.is_running = False
         self.execution_history = []
-        self.manage = Manager()
-        self.databuf = self.manage.Queue()
 
     @abstractmethod
     def process(self) -> Dict[str, Any]:
@@ -74,7 +76,7 @@ class AlgorithmBase(ABC):
     def initAlgorithm(self):
         pass
 
-    def runProc(self):
+    def doProc(self):
         print('init Algorithm..',self.name)
         self.initAlgorithm()
         i = 0
@@ -131,6 +133,3 @@ class AlgorithmBase(ABC):
         """입력 및 출력 데이터 초기화"""
         self.input_data = {}
         self.output_data = {}
-
-    def getDatabuf(self):
-        return self.databuf

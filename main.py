@@ -1,6 +1,5 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QTabWidget, QVBoxLayout
-from algorithm import Algorithm
 from algorithm_multiproc import AlgorithmMultiProc
 from analytics import Analytics
 from experiment import Experiment

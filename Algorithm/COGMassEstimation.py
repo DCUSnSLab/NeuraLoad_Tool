@@ -13,9 +13,9 @@ import datetime
 from AlgorithmInterface import AlgorithmBase  # 상속용 추상 클래스
 
 class COGMassEstimation(AlgorithmBase):
-    def __init__(self):
+    def __init__(self, name):
         super().__init__(
-            name="COGMassEstimation",
+            name=name,
             description="레이저 센서 변화량 기반 적재 위치 및 무게 추정 알고리즘"
         )
         self.constants = {

@@ -4,11 +4,13 @@ from multiprocessing import Process
 from PyQt5.QtWidgets import *
 
 from AlgorithmLauncher import launch_algorithm
+from procsManager import ProcsManager
 
 
 class AlgorithmMultiProc(QWidget):
     def __init__(self, serial_manager):
         super().__init__()
+        self.procmanager = ProcsManager(serial_manager)
         self.serial_manager = serial_manager
 
         self.files = dict() #Algorithm File List
@@ -119,5 +121,9 @@ class AlgorithmMultiProc(QWidget):
                 print('run - ', cbx.text())
                 if cbx.text() in self.files:
                     print('select algorithm file -> ',cbx.text(), self.files[cbx.text()])
-                    pr = Process(name=cbx.text(), target=launch_algorithm, args=(cbx.text(),))
-                    pr.start()
+                    self.procmanager.addProcess(cbx.text())
+
+        self.procmanager.start()
+
+    def finishAllAlgorithms(self):
+        self.procmanager.terminate()
