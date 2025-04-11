@@ -36,7 +36,7 @@ class AlgorithmBase(processImpl):
         self.execution_history = []
 
     @abstractmethod
-    def process(self) -> Dict[str, Any]:
+    def runAlgo(self) -> Dict[str, Any]:
         """
         알고리즘 주요 처리 로직
 
@@ -83,8 +83,9 @@ class AlgorithmBase(processImpl):
         while True:
             if not self.databuf.empty():
                 data = self.databuf.get()#print('run algorithm->',self.name,' : ',self.databuf.get())
-                print(data)
+                #print(data)
                 res = self.execute(data)
+                self.resBuf.put(res)
                 #print('run algorithm->', self.name, ' : ', res)
             #print('run algorithm->',self.name)
             i += 1
@@ -105,7 +106,7 @@ class AlgorithmBase(processImpl):
                     self.set_input_data(input_data)
 
                 # 알고리즘 처리
-                results = self.process()
+                results = self.runAlgo()
 
                 # 출력 데이터 설정
                 self.output_data = results
@@ -122,8 +123,9 @@ class AlgorithmBase(processImpl):
 
                 return self.output_data
 
-            except Exception:
-                raise
+            except Exception as e:
+                return {'error': f'알고리즘 실행 중 오류: {str(e)}'}
+                #raise
             finally:
                 self.is_running = False
 

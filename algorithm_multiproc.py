@@ -1,6 +1,8 @@
 import os
 from multiprocessing import Process
 
+from PyQt5.QtCore import QTimer
+from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 
 from AlgorithmLauncher import launch_algorithm
@@ -15,10 +17,11 @@ class AlgorithmMultiProc(QWidget):
 
         self.files = dict() #Algorithm File List
         self.algorithm_checkbox = []
-        self.outputLabels = []
+        self.outputLabels = dict()
 
         self.loadAlgorithmFromFile()
         self.initUI()
+        self.initTimer()
 
     def initUI(self):
         self.algorithm_list = QWidget(self)
@@ -77,20 +80,41 @@ class AlgorithmMultiProc(QWidget):
 
         self.setLayout(layout2)
 
+    def initTimer(self):
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.updateLabel)
+        self.timer.start(50)
+
     def setOutputLabels(self):
         self.clear_layout(self.weight_layout)
+
+        font = QFont()
+        font.setPointSize(30)
+        font.setBold(True)
 
         for cbx in self.algorithm_checkbox:
             if cbx.isChecked():
                 layout = QHBoxLayout()
-                layout.addWidget(QLabel(cbx.text()))
+                label1 = QLabel(cbx.text())
+                label1.setFont(font)
+                layout.addWidget(label1)
                 dataLabel = QLabel('-')
+                dataLabel.setFont(font)
                 layout.addWidget(dataLabel)
                 self.weight_layout.addLayout(layout)
-                self.outputLabels.append(dataLabel)
+                self.outputLabels[cbx.text()] = dataLabel
 
+    def updateLabel(self):
+        resbuf = self.procmanager.getResultBufs()
+        for bname, val in resbuf.items():
+            if not val.empty():
+                data = val.get()
+                print(bname, data)
+                label = self.outputLabels[bname]
+                label.setText(str(data['weight']))
 
     def clear_layout(self, layout):
+        self.outputLabels.clear()
         while layout.count():
             print('delete layout - ',layout)
             item = layout.takeAt(0)

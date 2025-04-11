@@ -22,7 +22,7 @@ class RandomForestPredictor(AlgorithmBase):
     4개의 레이저 센서 데이터를 입력받아 무게와 위치를 예측합니다.
     """
 
-    def __init__(self):
+    def __init__(self, name):
         """
         알고리즘 초기화
 
@@ -30,9 +30,9 @@ class RandomForestPredictor(AlgorithmBase):
             model_path: RandomForest 모델 파일 경로
         """
         super().__init__(
-            name="RandomForestPredictor",
+            name=name,
             description="랜덤 포레스트 모델을 사용한 무게 및 위치 예측 알고리즘",
-            model_path="../model/GPT_new_best_regression_model.joblib"
+            model_path="../model/best_regression_model.joblib"
         )
 
         '''
@@ -69,7 +69,7 @@ class RandomForestPredictor(AlgorithmBase):
         else:
             raise FileNotFoundError(f"모델 파일이 존재하지 않습니다: {self.model_path}")
 
-    def process(self) -> Dict[str, Any]:
+    def runAlgo(self) -> Dict[str, Any]:
         """
         알고리즘 주요 처리 로직
 
@@ -124,7 +124,7 @@ class RandomForestPredictor(AlgorithmBase):
             start_time = time.time()
 
             # 알고리즘 처리
-            results = self.process()
+            results = self.runAlgo()
 
             # 출력 데이터 설정
             self.output_data = results

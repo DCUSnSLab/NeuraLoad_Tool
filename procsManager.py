@@ -7,14 +7,15 @@ class ProcsManager:
     def __init__(self, sm):
         self.procs = dict()
         self.sm = sm
+        self.resbuf = dict()
 
     def addProcess(self, algoName):
         if algoName == "COGMassEstimation.py":
             algo = COGMassEstimation(algoName)
         elif algoName == "MLPPredictor.py":
-            algo = KerasMLPPredictor()
+            algo = KerasMLPPredictor(algoName)
         elif algoName == "RandomForestPredictor.py":
-            algo = RandomForestPredictor()
+            algo = RandomForestPredictor(algoName)
         else:
             return
 
@@ -32,6 +33,10 @@ class ProcsManager:
 
             readySig.wait()  # 자식이 큐 준비 신호를 보낼때 까지 기다림
             self.sm.add_buffer(databufQue.get())
+            self.resbuf[val.name] = databufQue.get()
+
+    def getResultBufs(self):
+        return self.resbuf
 
     def terminate(self):
         for val in self.procs.values():

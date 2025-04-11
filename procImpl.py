@@ -9,16 +9,24 @@ class processImpl(metaclass=ABCMeta):
         self.name = name
         self.process = None
         self.readySig = None
+        self.databuf = None
+        self.manage = None
+        self.resBuf = None
 
     def _initialize_buffers(self):
         self.manage = mp.Manager()
         self.databuf = self.manage.Queue()
+        self.resBuf = self.manage.Queue()
         if self.readySig:
             self.readyQue.put(self.databuf)
+            self.readyQue.put(self.resBuf)
             self.readySig.set()
 
     def getDatabuf(self):
         return self.databuf
+
+    def getResultBuf(self):
+        return self.resBuf
 
     def event_readyBuffer(self, event, queue):
         self.readySig = event
@@ -58,9 +66,6 @@ class processImpl(metaclass=ABCMeta):
 
     def _getDataQueue(self):
         return self.databuf.get()
-
-    def getDatabuf(self):
-        return self.databuf
 
     def _print(self, data):
         print('[%d-%s] - %s'%(self.getPID(), self.name, data))
