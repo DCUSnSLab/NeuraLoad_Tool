@@ -23,9 +23,9 @@ class KerasMLPPredictor(AlgorithmBase):
     Keras 기반 MLP 모델을 사용한 무게 및 위치 예측 알고리즘 (센서 변화량 기반)
     """
 
-    def __init__(self):
+    def __init__(self, name):
         super().__init__(
-            name="KerasMLPPredictor",
+            name=name,
             description="Keras 기반 MLP 모델을 사용한 무게 및 위치 예측 알고리즘 (센서 변화량 기반)",
             model_path="../model/mlp_20250403_135334_best.h5"
         )
@@ -50,7 +50,7 @@ class KerasMLPPredictor(AlgorithmBase):
             self.model = None
             self.scaler = None
 
-    def process(self) -> Dict[str, Any]:
+    def runAlgo(self) -> Dict[str, Any]:
         try:
             if self.model is None or self.scaler is None:
                 return {'error': "모델 또는 스케일러가 초기화되지 않았습니다."}
@@ -103,7 +103,7 @@ class KerasMLPPredictor(AlgorithmBase):
             self.is_running = True
             start_time = time.time()
 
-            results = self.process()
+            results = self.runAlgo()
 
             self.output_data = results
             self.execution_time = time.time() - start_time
