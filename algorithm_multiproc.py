@@ -1,10 +1,8 @@
 import os
 from multiprocessing import Process
-
 from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
-
 from AlgorithmLauncher import launch_algorithm
 from procsManager import ProcsManager
 
@@ -143,7 +141,9 @@ class AlgorithmMultiProc(QWidget):
         self.runAlgorithm()
 
     def runAlgorithm(self):
-        self.setOutputLabels()
+        self.algo_processes = {}
+        parent_manager = Manager()
+
         for cbx in self.algorithm_checkbox:
             if cbx.isChecked():
                 print('run - ', cbx.text())

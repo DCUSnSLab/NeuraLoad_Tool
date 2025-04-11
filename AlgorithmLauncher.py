@@ -3,7 +3,7 @@ from Algorithm.MLPPredictor import KerasMLPPredictor
 from Algorithm.RandomForestPredictor import RandomForestPredictor
 
 
-def launch_algorithm(file_name):
+def launch_algorithm(file_name, shared_buf):
     if file_name == "COGMassEstimation.py":
         algo = COGMassEstimation()
     elif file_name == "MLPPredictor.py":
@@ -12,5 +12,8 @@ def launch_algorithm(file_name):
         algo = RandomForestPredictor()
     else:
         return
+
+    if shared_buf is not None:
+        algo.databuf = shared_buf
 
     algo.runProc()
