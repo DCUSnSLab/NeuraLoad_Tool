@@ -30,12 +30,12 @@ class Main(QWidget):
     def initUI(self):
         self.log_output = QTextEdit()
         self.log_output.setReadOnly(True)
+        self.log_output.setMaximumHeight(500)
 
         self.emitter = EmittingStream()
         self.emitter.text.connect(self.log_output.append)
 
         sys.stdout = self.emitter
-        sys.stderr = self.emitter
 
         self.tabs = QTabWidget()
 
