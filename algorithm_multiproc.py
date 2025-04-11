@@ -1,22 +1,27 @@
 import os
 from multiprocessing import Process
 
+from PyQt5.QtCore import QTimer
+from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 
 from AlgorithmLauncher import launch_algorithm
+from procsManager import ProcsManager
 
 
 class AlgorithmMultiProc(QWidget):
     def __init__(self, serial_manager):
         super().__init__()
+        self.procmanager = ProcsManager(serial_manager)
         self.serial_manager = serial_manager
 
         self.files = dict() #Algorithm File List
         self.algorithm_checkbox = []
-        self.outputLabels = []
+        self.outputLabels = dict()
 
         self.loadAlgorithmFromFile()
         self.initUI()
+        self.initTimer()
 
     def initUI(self):
         self.algorithm_list = QWidget(self)
@@ -33,6 +38,9 @@ class AlgorithmMultiProc(QWidget):
 
         self.all_btn = QPushButton('Run all', self)
         self.all_btn.clicked.connect(self.run_all)
+
+        self.stop_btn = QPushButton('Stop and Reset', self)
+        self.stop_btn.clicked.connect(self.finishAllAlgorithms)
 
         layout = QVBoxLayout()
         layout.addWidget(self.algorithm_list)
@@ -64,6 +72,7 @@ class AlgorithmMultiProc(QWidget):
         layout1.addWidget(groupbox)
         layout1.addLayout(btn_layout)
         layout1.addWidget(self.all_btn)
+        layout1.addWidget(self.stop_btn)
 
         layout2 = QHBoxLayout()
         layout2.addLayout(layout1)
@@ -71,20 +80,41 @@ class AlgorithmMultiProc(QWidget):
 
         self.setLayout(layout2)
 
+    def initTimer(self):
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.updateLabel)
+        self.timer.start(50)
+
     def setOutputLabels(self):
         self.clear_layout(self.weight_layout)
+
+        font = QFont()
+        font.setPointSize(30)
+        font.setBold(True)
 
         for cbx in self.algorithm_checkbox:
             if cbx.isChecked():
                 layout = QHBoxLayout()
-                layout.addWidget(QLabel(cbx.text()))
+                label1 = QLabel(cbx.text())
+                label1.setFont(font)
+                layout.addWidget(label1)
                 dataLabel = QLabel('-')
+                dataLabel.setFont(font)
                 layout.addWidget(dataLabel)
                 self.weight_layout.addLayout(layout)
-                self.outputLabels.append(dataLabel)
+                self.outputLabels[cbx.text()] = dataLabel
 
+    def updateLabel(self):
+        resbuf = self.procmanager.getResultBufs()
+        for bname, val in resbuf.items():
+            if not val.empty():
+                data = val.get()
+                print(bname, data)
+                label = self.outputLabels[bname]
+                label.setText(str(data['weight']))
 
     def clear_layout(self, layout):
+        self.outputLabels.clear()
         while layout.count():
             print('delete layout - ',layout)
             item = layout.takeAt(0)
@@ -119,5 +149,9 @@ class AlgorithmMultiProc(QWidget):
                 print('run - ', cbx.text())
                 if cbx.text() in self.files:
                     print('select algorithm file -> ',cbx.text(), self.files[cbx.text()])
-                    pr = Process(name=cbx.text(), target=launch_algorithm, args=(cbx.text(),))
-                    pr.start()
+                    self.procmanager.addProcess(cbx.text())
+
+        self.procmanager.start()
+
+    def finishAllAlgorithms(self):
+        self.procmanager.terminate()

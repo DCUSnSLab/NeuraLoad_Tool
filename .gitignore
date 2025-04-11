@@ -156,6 +156,4 @@ crashlytics-build.properties
 fabric.properties
 
 *.joblib
-models/
-
-
+model/

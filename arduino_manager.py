@@ -129,7 +129,7 @@ class SerialThreadVirtual(SerialThread):
             # 타임스탬프 포맷: "HH_MM_SS_mmm"
             timestamp = timestamp_dt.strftime("%H_%M_%S_%f")[:-3]
 
-            value = random.randint(400+(pidxGap*10), 450+(pidxGap*10))
+            value = random.randint(600+(pidxGap*10), 700+(pidxGap*10))
             sub_part1 = random.randint(400 + (pidxGap * 10), 450 + (pidxGap * 10))
             sub_part2 = random.randint(400 + (pidxGap * 10), 450 + (pidxGap * 10))
 
@@ -261,6 +261,7 @@ class SerialManager:
                     self.callback(self.candidate_window)
                 for buf in self.algo_buffers:
                     buf.put(candidate.copy())
+                #print(self.algo_buffers)
             else:
                 oldest_port = min(self.ports, key=lambda p: self.buffers[p][0]["timestamp_dt"])
                 dropped = self.buffers[oldest_port].pop(0)
