@@ -1,5 +1,8 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QTabWidget, QVBoxLayout
+
+from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtWidgets import QApplication, QWidget, QTabWidget, QVBoxLayout, QTextEdit
+from algorithm import Algorithm
 from algorithm_multiproc import AlgorithmMultiProc
 from analytics import Analytics
 from experiment import Experiment
@@ -12,12 +15,28 @@ def sync_callback(group):
         print(f"{port}: {record}")
     print("----")
 
+class EmittingStream(QObject):
+    text = pyqtSignal(str)
+
+    def write(self, text):
+        if text.strip() != "":
+            self.text.emit(str(text))
+
 class Main(QWidget):
     def __init__(self):
         super().__init__()
         self.initUI()
 
     def initUI(self):
+        self.log_output = QTextEdit()
+        self.log_output.setReadOnly(True)
+
+        self.emitter = EmittingStream()
+        self.emitter.text.connect(self.log_output.append)
+
+        sys.stdout = self.emitter
+        sys.stderr = self.emitter
+
         self.tabs = QTabWidget()
 
         self.DEBUG_MODE = True
@@ -39,6 +58,7 @@ class Main(QWidget):
 
         vbox = QVBoxLayout()
         vbox.addWidget(self.tabs)
+        vbox.addWidget(self.log_output)
 
         self.setLayout(vbox)
 
