@@ -29,15 +29,6 @@ class Main(QWidget):
         self.initUI()
 
     def initUI(self):
-        # self.log_output = QTextEdit()
-        # self.log_output.setReadOnly(True)
-        #
-        # self.emitter = EmittingStream()
-        # self.emitter.text.connect(self.log_output.append)
-        #
-        # sys.stdout = self.emitter
-        # sys.stderr = self.emitter
-
         self.tabs = QTabWidget()
 
         self.DEBUG_MODE = True

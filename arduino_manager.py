@@ -135,9 +135,6 @@ class SerialThreadVirtual(SerialThread):
 
             sdata = SensorData("Laser", self.port, timestamp, value, sub_part1, sub_part2)
 
-            # self.databuf.put((timestamp, value, sub_part1, sub_part2))
-
-            # self.databuf.put((timestamp, value, sub_part1, sub_part2))
             self.databuf.put(sdata)
             self.msleep(100)
 
@@ -172,8 +169,9 @@ class SerialManager:
         # 각 포트별 스레드 생성 및 실행
         self.threads = []
 
-        # 공유 큐들을 저장할 리스트
+        # 공유 큐
         self.algo_buffers = []  # 각 요소는 알고리즘에서 전달받은 Queue 객체
+        self.exper_buffer = Queue()
 
     def add_buffer(self, buffer):
         with self.lock:
@@ -261,7 +259,7 @@ class SerialManager:
                     self.callback(self.candidate_window)
                 for buf in self.algo_buffers:
                     buf.put(candidate.copy())
-                #print(self.algo_buffers)
+                self.exper_buffer.put(candidate.copy())
             else:
                 oldest_port = min(self.ports, key=lambda p: self.buffers[p][0]["timestamp_dt"])
                 dropped = self.buffers[oldest_port].pop(0)
