@@ -2,10 +2,14 @@ from abc import ABC, abstractmethod
 import logging
 import os
 import time
+from multiprocessing import Manager
 from typing import Dict, List, Any, Optional
+from time import sleep
+
+from procImpl import processImpl
 
 
-class AlgorithmBase(ABC):
+class AlgorithmBase(processImpl):
     """
     화물과적 중심 탄소중립을 위한 데이터 수집 툴 알고리즘 추상 클래스
 
@@ -14,6 +18,7 @@ class AlgorithmBase(ABC):
     """
 
     def __init__(self, name: str, description: str = "", model_path: str = ""):
+        super().__init__(name)
         """
         알고리즘 클래스 초기화
 
@@ -24,14 +29,14 @@ class AlgorithmBase(ABC):
         self.name = name
         self.description = description
         self.model_path = model_path
-        self.input_data = {}
+        self.input_data = []
         self.output_data = {}
         self.execution_time = 0
         self.is_running = False
         self.execution_history = []
 
     @abstractmethod
-    def process(self) -> Dict[str, Any]:
+    def runAlgo(self) -> Dict[str, Any]:
         """
         알고리즘 주요 처리 로직
 
@@ -67,47 +72,69 @@ class AlgorithmBase(ABC):
         """
         return self.execution_history
 
+    @abstractmethod
+    def initAlgorithm(self):
+        pass
+
+    def doProc(self):
+        print('init Algorithm..',self.name)
+        self.initAlgorithm()
+        i = 0
+        while True:
+            if not self.databuf.empty():
+                data = self.databuf.get()#print('run algorithm->',self.name,' : ',self.databuf.get())
+                #print(data)
+                res = self.execute(data)
+                self.resBuf.put(res)
+                #print('run algorithm->', self.name, ' : ', res)
+            #print('run algorithm->',self.name)
+            i += 1
+            sleep(0.5)
+
+
     def execute(self, input_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """
-        알고리즘 실행
+        if input_data is None:
+            pass
+        else:
+            try:
+                self.is_running = True
 
-        Args:
-            input_data: 입력 데이터 (선택 사항)
+                start_time = time.time()
 
-        Returns:
-            알고리즘 실행 결과
-        """
-        try:
-            self.is_running = True
+                # 입력 데이터가 제공되면 업데이트
+                if input_data is not None:
+                    self.set_input_data(input_data)
 
-            start_time = time.time()
+                # 알고리즘 처리
+                results = self.runAlgo()
 
-            # 입력 데이터가 제공되면 업데이트
-            if input_data is not None:
-                self.set_input_data(input_data)
+                # 출력 데이터 설정
+                self.output_data = results
 
-            # 알고리즘 처리
-            results = self.process()
+                self.execution_time = time.time() - start_time
 
-            # 출력 데이터 설정
-            self.output_data = results
+                # 실행 이력 업데이트
+                self.execution_history.append({
+                    'timestamp': time.time(),
+                    'input_keys': list(self.input_data.keys()),
+                    'output_keys': list(self.output_data.keys()),
+                    'execution_time': self.execution_time
+                })
 
-            self.execution_time = time.time() - start_time
+                return self.output_data
 
-            # 실행 이력 업데이트
-            self.execution_history.append({
-                'timestamp': time.time(),
-                'input_keys': list(self.input_data.keys()),
-                'output_keys': list(self.output_data.keys()),
-                'execution_time': self.execution_time
-            })
+            except Exception as e:
+                return {'error': f'알고리즘 실행 중 오류: {str(e)}'}
+                #raise
+            finally:
+                self.is_running = False
 
-            return self.output_data
+    def preprocessing(self):
+        self.refined_data = []
 
-        except Exception:
-            raise
-        finally:
-            self.is_running = False
+        for key, value in self.data.items():
+            for val in self.input_data:
+                self.refined_data.append(value[str(val)])
 
     def clear_data(self) -> None:
         """입력 및 출력 데이터 초기화"""

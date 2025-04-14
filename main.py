@@ -1,28 +1,68 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QTabWidget, QVBoxLayout
-from algorithm import Algorithm
-from experiment import Experiment
 
+from PyQt5.QtCore import QObject, pyqtSignal
+from PyQt5.QtWidgets import QApplication, QWidget, QTabWidget, QVBoxLayout, QTextEdit
+from algorithm import Algorithm
+from algorithm_multiproc import AlgorithmMultiProc
+from analytics import Analytics
+from experiment import Experiment
+from algorithm_resimulation import AlgorithmResimulation
+
+from arduino_manager import SerialManager
+
+def sync_callback(group):
+    print("Synchronized group:")
+    for port, record in group.items():
+        print(f"{port}: {record}")
+    print("----")
+
+class EmittingStream(QObject):
+    text = pyqtSignal(str)
+
+    def write(self, text):
+        if text.strip() != "":
+            self.text.emit(str(text))
 
 class Main(QWidget):
-
     def __init__(self):
         super().__init__()
         self.initUI()
 
     def initUI(self):
+        # self.log_output = QTextEdit()
+        # self.log_output.setReadOnly(True)
+        #
+        # self.emitter = EmittingStream()
+        # self.emitter.text.connect(self.log_output.append)
+        #
+        # sys.stdout = self.emitter
+        # sys.stderr = self.emitter
+
         self.tabs = QTabWidget()
 
-        self.tab1 = Experiment()
-        self.tab2 = Algorithm()
+        self.DEBUG_MODE = True
+
+        # self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE, callback=sync_callback)
+        self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE)
+        self.serial_manager.start_threads()
+
+        self.tab1 = Experiment(serial_manager=self.serial_manager)
+        self.tab2 = AlgorithmMultiProc(serial_manager=self.serial_manager)
+        self.tab3 = AlgorithmResimulation(serial_manager=self.serial_manager)
+        self.tab4 = Analytics()
 
         self.tab1.add_subscriber(self.tab2)
+        self.tab1.add_subscriber(self.tab3)
+        self.tab1.add_subscriber(self.tab4)
 
         self.tabs.addTab(self.tab1, '실험')
         self.tabs.addTab(self.tab2, '알고리즘')
+        self.tabs.addTab(self.tab3, '리시뮬레이션')
+        self.tabs.addTab(self.tab4, '분석')
 
         vbox = QVBoxLayout()
         vbox.addWidget(self.tabs)
+        # vbox.addWidget(self.log_output)
 
         self.setLayout(vbox)
 
