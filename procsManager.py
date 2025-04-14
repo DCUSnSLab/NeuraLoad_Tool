@@ -40,8 +40,11 @@ class ProcsManager:
 
     def terminate(self):
         for val in self.procs.values():
+            print(val,"terminated")
+            self.__print(val.name, val.getPID())
             val.terminate()
-            self.__print('%15s(%5d) has been terminated' % (val.name, val.getPID()))
+        self.procs.clear()
+        self.sm.remove_buffer(self.resbuf)
 
     def join(self):
         pass
