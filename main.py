@@ -6,6 +6,7 @@ from algorithm import Algorithm
 from algorithm_multiproc import AlgorithmMultiProc
 from analytics import Analytics
 from experiment import Experiment
+from algorithm_resimulation import AlgorithmResimulation
 
 from arduino_manager import SerialManager
 
@@ -28,14 +29,14 @@ class Main(QWidget):
         self.initUI()
 
     def initUI(self):
-        self.log_output = QTextEdit()
-        self.log_output.setReadOnly(True)
-
-        self.emitter = EmittingStream()
-        self.emitter.text.connect(self.log_output.append)
-
-        sys.stdout = self.emitter
-        sys.stderr = self.emitter
+        # self.log_output = QTextEdit()
+        # self.log_output.setReadOnly(True)
+        #
+        # self.emitter = EmittingStream()
+        # self.emitter.text.connect(self.log_output.append)
+        #
+        # sys.stdout = self.emitter
+        # sys.stderr = self.emitter
 
         self.tabs = QTabWidget()
 
@@ -47,18 +48,21 @@ class Main(QWidget):
 
         self.tab1 = Experiment(serial_manager=self.serial_manager)
         self.tab2 = AlgorithmMultiProc(serial_manager=self.serial_manager)
-        self.tab3 = Analytics()
+        self.tab3 = AlgorithmResimulation(serial_manager=self.serial_manager)
+        self.tab4 = Analytics()
 
         self.tab1.add_subscriber(self.tab2)
         self.tab1.add_subscriber(self.tab3)
+        self.tab1.add_subscriber(self.tab4)
 
         self.tabs.addTab(self.tab1, '실험')
         self.tabs.addTab(self.tab2, '알고리즘')
-        self.tabs.addTab(self.tab3, '분석')
+        self.tabs.addTab(self.tab3, '리시뮬레이션')
+        self.tabs.addTab(self.tab4, '분석')
 
         vbox = QVBoxLayout()
         vbox.addWidget(self.tabs)
-        vbox.addWidget(self.log_output)
+        # vbox.addWidget(self.log_output)
 
         self.setLayout(vbox)
 
