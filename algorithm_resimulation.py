@@ -133,6 +133,9 @@ class AlgorithmResimulation(QWidget):
             self.algorithm_checkbox.append(checkbox)
 
     def run(self):
+        if not any(cbx.isChecked() for cbx in self.algorithm_checkbox):
+            print('No checkbox selected')
+            return
         self.runAlgorithm()
 
     def run_all(self):
