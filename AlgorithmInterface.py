@@ -6,7 +6,10 @@ from multiprocessing import Manager
 from typing import Dict, List, Any, Optional
 from time import sleep
 
-class AlgorithmBase(ABC):
+from procImpl import processImpl
+
+
+class AlgorithmBase(processImpl):
     """
     화물과적 중심 탄소중립을 위한 데이터 수집 툴 알고리즘 추상 클래스
 
@@ -15,6 +18,7 @@ class AlgorithmBase(ABC):
     """
 
     def __init__(self, name: str, description: str = "", model_path: str = ""):
+        super().__init__(name)
         """
         알고리즘 클래스 초기화
 
@@ -30,11 +34,9 @@ class AlgorithmBase(ABC):
         self.execution_time = 0
         self.is_running = False
         self.execution_history = []
-        self.manage = Manager()
-        self.databuf = self.manage.Queue()
 
     @abstractmethod
-    def process(self) -> Dict[str, Any]:
+    def runAlgo(self) -> Dict[str, Any]:
         """
         알고리즘 주요 처리 로직
 
@@ -74,14 +76,20 @@ class AlgorithmBase(ABC):
     def initAlgorithm(self):
         pass
 
-    def runProc(self):
+    def doProc(self):
         print('init Algorithm..',self.name)
         self.initAlgorithm()
         i = 0
-        while i < 10:
-            print('run algorithm->',self.name)
+        while True:
+            if not self.databuf.empty():
+                data = self.databuf.get()#print('run algorithm->',self.name,' : ',self.databuf.get())
+                #print(data)
+                res = self.execute(data)
+                self.resBuf.put(res)
+                #print('run algorithm->', self.name, ' : ', res)
+            #print('run algorithm->',self.name)
             i += 1
-            sleep(1)
+            sleep(0.5)
 
 
     def execute(self, input_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
@@ -98,7 +106,7 @@ class AlgorithmBase(ABC):
                     self.set_input_data(input_data)
 
                 # 알고리즘 처리
-                results = self.process()
+                results = self.runAlgo()
 
                 # 출력 데이터 설정
                 self.output_data = results
@@ -115,8 +123,9 @@ class AlgorithmBase(ABC):
 
                 return self.output_data
 
-            except Exception:
-                raise
+            except Exception as e:
+                return {'error': f'알고리즘 실행 중 오류: {str(e)}'}
+                #raise
             finally:
                 self.is_running = False
 
@@ -131,6 +140,3 @@ class AlgorithmBase(ABC):
         """입력 및 출력 데이터 초기화"""
         self.input_data = {}
         self.output_data = {}
-
-    def getDatabuf(self):
-        return self.databuf

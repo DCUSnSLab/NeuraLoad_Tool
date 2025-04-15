@@ -13,9 +13,9 @@ import datetime
 from AlgorithmInterface import AlgorithmBase  # 상속용 추상 클래스
 
 class COGMassEstimation(AlgorithmBase):
-    def __init__(self):
+    def __init__(self, name):
         super().__init__(
-            name="COGMassEstimation",
+            name=name,
             description="레이저 센서 변화량 기반 적재 위치 및 무게 추정 알고리즘"
         )
         self.constants = {
@@ -133,14 +133,17 @@ class COGMassEstimation(AlgorithmBase):
             return self.constants[location].index(closest)
         return None
 
-    def process(self) -> Dict[str, Any]:
+    def runAlgo(self) -> Dict[str, Any]:
+        print('in process')
         if 'error' in self.input_data:
             return self.input_data
+
+        inputdata = self.preprocess_data(self.input_data)
 
         location = self.determine_loading_position()
         estimated_weight = self.calculate_weight_estimation(location)
         initial_values = getattr(self, 'initial_laser_values', [0, 0, 0, 0])
-        current_values = self.input_data.get('laser_values', [0, 0, 0, 0])
+        current_values = inputdata.get('laser_values', [0, 0, 0, 0])
         recent_deltas = [changes[-1] if changes else 0 for changes in self.laser_changes.values()]
 
         return {
@@ -153,36 +156,6 @@ class COGMassEstimation(AlgorithmBase):
 
     def initAlgorithm(self):
         print('init Algorithm -> ', self.name)
-
-    def execute(self, input_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        try:
-            self.is_running = True
-            start_time = time.time()
-
-            if input_data:
-                # print("input_data : ", input_data)
-                self.input_data = self.preprocess_data(input_data)
-
-            if 'error' in self.input_data:
-                return self.input_data
-
-            result = self.process()
-            self.output_data = result
-            self.execution_time = time.time() - start_time
-
-            self.execution_history.append({
-                'timestamp': time.time(),
-                'input_keys': list(self.input_data.keys()),
-                'output_keys': list(self.output_data.keys()),
-                'execution_time': self.execution_time
-            })
-
-            return self.output_data
-
-        except Exception as e:
-            return {'error': f'알고리즘 실행 중 오류: {str(e)}'}
-        finally:
-            self.is_running = False
 
 
 if __name__ == "__main__":

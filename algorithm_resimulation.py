@@ -9,7 +9,7 @@ from AlgorithmLauncher import launch_algorithm
 from procsManager import ProcsManager
 
 
-class AlgorithmMultiProc(QWidget):
+class AlgorithmResimulation(QWidget):
     def __init__(self, serial_manager):
         super().__init__()
         self.procmanager = ProcsManager(serial_manager)
