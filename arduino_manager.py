@@ -215,21 +215,21 @@ class SerialManager:
             if not all(self.buffers[port] for port in self.ports):
                 return
 
-            candidate = {port: self.buffers[port][0] for port in self.ports}
-            times = [obj.timestamp for obj in candidate.values()]
+            candidate_list = [self.buffers[port][0] for port in self.ports]
+            times = [obj.timestamp for obj in candidate_list]
+
             if (max(times) - min(times)).total_seconds() <= self.slop:
-                self.candidate_window = candidate.copy()
+                self.candidate_window = candidate_list.copy()
                 for port in self.ports:
                     self.buffers[port].pop(0)
                 if self.callback:
                     self.callback(self.candidate_window)
                 for buf in self.algo_buffers:
-                    buf.put(candidate.copy())
-                self.exper_buffer.put(candidate.copy())
+                    buf.put(self.candidate_window.copy())
+                self.exper_buffer.put(self.candidate_window.copy())
             else:
                 oldest_port = min(self.ports, key=lambda p: self.buffers[p][0].timestamp)
                 self.buffers[oldest_port].pop(0)
-                # print(f"[Dropped] Sensor {oldest_port} data {dropped} dropped; elapsed: {elapsed:.3f} seconds")
 
     def getCandidate(self):
         if len(self.candidate_window) == len(self.ports):
@@ -241,8 +241,8 @@ class SerialManager:
 
 def sync_callback(group):
     print("Synchronized group:")
-    for port, record in group.items():
-        print(f"{port}: (Timestamp: {record.timestamp}, port_index: {record.port_index}, value: {record.value}, sub1: {record.sub1}, sub2: {record.sub2})")
+    for data in group:
+        print(f"{data.serialport}: (Timestamp: {data.timestamp}, port_index: {data.port_index}, value: {data.value}, sub1: {data.sub1}, sub2: {data.sub2})")
     print("----")
 
 if __name__ == "__main__":

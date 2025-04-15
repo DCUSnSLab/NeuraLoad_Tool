@@ -12,8 +12,8 @@ from arduino_manager import SerialManager
 
 def sync_callback(group):
     print("Synchronized group:")
-    for port, record in group.items():
-        print(f"{port}: {record}")
+    for data in group:
+        print(f"{data.serialport}: (Timestamp: {data.timestamp}, port_index: {data.port_index}, value: {data.value}, sub1: {data.sub1}, sub2: {data.sub2})")
     print("----")
 
 class EmittingStream(QObject):
