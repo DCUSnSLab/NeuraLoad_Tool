@@ -30,12 +30,14 @@ def get_arduino_ports(DEBUG_MODE=False):
     ]
     return ports
 
+
 class SensorData():
-    def __init__(self, sname, serialport, timestamp, value, sub_part1, sub_part2):
+    def __init__(self, sname, serialport, timestamp, port_index, value, sub_part1, sub_part2):
         """
         sname : 센서명
         serialport : 시리얼포트
         timestamp : 시간값
+        port_index: 0,1,2,3 중 하나. 실제 부착된 센서 위치 식별
         value : 센서값
         sub1 : 추가 센서값
         sub2 : 추가 센서값
@@ -43,9 +45,11 @@ class SensorData():
         self.sname = sname
         self.serialport = serialport
         self.timestamp = timestamp
+        self.port_index = port_index
         self.value = value
         self.sub1 = sub_part1
         self.sub2 = sub_part2
+
 
 class SerialThread(QThread):
     def __init__(self, port, baudrate=9600):
@@ -76,23 +80,22 @@ class SerialThread(QThread):
                         print(f"데이터 수신 오류: {e}")
                         continue
 
-                    timestamp = datetime.datetime.now().strftime("%H_%M_%S_%f")[:-3]
+                    timestamp = datetime.datetime.now()
                     if data:
-
                         parts = data.split(',')
-                        if len(parts) < 3:
+                        if len(parts) < 4:
                             continue
-                        main_part = parts[0].strip()
-                        sub_part1 = parts[1].strip()
-                        sub_part2 = parts[2].strip()
+                        port_index = parts[0].strip()
+                        value = parts[1].strip()
+                        sub_part1 = parts[2].strip()
+                        sub_part2 = parts[3].strip()
 
-                        if not main_part.isdigit():
+                        if not value.isdigit() and not port_index.isdigit():
                             continue
-                        value = int(main_part)
+                        value = int(value)
+                        port_index = int(port_index)
 
-                        sdata = SensorData("Laser", self.port, timestamp, value, sub_part1, sub_part2)
-
-                        # self.databuf.put((timestamp, value, sub_part1, sub_part2))
+                        sdata = SensorData("Laser", self.port, timestamp, port_index, value, sub_part1, sub_part2)
                         self.databuf.put(sdata)
                 self.msleep(1)
             except serial.SerialException:
@@ -118,22 +121,21 @@ class SerialThreadVirtual(SerialThread):
 
     def run(self):
         try:
-            pidxGap = int(''.join(filter(str.isdigit, self.port))) - 1
+            pidx = int(''.join(filter(str.isdigit, self.port))) - 1
+            port_index = pidx if 0 <= pidx < 4 else 0
         except ValueError:
-            pidxGap = 0
+            port_index = 0
 
         while self.is_running:
             base_time = datetime.datetime.now()
-            offset_ms = random.randint(0, 0)   # 랜덤 오프셋
-            timestamp_dt = base_time + datetime.timedelta(milliseconds=offset_ms)
-            # 타임스탬프 포맷: "HH_MM_SS_mmm"
-            timestamp = timestamp_dt.strftime("%H_%M_%S_%f")[:-3]
+            offset_ms = random.randint(0, 20)   # 랜덤 오프셋
+            timestamp = base_time + datetime.timedelta(milliseconds=offset_ms)
 
-            value = random.randint(600+(pidxGap*10), 700+(pidxGap*10))
-            sub_part1 = random.randint(400 + (pidxGap * 10), 450 + (pidxGap * 10))
-            sub_part2 = random.randint(400 + (pidxGap * 10), 450 + (pidxGap * 10))
+            value = random.randint(600 + (port_index * 10), 700 + (port_index * 10))
+            sub_part1 = random.randint(400 + (port_index * 10), 450 + (port_index * 10))
+            sub_part2 = random.randint(400 + (port_index * 10), 450 + (port_index * 10))
 
-            sdata = SensorData("Laser", self.port, timestamp, value, sub_part1, sub_part2)
+            sdata = SensorData("Laser", self.port, timestamp, port_index, value, sub_part1, sub_part2)
 
             self.databuf.put(sdata)
             self.msleep(100)
@@ -141,21 +143,10 @@ class SerialThreadVirtual(SerialThread):
 
 class SerialManager:
     """
-    ROS의 ApproximateTimeSynchronizer와 유사하게 4개의 센서(SerialThreadVirtual)에서 발생하는 데이터를 동기화합니다.
-
-    각 센서에서 발생한 데이터는 다음 딕셔너리 형식으로 저장됩니다.
-      {
-          "timestamp": 원래 문자열 (예: "15_17_48_666"),
-          "value": 센서 값,
-          "sub1": 추가 센서 값,
-          "sub2": 추가 센서 값,
-          "Data_port_number": 센서 이름 (예: "VCOM1"),
-          "timestamp_dt": datetime 객체 (오늘 날짜 기준)
-      }
-
+    ROS의 ApproximateTimeSynchronizer와 유사하게 4개의 센서에서 발생하는 데이터를 동기화
     동기화 알고리즘은 각 센서 버퍼에서 가장 오래된 메시지를 후보로 삼아,
-    후보들 간의 타임스탬프 차이가 설정한 slop(초) 이하이면 동기화된 그룹으로 인정합니다.
-    동기화된 그룹은 self.candidate_window 변수에 저장되고, callback 함수가 있으면 호출됩니다.
+    후보들 간의 타임스탬프 차이가 설정한 slop(초) 이하이면 동기화된 그룹으로 인정
+    ndi동기화된 그룹은 self.cadate_window 변수에 저장됨
     """
     def __init__(self, debug_mode, slop=0.1, callback=None):
         self.debug_mode = debug_mode
@@ -198,40 +189,18 @@ class SerialManager:
 
     def poll_sensors(self):
         """
-        각 센서 스레드의 databuf에서 데이터를 읽어와서,
+        각 센서 스레드의 databuf에서 데이터를 읽어
         각 포트별 버퍼(self.buffers)에 저장하고 동기화를 시도합니다.
         """
         while True:
             for thread in self.threads:
                 try:
                     while True:
-                        # 데이터 형식: (timestamp, value, sub1, sub2)
-                        msg = thread.databuf.get_nowait()
-                        port = thread.port
-                        record = {
-                            "timestamp": msg.timestamp,
-                            "value": msg.value,
-                            "sub1": msg.sub1,
-                            "sub2": msg.sub2,
-                            "port": port
-                        }
-                        # timestamp 문자열("HH_MM_SS_mmm")을 오늘 날짜 기준 datetime 객체로 변환
-                        try:
-                            ts_parts = record["timestamp"].split('_')
-                            if len(ts_parts) == 4:
-                                formatted_ts = f"{ts_parts[0]}:{ts_parts[1]}:{ts_parts[2]}.{ts_parts[3]}"
-                            else:
-                                formatted_ts = record["timestamp"]
-                            today = datetime.datetime.now().strftime("%Y-%m-%d")
-                            record["timestamp_dt"] = datetime.datetime.strptime(today + " " + formatted_ts,
-                                                                                "%Y-%m-%d %H:%M:%S.%f")
-                        except Exception as e:
-                            print("Timestamp parsing error:", e)
-                            continue
-
+                        sdata = thread.databuf.get_nowait()  # sdata : SensorData 객체
+                        port = sdata.serialport
                         with self.lock:
-                            self.buffers[port].append(record)
-                            self.buffers[port].sort(key=lambda x: x["timestamp_dt"])
+                            self.buffers[port].append(sdata)
+                            self.buffers[port].sort(key=lambda x: x.timestamp)
                         self.try_sync()
                 except Empty:
                     pass
@@ -247,11 +216,8 @@ class SerialManager:
                 return
 
             candidate = {port: self.buffers[port][0] for port in self.ports}
-            times = [rec["timestamp_dt"] for rec in candidate.values()]
-            t_min = min(times)
-            t_max = max(times)
-            elapsed = (t_max - t_min).total_seconds()
-            if elapsed <= self.slop:
+            times = [obj.timestamp for obj in candidate.values()]
+            if (max(times) - min(times)).total_seconds() <= self.slop:
                 self.candidate_window = candidate.copy()
                 for port in self.ports:
                     self.buffers[port].pop(0)
@@ -261,12 +227,12 @@ class SerialManager:
                     buf.put(candidate.copy())
                 self.exper_buffer.put(candidate.copy())
             else:
-                oldest_port = min(self.ports, key=lambda p: self.buffers[p][0]["timestamp_dt"])
-                dropped = self.buffers[oldest_port].pop(0)
+                oldest_port = min(self.ports, key=lambda p: self.buffers[p][0].timestamp)
+                self.buffers[oldest_port].pop(0)
                 # print(f"[Dropped] Sensor {oldest_port} data {dropped} dropped; elapsed: {elapsed:.3f} seconds")
 
     def getCandidate(self):
-        if len(self.candidate_window) == 4:
+        if len(self.candidate_window) == len(self.ports):
             return self.candidate_window
 
     def stop_threads(self):
@@ -276,9 +242,8 @@ class SerialManager:
 def sync_callback(group):
     print("Synchronized group:")
     for port, record in group.items():
-        print(f"{port}: {record}")
+        print(f"{port}: (Timestamp: {record.timestamp}, port_index: {record.port_index}, value: {record.value}, sub1: {record.sub1}, sub2: {record.sub2})")
     print("----")
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
