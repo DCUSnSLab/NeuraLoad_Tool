@@ -1,13 +1,10 @@
 import os
-from multiprocessing import Process
 
 from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 
-from AlgorithmLauncher import launch_algorithm
 from procsManager import ProcsManager
-
 
 class AlgorithmMultiProc(QWidget):
     def __init__(self, serial_manager):
