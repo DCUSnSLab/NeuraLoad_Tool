@@ -63,14 +63,14 @@ class AlgorithmMultiProc(QWidget):
         # layout.addLayout(weight_layout2)
         # layout.addWidget(self.weight_table)
 
-        btn_layout = QHBoxLayout()
+        btn_layout = QVBoxLayout()
         btn_layout.addWidget(self.start_btn)
-        # btn_layout.addWidget(self.reset_btn)
+        btn_layout.addWidget(self.all_btn)
+        btn_layout.addWidget(self.stop_btn)
+
         layout1 = QVBoxLayout()
         layout1.addWidget(groupbox)
         layout1.addLayout(btn_layout)
-        layout1.addWidget(self.all_btn)
-        layout1.addWidget(self.stop_btn)
 
         layout2 = QHBoxLayout()
         layout2.addLayout(layout1)
@@ -157,4 +157,8 @@ class AlgorithmMultiProc(QWidget):
 
     def finishAllAlgorithms(self):
         self.procmanager.terminate()
+        for weight in self.outputLabels:
+                label = self.outputLabels[weight]
+                label.setText('-')
+
         self.stop_btn.setEnabled(False)
