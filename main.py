@@ -1,7 +1,7 @@
 import sys
 
 from PyQt5.QtCore import QObject, pyqtSignal
-from PyQt5.QtWidgets import QApplication, QWidget, QTabWidget, QVBoxLayout, QTextEdit
+from PyQt5.QtWidgets import QApplication, QWidget, QTabWidget, QVBoxLayout, QTextEdit, QMessageBox
 from algorithm import Algorithm
 from algorithm_multiproc import AlgorithmMultiProc
 from analytics import Analytics
@@ -44,6 +44,7 @@ class Main(QWidget):
 
         # self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE, callback=sync_callback)
         self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE)
+        self.serial_manager.errorSignal.connect(self.showErrorMassage)
         self.serial_manager.start_threads()
 
         self.tab1 = Experiment(serial_manager=self.serial_manager)
@@ -69,6 +70,9 @@ class Main(QWidget):
         self.setWindowTitle('화물과적 중심 탄소중립을 위한 데이터 수집 툴')
         self.resize(2000, 800)
         self.show()
+
+    def showErrorMassage(self, msg):
+        QMessageBox.critical(self, "시리얼 오류", msg)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
