@@ -4,6 +4,7 @@ from PyQt5.QtCore import QObject, pyqtSignal
 from PyQt5.QtWidgets import QApplication, QWidget, QTabWidget, QVBoxLayout, QTextEdit
 from algorithm import Algorithm
 from algorithm_multiproc import AlgorithmMultiProc
+from algorithm_resimulation import AlgorithmResimulation
 from analytics import Analytics
 from experiment import Experiment
 

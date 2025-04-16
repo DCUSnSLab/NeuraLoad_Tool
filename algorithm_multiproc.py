@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import *
 
 from AlgorithmLauncher import launch_algorithm
 from procsManager import ProcsManager
-
+import datetime
 
 class AlgorithmMultiProc(QWidget):
     def __init__(self, serial_manager):
@@ -18,6 +18,10 @@ class AlgorithmMultiProc(QWidget):
         self.files = dict() #Algorithm File List
         self.algorithm_checkbox = []
         self.outputLabels = dict()
+
+        self.real_weight = None
+        self.real_position = None
+        self.rate = 0
 
         self.loadAlgorithmFromFile()
         self.initUI()
@@ -112,6 +116,7 @@ class AlgorithmMultiProc(QWidget):
                 print(bname, data)
                 label = self.outputLabels[bname]
                 label.setText(str(data['weight']))
+                self.data_save(bname, data)
 
     def clear_layout(self, layout):
         self.outputLabels.clear()
@@ -155,3 +160,30 @@ class AlgorithmMultiProc(QWidget):
 
     def finishAllAlgorithms(self):
         self.procmanager.terminate()
+
+    def set_weight(self, weight_a):
+        self.real_weight = sum(weight_a)
+        self.real_position = [i+1 for i, val in enumerate(weight_a) if val != 0]
+
+    def error_rate_cal(self, algo_weight):
+        if  self.real_weight and algo_weight is not None:
+            self.rate = ((abs(self.real_weight) - abs(algo_weight)) / self.real_weight) * 100
+
+    def data_save(self, bname, data):
+        os.makedirs('algorithms_result', exist_ok=True)
+        filename = datetime.datetime.now().strftime(bname+'_%y%m%d.txt')
+        data_file = open(os.path.join('algorithms_result', filename), 'a', encoding='utf-8')
+
+        timestamp = datetime.datetime.now().strftime('%H%M%S')
+
+        last_data = data
+        algo_position = int(last_data['position'])
+        algo_weight = float(last_data['weight'])
+
+        self.error_rate_cal(algo_weight)
+
+        log_line = f'{timestamp}\t{self.real_weight}\t{self.real_position}\t{algo_weight}\t{algo_position}\t{self.rate}\n'
+
+        if self.real_weight and algo_weight is not None:
+            data_file.write(log_line)
+            data_file.flush()
