@@ -7,6 +7,8 @@ from analytics import Analytics
 from experiment import Experiment
 
 from arduino_manager import SerialManager
+from experiment_v2 import ExperimentTab
+
 
 def sync_callback(group):
     print("Synchronized group:")
@@ -29,6 +31,7 @@ class Main(QWidget):
         self.serial_manager.errorSignal.connect(self.showErrorMassage)
         self.serial_manager.start_threads()
 
+        self.tab0 = ExperimentTab(dataManager=self.serial_manager)
         self.tab1 = Experiment(serial_manager=self.serial_manager)
         self.tab2 = AlgorithmMultiProc(serial_manager=self.serial_manager)
         self.tab3 = AlgorithmResimulation(serial_manager=self.serial_manager)
@@ -42,6 +45,7 @@ class Main(QWidget):
         self.tabs.addTab(self.tab2, '알고리즘')
         self.tabs.addTab(self.tab3, '리시뮬레이션')
         self.tabs.addTab(self.tab4, '분석')
+        self.tabs.addTab(self.tab0, 'Experiment_V2')
 
         vbox = QVBoxLayout()
         vbox.addWidget(self.tabs)
