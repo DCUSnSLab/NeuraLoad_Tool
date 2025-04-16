@@ -2,9 +2,9 @@ import sys
 
 from PyQt5.QtWidgets import QApplication, QWidget, QTabWidget, QVBoxLayout, QMessageBox
 from algorithm_multiproc import AlgorithmMultiProc
+from algorithm_resimulation import AlgorithmResimulation
 from analytics import Analytics
 from experiment import Experiment
-from algorithm_resimulation import AlgorithmResimulation
 
 from arduino_manager import SerialManager
 
