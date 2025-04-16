@@ -26,7 +26,6 @@ class Experiment(QWidget):
         self.save_graph_max = 500
         self.save_graph_min = 0
         self.port_actual_distances = {}
-        self.port_label_layout_sensor = QHBoxLayout()
         self.port_comboboxes = {}
         self.port_column_index = {}
         self.port_location = {}
@@ -333,29 +332,22 @@ class Experiment(QWidget):
                 # Y축 데이터 추출 - 안전 처리
                 y_values = []
                 for point in self.plot_data[port]:
-                    if isinstance(point, (list, tuple)) and len(point) > 1:
-                        try:
-                            # value 부분이 숫자인지 확인
-                            y_value = float(point[1])
-                            y_values.append(y_value)
-                        except (ValueError, TypeError):
-                            # 숫자로 변환할 수 없는 경우 임의 값 사용
-                            y_values.append(0)
-                    else:
+                    try:
+                        y_value = float(point.value)
+                        y_values.append(y_value)
+                    except (ValueError, AttributeError):
                         y_values.append(0)
 
                 # 변화량 데이터 계산
                 change_values = []
                 if len(self.plot_change[port]) > 0:
-                    # 기준값을 첫번째 유효한 값으로 설정
                     base_val = None
                     for point in self.plot_change[port]:
-                        if isinstance(point, (list, tuple)) and len(point) > 1:
-                            try:
-                                base_val = float(point[1])
-                                break
-                            except (ValueError, TypeError):
-                                pass
+                        try:
+                            base_val = float(point.value)
+                            break
+                        except (ValueError, AttributeError):
+                            pass
 
                     base_input = self.port_actual_distances.get(port)
                     # 기준값이 없으면 0으로 설정
@@ -613,12 +605,12 @@ class Experiment(QWidget):
                     if not isinstance(point, (list, tuple)) or len(point) < 4:
                         continue
 
-                    timestamp = point[0]
+                    timestamp = point.timestamp
                     try:
-                        value1 = float(point[1])
-                        value2 = float(point[2])
-                        value3 = float(point[3])
-                    except (ValueError, IndexError):
+                        value1 = float(point.value)
+                        value2 = float(point.sub1)
+                        value3 = float(point.sub2)
+                    except (ValueError, AttributeError):
                         continue
 
                     # 타임스탬프 변경 ex)15_17_48_666 → 151748666

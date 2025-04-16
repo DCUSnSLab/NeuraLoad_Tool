@@ -30,4 +30,4 @@ class GUIController(QThread):
 
         plot_data.append(data)
         plot_change.append(data)
-        print(data.serialport, data.timestamp, data.value, data.port_index)
+        # print(data.serialport, data.timestamp, data.value, data.port_index)
