@@ -5,7 +5,6 @@ from algorithm_multiproc import AlgorithmMultiProc
 from algorithm_resimulation import AlgorithmResimulation
 from analytics import Analytics
 from experiment import Experiment
-from weight_table import WeightTable
 
 from arduino_manager import SerialManager
 
@@ -23,9 +22,6 @@ class Main(QWidget):
     def initUI(self):
         self.tabs = QTabWidget()
 
-        table = WeightTable()
-        weight_table = table.get_table()
-
         self.DEBUG_MODE = True
 
         # self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE, callback=sync_callback)
@@ -33,14 +29,16 @@ class Main(QWidget):
         self.serial_manager.errorSignal.connect(self.showErrorMassage)
         self.serial_manager.start_threads()
 
-        self.tab1 = Experiment(serial_manager=self.serial_manager, w_table=weight_table)
-        self.tab2 = AlgorithmMultiProc(serial_manager=self.serial_manager, w_table=weight_table)
+        self.tab1 = Experiment(serial_manager=self.serial_manager)
+        self.tab2 = AlgorithmMultiProc(serial_manager=self.serial_manager)
         self.tab3 = AlgorithmResimulation(serial_manager=self.serial_manager)
         self.tab4 = Analytics()
 
         self.tab1.add_subscriber(self.tab2)
         self.tab1.add_subscriber(self.tab3)
         self.tab1.add_subscriber(self.tab4)
+
+        self.tab2.add_subscriber(self.tab1)
 
         self.tabs.addTab(self.tab1, '실험')
         self.tabs.addTab(self.tab2, '알고리즘')

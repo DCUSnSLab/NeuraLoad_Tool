@@ -1,17 +1,16 @@
 import os
 import datetime
 
-from PyQt5.QtCore import QTimer
+from PyQt5.QtCore import *
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 
 from procsManager import ProcsManager
 
 class AlgorithmMultiProc(QWidget):
-    def __init__(self, serial_manager, w_table):
+    def __init__(self, serial_manager):
         super().__init__()
         self.procmanager = ProcsManager(serial_manager)
-        self.weight_t_b = w_table
         self.serial_manager = serial_manager
 
         self.files = dict() #Algorithm File List
@@ -22,9 +21,24 @@ class AlgorithmMultiProc(QWidget):
         self.real_position = None
         self.rate = 0
 
+        self.weight_a = [-1] * 9
+        self.count = 0
+        self.is_syncing = False
+
+        self.subscribers = []
+
         self.loadAlgorithmFromFile()
         self.initUI()
         self.initTimer()
+
+    def add_subscriber(self, subscriber):
+        self.subscribers.append(subscriber)
+
+    def broadcast_weight(self):
+        for sub in self.subscribers:
+            # 각 subscriber가 set_weight 메소드를 가지고 있는지 확인
+            if hasattr(sub, 'set_weight'):
+                sub.set_weight(self.weight_a)
 
     def initUI(self):
         self.algorithm_list = QWidget(self)
@@ -46,6 +60,24 @@ class AlgorithmMultiProc(QWidget):
         self.stop_btn.clicked.connect(self.finishAllAlgorithms)
         self.stop_btn.setEnabled(False)  # 알고리즘 프로세스가 시작해야 활성화됨
 
+        self.weight_table = QTableWidget(3, 3)
+        self.weight_table.installEventFilter(self)
+        self.weight_table.cellChanged.connect(self.onCellChanged)
+        self.weight_table.setMinimumHeight(200)
+
+        for row in range(3):
+            for col in range(3):
+                val = QTableWidgetItem(str(self.weight_a[self.count]))
+                val.setTextAlignment(Qt.AlignCenter)
+                self.weight_table.setItem(row, col, val)
+                self.count += 1
+
+        self.weight_btn_p = QPushButton('+', self)
+        self.weight_btn_p.clicked.connect(lambda: self.weight_update(True))
+
+        self.weight_btn_m = QPushButton('-', self)
+        self.weight_btn_m.clicked.connect(lambda: self.weight_update(False))
+
         layout = QVBoxLayout()
         layout.addWidget(self.algorithm_list)
 
@@ -57,6 +89,15 @@ class AlgorithmMultiProc(QWidget):
 
         self.weight_layout.addStretch()
         self.weight_layout.setSpacing(10)
+
+        layout_btn = QHBoxLayout()
+        layout_btn.addWidget(self.weight_btn_p)
+        layout_btn.addWidget(self.weight_btn_m)
+
+        layout_w = QVBoxLayout()
+        layout_w.addWidget(self.weight_table)
+        layout_w.addLayout(layout_btn)
+
         #
         # weight_layout2 = QHBoxLayout()
         # weight_layout2.addWidget(self.actual_location_text)
@@ -65,7 +106,7 @@ class AlgorithmMultiProc(QWidget):
         # weight_layout2.setSpacing(10)
         #
         layout = QVBoxLayout()
-        layout.addLayout(self.weight_t_b)
+        layout.addLayout(layout_w)
         layout.addLayout(self.weight_layout)
         # layout.addLayout(weight_layout2)
         # layout.addWidget(self.weight_table)
@@ -130,6 +171,7 @@ class AlgorithmMultiProc(QWidget):
             # layout 안에 또 다른 layout이 있을 수 있으므로 재귀적으로 처리
             elif item.layout() is not None:
                 self.clear_layout(item.layout())
+
     def loadAlgorithmFromFile(self):
         folder = os.path.join(os.getcwd(), 'Algorithm')
         py_files = [f for f in os.listdir(folder) if f.endswith('.py')]
@@ -171,10 +213,26 @@ class AlgorithmMultiProc(QWidget):
 
         self.stop_btn.setEnabled(False)
 
+    def data_update(self):
+        self.real_weight = sum(w if w != -1 else 0 for w in self.weight_a)
+        self.real_position = [i + 1 for i, val in enumerate(self.weight_a) if val != -1]
+
     # 실제 무게 및 적재 위치 저장
     def set_weight(self, weight_a):
-        self.real_weight = sum(weight_a)
-        self.real_position = [i+1 for i, val in enumerate(weight_a) if val != 0]
+        self.data_update()
+        if self.is_syncing:
+            return
+
+        self.is_syncing = True
+
+        self.weight_a = weight_a.copy()
+        self.weight_table.blockSignals(True)
+
+        self.table_update(self.weight_a)
+
+        self.weight_table.blockSignals(False)
+
+        self.is_syncing = False
 
     # 오차율 계산
     def error_rate_cal(self, algo_weight):
@@ -200,4 +258,68 @@ class AlgorithmMultiProc(QWidget):
         if self.real_weight and algo_weight is not None:
             data_file.write(log_line)
             data_file.flush()
-        
+
+    def onCellChanged(self, row, col):
+        try:
+            item = self.weight_table.item(row, col)
+            if item is None:
+                return
+
+            new_value = item.text().strip()
+            index = row * 3 + col
+
+            if 0 <= index < len(self.weight_a):
+                try:
+                    self.weight_a[index] = int(new_value)
+                    self.broadcast_weight()
+                except ValueError:
+                    prev_value = self.weight_a[index]
+                    item.setText(str(prev_value))
+            else:
+                prev_value = -1
+                item.setText(str(prev_value))
+            self.data_update()
+
+        except Exception as e:
+            print(f"onCellChanged 오류: {e}")
+            # 로그 출력 객체가 있는지 확인
+            if hasattr(self, 'log_output'):
+                self.log_output.append(f"onCellChanged 오류: {e}")
+
+
+    # +, - 버튼
+    def weight_update(self, TF):
+        selected_items = self.weight_table.selectedItems()
+        if selected_items:
+            for val in selected_items:
+                text = val.text().strip()
+                current_value = int(text)
+
+                row = val.row()
+                col = val.column()
+
+                index = row * 3 + col
+
+                if TF:
+                    if self.weight_a[index] == -1:
+                        self.weight_a[index] = (current_value + 21)
+                    else:
+                        self.weight_a[index] = (current_value + 20)
+                else:
+                    if 0 <= index < len(self.weight_a):
+                        if current_value < 20:
+                            self.weight_a[index] = 0
+                        else:
+                            self.weight_a[index] = current_value - 20
+                val.setText(str(self.weight_a[index]))
+                self.data_update()
+
+    def table_update(self, weight_a):
+        self.weight_table.clear()
+        self.count = 0
+        for row in range(3):
+            for col in range(3):
+                val = QTableWidgetItem(str(weight_a[self.count]))
+                val.setTextAlignment(Qt.AlignCenter)
+                self.weight_table.setItem(row, col, val)
+                self.count += 1
