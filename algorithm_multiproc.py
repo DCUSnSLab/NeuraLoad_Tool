@@ -1,16 +1,17 @@
 import os
+import datetime
 
 from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 
 from procsManager import ProcsManager
-import datetime
 
 class AlgorithmMultiProc(QWidget):
-    def __init__(self, serial_manager):
+    def __init__(self, serial_manager, w_table):
         super().__init__()
         self.procmanager = ProcsManager(serial_manager)
+        self.weight_t_b = w_table
         self.serial_manager = serial_manager
 
         self.files = dict() #Algorithm File List
@@ -64,6 +65,7 @@ class AlgorithmMultiProc(QWidget):
         # weight_layout2.setSpacing(10)
         #
         layout = QVBoxLayout()
+        layout.addLayout(self.weight_t_b)
         layout.addLayout(self.weight_layout)
         # layout.addLayout(weight_layout2)
         # layout.addWidget(self.weight_table)
