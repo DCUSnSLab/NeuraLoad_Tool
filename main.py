@@ -33,7 +33,7 @@ class Main(QWidget):
         self.serial_manager.errorSignal.connect(self.showErrorMassage)
         self.serial_manager.start_threads()
 
-        self.tab1 = Experiment(serial_manager=self.serial_manager)
+        self.tab1 = Experiment(serial_manager=self.serial_manager, w_table=weight_table)
         self.tab2 = AlgorithmMultiProc(serial_manager=self.serial_manager, w_table=weight_table)
         self.tab3 = AlgorithmResimulation(serial_manager=self.serial_manager)
         self.tab4 = Analytics()

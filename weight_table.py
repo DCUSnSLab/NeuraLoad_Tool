@@ -9,6 +9,12 @@ class WeightTable(QWidget):
 
         self.ui()
 
+    def broadcast_weight(self):
+        for sub in self.subscribers:
+            # 각 subscriber가 set_weight 메소드를 가지고 있는지 확인
+            if hasattr(sub, 'set_weight'):
+                sub.set_weight(self.weight_a)
+
     def ui(self):
         self.weight_table = QTableWidget(3, 3)
         self.weight_table.installEventFilter(self)

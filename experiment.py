@@ -11,9 +11,10 @@ from GUIController import GUIController
 
 
 class Experiment(QWidget):
-    def __init__(self, serial_manager):
+    def __init__(self, serial_manager, w_table):
         super().__init__()
         self.serial_manager = serial_manager
+        self.weight_t_b = w_table
         self.threads = []
         self.GUIThread = None
         self.subscribers = []
@@ -65,11 +66,11 @@ class Experiment(QWidget):
         for sub in self.subscribers:
             sub.update_data(port, data)
 
-    def broadcast_weight(self):
-        for sub in self.subscribers:
-            # 각 subscriber가 set_weight 메소드를 가지고 있는지 확인
-            if hasattr(sub, 'set_weight'):
-                sub.set_weight(self.weight_a)
+    # def broadcast_weight(self):
+    #     for sub in self.subscribers:
+    #         # 각 subscriber가 set_weight 메소드를 가지고 있는지 확인
+    #         if hasattr(sub, 'set_weight'):
+    #             sub.set_weight(self.weight_a)
 
     def setupUI(self):
         self.sensor_table = QTableWidget()
@@ -86,30 +87,30 @@ class Experiment(QWidget):
         self.sensor_table.setMaximumWidth(1000)
         self.sensor_table.setMinimumWidth(500)
 
-        self.weight_table = QTableWidget(3, 3)
-        self.weight_table.setHorizontalHeaderLabels([f"{i + 1}" for i in range(3)])
-        self.weight_table.setVerticalHeaderLabels([f"{i + 1}" for i in range(3)])
-        self.weight_table.installEventFilter(self)
-        self.weight_table.cellChanged.connect(self.onCellChanged)
+        # self.weight_table = QTableWidget(3, 3)
+        # self.weight_table.setHorizontalHeaderLabels([f"{i + 1}" for i in range(3)])
+        # self.weight_table.setVerticalHeaderLabels([f"{i + 1}" for i in range(3)])
+        # self.weight_table.installEventFilter(self)
+        # self.weight_table.cellChanged.connect(self.onCellChanged)
 
-        for row in range(3):
-            for col in range(3):
-                val = QTableWidgetItem(str(self.weight_a[self.count]))
-                val.setTextAlignment(Qt.AlignCenter)
-                self.weight_table.setItem(row, col, val)
-                self.count += 1
+        # for row in range(3):
+        #     for col in range(3):
+        #         val = QTableWidgetItem(str(self.weight_a[self.count]))
+        #         val.setTextAlignment(Qt.AlignCenter)
+        #         self.weight_table.setItem(row, col, val)
+        #         self.count += 1
 
         self.stop_btn = QPushButton('실험 시작', self)
         self.stop_btn.setCheckable(True)
         self.stop_btn.clicked.connect(self.toggle_btn)
 
-        self.weight_btn_p = QPushButton('+', self)
-        self.weight_btn_p.clicked.connect(self.weightP)
+        # self.weight_btn_p = QPushButton('+', self)
+        # self.weight_btn_p.clicked.connect(self.weightP)
+        #
+        # self.weight_btn_m = QPushButton('-', self)
+        # self.weight_btn_m.clicked.connect(self.weightM)
 
-        self.weight_btn_m = QPushButton('-', self)
-        self.weight_btn_m.clicked.connect(self.weightM)
-
-        self.weight_btn_z = QPushButton('리셋', self)
+        self.weight_btn_z = QPushButton('init', self)
         self.weight_btn_z.clicked.connect(self.weightZ)
 
         self.graph_change = pg.PlotWidget()
@@ -568,71 +569,71 @@ class Experiment(QWidget):
             self.stop_btn.setText("실험 시작")
 
 
-    def onCellChanged(self, row, col):
-        try:
-            item = self.weight_table.item(row, col)
-            if item is None:
-                return
+    # def onCellChanged(self, row, col):
+    #     try:
+    #         item = self.weight_table.item(row, col)
+    #         if item is None:
+    #             return
+    #
+    #         new_value = item.text().strip()
+    #         index = row * 3 + col
+    #
+    #         if 0 <= index < len(self.weight_a):
+    #             try:
+    #                 self.weight_a[index] = int(new_value)
+    #                 self.broadcast_weight()
+    #             except ValueError:
+    #                 prev_value = self.weight_a[index]
+    #                 item.setText(str(prev_value))
+    #         else:
+    #             prev_value = -1
+    #             item.setText(str(prev_value))
+    #
+    #     except Exception as e:
+    #         print(f"onCellChanged 오류: {e}")
+    #         # 로그 출력 객체가 있는지 확인
+    #         if hasattr(self, 'log_output'):
+    #             self.log_output.append(f"onCellChanged 오류: {e}")
 
-            new_value = item.text().strip()
-            index = row * 3 + col
+    # def weightP(self):
+    #     selected_items = self.weight_table.selectedItems()
+    #     if selected_items:
+    #         for val in selected_items:
+    #             try:
+    #                 current_value = int(val.text())
+    #
+    #                 row = val.row()
+    #                 col = val.column()
+    #
+    #                 index = row * 3 + col
+    #                 self.weight_a[index] = (current_value + 20)
+    #                 val.setText(str(self.weight_a[index]))
+    #             except ValueError:
+    #                 continue
+    #     self.weight_update()
 
-            if 0 <= index < len(self.weight_a):
-                try:
-                    self.weight_a[index] = int(new_value)
-                    self.broadcast_weight()
-                except ValueError:
-                    prev_value = self.weight_a[index]
-                    item.setText(str(prev_value))
-            else:
-                prev_value = -1
-                item.setText(str(prev_value))
-
-        except Exception as e:
-            print(f"onCellChanged 오류: {e}")
-            # 로그 출력 객체가 있는지 확인
-            if hasattr(self, 'log_output'):
-                self.log_output.append(f"onCellChanged 오류: {e}")
-
-    def weightP(self):
-        selected_items = self.weight_table.selectedItems()
-        if selected_items:
-            for val in selected_items:
-                try:
-                    current_value = int(val.text())
-
-                    row = val.row()
-                    col = val.column()
-
-                    index = row * 3 + col
-                    self.weight_a[index] = (current_value + 20)
-                    val.setText(str(self.weight_a[index]))
-                except ValueError:
-                    continue
-        self.weight_update()
-
-    def weightM(self):
-        selected_items = self.weight_table.selectedItems()
-        if selected_items:
-            for val in selected_items:
-                try:
-                    text = val.text().strip()
-                    current_value = int(text)
-
-                    row = val.row()
-                    col = val.column()
-                    index = row * 3 + col
-
-                    if 0 <= index < len(self.weight_a):
-                        if current_value < 4:
-                            self.weight_a[index] = 0
-                        else:
-                            self.weight_a[index] = current_value - 20
-
-                        val.setText(str(self.weight_a[index]))
-                except ValueError:
-                    continue
-        self.weight_update()
+    # def weightM(self):
+    #     selected_items = self.weight_table.selectedItems()
+    #     if selected_items:
+    #         for val in selected_items:
+    #             try:
+    #                 text = val.text().strip()
+    #                 current_value = int(text)
+    #
+    #                 row = val.row()
+    #                 col = val.column()
+    #                 index = row * 3 + col
+    #
+    #                 if 0 <= index < len(self.weight_a):
+    #                     if current_value < 4:
+    #                         self.weight_a[index] = 0
+    #                     else:
+    #                         self.weight_a[index] = current_value - 20
+    #
+    #                     val.setText(str(self.weight_a[index]))
+    #             except ValueError:
+    #                 continue
+    #     self.weight_update()
 
     def weightZ(self):
         self.weight_a = [0] * 9
@@ -761,12 +762,12 @@ class Experiment(QWidget):
         setting_layout.addLayout(graph_min_layout)
         setting_layout.addLayout(self.port_label_layout)
 
-        weight_input_layout2 = QHBoxLayout()
-        weight_input_layout2.addWidget(self.weight_btn_p)
-        weight_input_layout2.addWidget(self.weight_btn_m)
+        # weight_input_layout2 = QHBoxLayout()
+        # weight_input_layout2.addWidget(self.weight_btn_p)
+        # weight_input_layout2.addWidget(self.weight_btn_m)
 
         layout_btn2 = QVBoxLayout()
-        layout_btn2.addLayout(weight_input_layout2)
+        # layout_btn2.addLayout(weight_input_layout2)
         layout_btn2.addWidget(self.weight_btn_z)
         layout_btn2.addWidget(self.stop_btn)
 
@@ -784,7 +785,7 @@ class Experiment(QWidget):
         weight_layout1.addWidget(self.weight_position_output)
 
         weight_layout_a = QVBoxLayout()
-        weight_layout_a.addWidget(self.weight_table)
+        weight_layout_a.addLayout(self.weight_t_b)
         weight_layout_a.addLayout(weight_layout)
         weight_layout_a.addLayout(weight_layout1)
 
