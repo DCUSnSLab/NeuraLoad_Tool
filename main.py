@@ -1,8 +1,6 @@
 import sys
 
-from PyQt5.QtCore import QObject, pyqtSignal
-from PyQt5.QtWidgets import QApplication, QWidget, QTabWidget, QVBoxLayout, QTextEdit
-from algorithm import Algorithm
+from PyQt5.QtWidgets import QApplication, QWidget, QTabWidget, QVBoxLayout, QMessageBox
 from algorithm_multiproc import AlgorithmMultiProc
 from algorithm_resimulation import AlgorithmResimulation
 from analytics import Analytics
@@ -16,34 +14,19 @@ def sync_callback(group):
         print(f"{port}: {record}")
     print("----")
 
-class EmittingStream(QObject):
-    text = pyqtSignal(str)
-
-    def write(self, text):
-        if text.strip() != "":
-            self.text.emit(str(text))
-
 class Main(QWidget):
     def __init__(self):
         super().__init__()
         self.initUI()
 
     def initUI(self):
-        # self.log_output = QTextEdit()
-        # self.log_output.setReadOnly(True)
-        #
-        # self.emitter = EmittingStream()
-        # self.emitter.text.connect(self.log_output.append)
-        #
-        # sys.stdout = self.emitter
-        # sys.stderr = self.emitter
-
         self.tabs = QTabWidget()
 
         self.DEBUG_MODE = True
 
         # self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE, callback=sync_callback)
         self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE)
+        self.serial_manager.errorSignal.connect(self.showErrorMassage)
         self.serial_manager.start_threads()
 
         self.tab1 = Experiment(serial_manager=self.serial_manager)
@@ -62,13 +45,15 @@ class Main(QWidget):
 
         vbox = QVBoxLayout()
         vbox.addWidget(self.tabs)
-        # vbox.addWidget(self.log_output)
 
         self.setLayout(vbox)
 
         self.setWindowTitle('화물과적 중심 탄소중립을 위한 데이터 수집 툴')
         self.resize(2000, 800)
         self.show()
+
+    def showErrorMassage(self, msg):
+        QMessageBox.critical(self, "시리얼 오류", msg)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

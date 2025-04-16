@@ -3,7 +3,7 @@ import copy
 from queue import Queue, Empty
 import serial
 import serial.tools.list_ports
-from PyQt5.QtCore import QThread, pyqtSignal, QCoreApplication, QTimer
+from PyQt5.QtCore import QThread, pyqtSignal, QObject
 from PyQt5.QtWidgets import QApplication
 import sys
 import random
@@ -48,6 +48,8 @@ class SensorData():
         self.sub2 = sub_part2
 
 class SerialThread(QThread):
+    errorSignal = pyqtSignal(str)  #serialManager에 전달하는 시그널
+
     def __init__(self, port, baudrate=9600):
         super().__init__()
         self.port = port or find_arduino_port()
@@ -60,11 +62,13 @@ class SerialThread(QThread):
     def run(self):
         if not self.port:
             print("아두이노 포트를 찾을 수 없습니다.")
+            self.errorSignal.emit("아두이노 포트를 찾을 수 없습니다.")
             return
         try:
             self.ser = serial.Serial(self.port, self.baudrate, timeout=1)
         except Exception as e:
             print(f"포트 {self.port} 열기 실패: {e}")
+            self.errorSignal.emit(f"port {self.port} open fail: {e}")
             return
 
         while self.is_running:
@@ -97,6 +101,7 @@ class SerialThread(QThread):
                 self.msleep(1)
             except serial.SerialException:
                 print('센서 연결 끊김')
+                self.errorSignal.emit("센서 연결 끊김")
                 break
 
     def pause(self):
@@ -113,6 +118,8 @@ class SerialThread(QThread):
 
 
 class SerialThreadVirtual(SerialThread):
+    errorSignal = pyqtSignal(str)
+
     def __init__(self, port):
         super().__init__(port)
 
@@ -121,6 +128,9 @@ class SerialThreadVirtual(SerialThread):
             pidxGap = int(''.join(filter(str.isdigit, self.port))) - 1
         except ValueError:
             pidxGap = 0
+
+        # test를 위한 시그널 전송
+        # self.errorSignal.emit("virtual start")
 
         while self.is_running:
             base_time = datetime.datetime.now()
@@ -136,13 +146,11 @@ class SerialThreadVirtual(SerialThread):
             sdata = SensorData("Laser", self.port, timestamp, value, sub_part1, sub_part2)
 
             # self.databuf.put((timestamp, value, sub_part1, sub_part2))
-
-            # self.databuf.put((timestamp, value, sub_part1, sub_part2))
             self.databuf.put(sdata)
             self.msleep(100)
 
 
-class SerialManager:
+class SerialManager(QObject):
     """
     ROS의 ApproximateTimeSynchronizer와 유사하게 4개의 센서(SerialThreadVirtual)에서 발생하는 데이터를 동기화합니다.
 
@@ -160,7 +168,10 @@ class SerialManager:
     후보들 간의 타임스탬프 차이가 설정한 slop(초) 이하이면 동기화된 그룹으로 인정합니다.
     동기화된 그룹은 self.candidate_window 변수에 저장되고, callback 함수가 있으면 호출됩니다.
     """
+
+    errorSignal = pyqtSignal(str)  # SerialThread에서 발생하는 에러 메시지를 main에 전송하기 위한 시그널
     def __init__(self, debug_mode, slop=0.1, callback=None):
+        super().__init__()  # QObject상속을 위한 호출 (pyqtSignal사용을 위해 QObject상속)
         self.debug_mode = debug_mode
         self.ports = get_arduino_ports(self.debug_mode)
         self.slop = slop  # 초 단위 허용 오차
@@ -191,12 +202,16 @@ class SerialManager:
                 thread = SerialThreadVirtual(port)
             else:
                 thread = SerialThread(port)
+            thread.errorSignal.connect(self.hadleThreadSignal)  # 시그널과 연결될 함수
             thread.start()
             self.threads.append(thread)
 
         # 별도의 폴링 스레드에서 센서 스레드의 데이터를 버퍼에 저장
         self.poll_thread = Thread(target=self.poll_sensors, daemon=True)
         self.poll_thread.start()
+
+    def hadleThreadSignal(self, massage):
+        self.errorSignal.emit(massage)
 
     def poll_sensors(self):
         """
