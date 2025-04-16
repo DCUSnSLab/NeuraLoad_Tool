@@ -158,8 +158,8 @@ class AlgorithmMultiProc(QWidget):
                     print('select algorithm file -> ',cbx.text(), self.files[cbx.text()])
                     self.procmanager.addProcess(cbx.text())
 
-        self.procmanager.start()
-        self.stop_btn.setEnabled(True)
+        self.procmanager.startThread(callback=lambda: self.stop_btn.setEnabled(True))
+        # self.stop_btn.setEnabled(True)
 
     def finishAllAlgorithms(self):
         self.procmanager.terminate()
