@@ -161,14 +161,17 @@ class AlgorithmMultiProc(QWidget):
     def finishAllAlgorithms(self):
         self.procmanager.terminate()
 
+    # 실제 무게 및 적재 위치 저장
     def set_weight(self, weight_a):
         self.real_weight = sum(weight_a)
         self.real_position = [i+1 for i, val in enumerate(weight_a) if val != 0]
 
+    # 오차율 계산
     def error_rate_cal(self, algo_weight):
         if  self.real_weight and algo_weight is not None:
             self.rate = ((abs(self.real_weight) - abs(algo_weight)) / self.real_weight) * 100
 
+    #알고리즘 데이터 저장
     def data_save(self, bname, data):
         os.makedirs('algorithms_result', exist_ok=True)
         filename = datetime.datetime.now().strftime(bname+'_%y%m%d.txt')
