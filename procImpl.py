@@ -18,9 +18,9 @@ class processImpl(metaclass=ABCMeta):
         self.databuf = self.manage.Queue()
         self.resBuf = self.manage.Queue()
         if self.readySig:
-            self.readyQue.put(self.databuf)
-            self.readyQue.put(self.resBuf)
-            self.readySig.set()
+            self.readyQue.put(self.databuf)  # 센서데이터 큐
+            self.readyQue.put(self.resBuf)  # 알고리즘 결과 큐
+            self.readySig.set()  # 완료 신호
 
     def getDatabuf(self):
         return self.databuf
@@ -30,7 +30,7 @@ class processImpl(metaclass=ABCMeta):
 
     def event_readyBuffer(self, event, queue):
         self.readySig = event
-        self.readyQue = queue
+        self.readyQue = queue  # PM한테 전송할 큐
 
     def start(self, proc:multiprocessing.context.Process):
         self.process = proc
