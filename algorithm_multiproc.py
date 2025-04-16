@@ -1,13 +1,10 @@
 import os
-from multiprocessing import Process
 
 from PyQt5.QtCore import QTimer
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 
-from AlgorithmLauncher import launch_algorithm
 from procsManager import ProcsManager
-
 
 class AlgorithmMultiProc(QWidget):
     def __init__(self, serial_manager):
@@ -41,6 +38,7 @@ class AlgorithmMultiProc(QWidget):
 
         self.stop_btn = QPushButton('Stop and Reset', self)
         self.stop_btn.clicked.connect(self.finishAllAlgorithms)
+        self.stop_btn.setEnabled(False)  # 알고리즘 프로세스가 시작해야 활성화됨
 
         layout = QVBoxLayout()
         layout.addWidget(self.algorithm_list)
@@ -65,14 +63,14 @@ class AlgorithmMultiProc(QWidget):
         # layout.addLayout(weight_layout2)
         # layout.addWidget(self.weight_table)
 
-        btn_layout = QHBoxLayout()
+        btn_layout = QVBoxLayout()
         btn_layout.addWidget(self.start_btn)
-        # btn_layout.addWidget(self.reset_btn)
+        btn_layout.addWidget(self.all_btn)
+        btn_layout.addWidget(self.stop_btn)
+
         layout1 = QVBoxLayout()
         layout1.addWidget(groupbox)
         layout1.addLayout(btn_layout)
-        layout1.addWidget(self.all_btn)
-        layout1.addWidget(self.stop_btn)
 
         layout2 = QHBoxLayout()
         layout2.addLayout(layout1)
@@ -135,6 +133,9 @@ class AlgorithmMultiProc(QWidget):
             self.algorithm_checkbox.append(checkbox)
 
     def run(self):
+        if not any(cbx.isChecked() for cbx in self.algorithm_checkbox):
+            print('No checkbox selected')
+            return
         self.runAlgorithm()
 
     def run_all(self):
@@ -152,6 +153,12 @@ class AlgorithmMultiProc(QWidget):
                     self.procmanager.addProcess(cbx.text())
 
         self.procmanager.start()
+        self.stop_btn.setEnabled(True)
 
     def finishAllAlgorithms(self):
         self.procmanager.terminate()
+        for weight in self.outputLabels:
+                label = self.outputLabels[weight]
+                label.setText('-')
+
+        self.stop_btn.setEnabled(False)

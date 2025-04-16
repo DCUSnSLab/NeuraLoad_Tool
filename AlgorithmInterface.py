@@ -2,7 +2,6 @@ from abc import ABC, abstractmethod
 import logging
 import os
 import time
-from multiprocessing import Manager
 from typing import Dict, List, Any, Optional
 from time import sleep
 

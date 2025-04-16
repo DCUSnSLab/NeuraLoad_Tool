@@ -1,8 +1,6 @@
 import sys
 
-from PyQt5.QtCore import QObject, pyqtSignal
-from PyQt5.QtWidgets import QApplication, QWidget, QTabWidget, QVBoxLayout, QTextEdit, QMessageBox
-from algorithm import Algorithm
+from PyQt5.QtWidgets import QApplication, QWidget, QTabWidget, QVBoxLayout, QMessageBox
 from algorithm_multiproc import AlgorithmMultiProc
 from analytics import Analytics
 from experiment import Experiment
@@ -15,13 +13,6 @@ def sync_callback(group):
     for data in group:
         print(f"{data.serialport}: (Timestamp: {data.timestamp}, port_index: {data.port_index}, value: {data.value}, sub1: {data.sub1}, sub2: {data.sub2})")
     print("----")
-
-class EmittingStream(QObject):
-    text = pyqtSignal(str)
-
-    def write(self, text):
-        if text.strip() != "":
-            self.text.emit(str(text))
 
 class Main(QWidget):
     def __init__(self):
@@ -54,7 +45,6 @@ class Main(QWidget):
 
         vbox = QVBoxLayout()
         vbox.addWidget(self.tabs)
-        # vbox.addWidget(self.log_output)
 
         self.setLayout(vbox)
 
