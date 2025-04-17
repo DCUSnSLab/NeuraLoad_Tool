@@ -1,6 +1,6 @@
 import os
 
-from PyQt5.QtCore import QTimer
+from PyQt5.QtCore import QTimer, QSize
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 
@@ -22,6 +22,17 @@ class AlgorithmResimulation(QWidget):
 
     def initUI(self):
         self.algorithm_list = QWidget(self)
+
+        self.toggleBtn = QPushButton("Step By Step OFF")
+        self.toggleBtn.setCheckable(True)
+        self.toggleBtn.setChecked(False)  # toggle 초기 상태
+        self.toggleBtn.toggled.connect(self.changeToggle)
+        self.toggleBtn.setMinimumSize(QSize(200, 50))
+        font = QFont()
+        font.setBold(True)
+        font.setPointSize(15)
+        self.toggleBtn.setFont(font)
+
         self.checkbox_layout = QVBoxLayout()
         self.algorithm_list.setLayout(self.checkbox_layout)
         for cbx in self.algorithm_checkbox:
@@ -51,20 +62,31 @@ class AlgorithmResimulation(QWidget):
         layout = QVBoxLayout()
         layout.addLayout(self.weight_layout)
 
-        btn_layout = QHBoxLayout()
+        toggle_layout = QHBoxLayout()  # 알고리즘, 버튼 박스와 분리를 위한 레이아웃
+        toggle_layout.addWidget(self.toggleBtn)
+        toggle_layout.addStretch()  # 버튼 오른쪽 공간 채우기
+
+        btn_layout = QVBoxLayout()
         btn_layout.addWidget(self.start_btn)
+        btn_layout.addWidget(self.all_btn)
+        btn_layout.addWidget(self.stop_btn)
 
         layout1 = QVBoxLayout()
+        layout1.addLayout(toggle_layout)
         layout1.addWidget(groupbox)
         layout1.addLayout(btn_layout)
-        layout1.addWidget(self.all_btn)
-        layout1.addWidget(self.stop_btn)
 
         layout2 = QHBoxLayout()
         layout2.addLayout(layout1)
         layout2.addLayout(layout)
 
         self.setLayout(layout2)
+
+    def changeToggle(self, status):
+        if status:
+            self.toggleBtn.setText("Step By Step ON")
+        else:
+            self.toggleBtn.setText("Step By Step OFF")
 
     def updateLabel(self):
         resbuf = self.procmanager.getResultBufs()

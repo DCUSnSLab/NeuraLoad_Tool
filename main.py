@@ -38,7 +38,7 @@ class Main(QWidget):
         self.tab1.add_subscriber(self.tab3)
         self.tab1.add_subscriber(self.tab4)
 
-        self.tabs.addTab(self.tab1, '실험')
+        self.tabs.addTab(self.tab1, '실험 데이터 수집')
         self.tabs.addTab(self.tab2, '실시간 알고리즘 테스트')
         self.tabs.addTab(self.tab3, '알고리즘 리시뮬레이션')
         self.tabs.addTab(self.tab4, '분석')
