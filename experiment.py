@@ -461,7 +461,6 @@ class Experiment(QWidget):
         if not isinstance(data, list) or len(data) < 1:
             print(f"[경고] 예상치 못한 데이터 형식 또는 길이 부족: {data}")
             return
-
         try:
             latest_point = data[-1]
 
@@ -472,7 +471,6 @@ class Experiment(QWidget):
             value2 = float(latest_point.sub1)
             value3 = float(latest_point.sub2)
 
-            # 패킹 및 처리 코드 그대로 유지
             weight_bin = struct.pack('<9h', *self.weight_a)
             name_bytes = name.encode('utf-8')[:16]
             name_bin = name_bytes + b'\x00' * (16 - len(name_bytes))
@@ -600,19 +598,18 @@ class Experiment(QWidget):
         os.makedirs("log", exist_ok=True)
         filename = datetime.datetime.now().strftime("raw_data_%Y-%m-%d.bin")
         file_path = os.path.join("log", filename)
-        with open(file_path, "ab") as f:  # 바이너리 append
+        with open(file_path, "ab") as f:
             for port in self.ports:
                 if port not in self.port_index:
                     continue
 
-                data = self.plot_data.get(port, [])
+                data = list(self.plot_data.get(port, []))
                 if not data:
                     continue
 
                 name = self.port_location.get(port, port)
                 state_flag = b'f' if self.is_paused_global else b't'
 
-                # 무게 변화 방향 계산
                 total = sum(self.weight_a)
                 if total > self.weight_total:
                     direction = b'U'
@@ -625,37 +622,28 @@ class Experiment(QWidget):
                 self.weight_total = total
 
                 for point in data:
-                    if not isinstance(point, (list, tuple)) or len(point) < 4:
-                        continue
-
-                    timestamp = point.timestamp
                     try:
+                        timestamp_str = point.timestamp.strftime("%H%M%S%f")[:-3]
+                        timestamp_int = int(timestamp_str)
+
                         value1 = float(point.value)
                         value2 = float(point.sub1)
                         value3 = float(point.sub2)
-                    except (ValueError, AttributeError):
+
+                        weight_data = struct.pack('<9h', *self.weight_a)
+                        name_bytes = name.encode('utf-8')[:16]
+                        name_data = name_bytes + b'\x00' * (16 - len(name_bytes))
+                        values_data = struct.pack('<fff', value1, value2, value3)
+
+                        binary_data = (
+                                struct.pack('<I', timestamp_int)
+                                + weight_data + direction + name_data
+                                + values_data + state_flag
+                        )
+                        f.write(binary_data)
+                    except Exception as e:
+                        print(f"[auto_save 오류] {e}")
                         continue
-
-                    # 타임스탬프 변경 ex)15_17_48_666 → 151748666
-                    try:
-                        timestamp_int = int(timestamp.replace('_', ''))
-                    except:
-                        continue
-
-                    # 무게: 9개 int16
-                    weight_data = struct.pack('<9h', *self.weight_a)
-
-                    # 포트 이름: 16바이트 문자열 (패딩 포함)
-                    name_bytes = name.encode('utf-8')[:16]
-                    name_data = name_bytes + b'\x00' * (16 - len(name_bytes))
-
-                    # 센서값 3개: float32
-                    values_data = struct.pack('<fff', value1, value2, value3)
-
-                    # 최종 패킹
-                    binary_data = struct.pack('<I',
-                                              timestamp_int) + weight_data + direction + name_data + values_data + state_flag
-                    f.write(binary_data)
 
     def setup(self):
         graph_max_layout = QHBoxLayout()
