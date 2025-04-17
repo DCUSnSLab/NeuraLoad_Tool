@@ -465,29 +465,20 @@ class Experiment(QWidget):
         try:
             latest_point = data[-1]
 
-            timestamp_str = latest_point.timestamp
-            try:
-                timestamp_int = int(timestamp_str.replace('_', ''))
-            except ValueError:
-                print(f"[경고] 타임스탬프 변환 실패: {timestamp_str}")
-                return
+            timestamp_str = latest_point.timestamp.strftime("%H%M%S%f")[:-3]
+            timestamp_int = int(timestamp_str)
 
-            try:
-                value1 = float(latest_point[1])
-                value2 = float(latest_point[2])
-                value3 = float(latest_point[3])
-            except (ValueError, IndexError):
-                print(f"[경고] 값 변환 실패: {latest_point}")
-                return
+            value1 = float(latest_point.value)
+            value2 = float(latest_point.sub1)
+            value3 = float(latest_point.sub2)
 
-            # 패킹 및 처리 코드
+            # 패킹 및 처리 코드 그대로 유지
             weight_bin = struct.pack('<9h', *self.weight_a)
             name_bytes = name.encode('utf-8')[:16]
             name_bin = name_bytes + b'\x00' * (16 - len(name_bytes))
             values_bin = struct.pack('<fff', value1, value2, value3)
             record = struct.pack('<I', timestamp_int) + weight_bin + direction_byte + name_bin + values_bin + state_flag
 
-            # 파일에 append
             with open(file_path, 'ab') as f:
                 f.write(record)
         except Exception as e:
