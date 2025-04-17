@@ -350,21 +350,16 @@ class Experiment(QWidget):
                             pass
 
                     base_input = self.port_actual_distances.get(port)
-                    # 기준값이 없으면 0으로 설정
                     if base_input is None:
                         base_val = 0
                     else:
                         base_val = float(base_input)
 
-                    # 변화량 계산
                     for point in self.plot_change[port]:
-                        if isinstance(point, (list, tuple)) and len(point) > 1:
-                            try:
-                                value = float(point[1])
-                                change_values.append(value - base_val)
-                            except (ValueError, TypeError):
-                                change_values.append(0)
-                        else:
+                        try:
+                            value = float(point.value)
+                            change_values.append(value - base_val)
+                        except (ValueError, AttributeError):
                             change_values.append(0)
 
                 # 데이터가 준비되면 그래프 업데이트
@@ -428,12 +423,9 @@ class Experiment(QWidget):
             return
 
         try:
-            last_point = data[-1]
-            if not isinstance(last_point, (list, tuple)) or len(last_point) < 4:
-                print(f"[경고] 잘못된 포맷: {last_point}")
-                return
+            latest_point = data[-1]
 
-            timestamp_str = last_point[0]
+            timestamp_str = latest_point.timestamp
             try:
                 timestamp_int = int(timestamp_str.replace('_', ''))
             except ValueError:
@@ -441,11 +433,11 @@ class Experiment(QWidget):
                 return
 
             try:
-                value1 = float(last_point[1])
-                value2 = float(last_point[2])
-                value3 = float(last_point[3])
+                value1 = float(latest_point[1])
+                value2 = float(latest_point[2])
+                value3 = float(latest_point[3])
             except (ValueError, IndexError):
-                print(f"[경고] 값 변환 실패: {last_point}")
+                print(f"[경고] 값 변환 실패: {latest_point}")
                 return
 
             # 패킹 및 처리 코드
