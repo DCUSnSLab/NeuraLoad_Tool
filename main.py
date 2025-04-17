@@ -3,6 +3,7 @@ import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QTabWidget, QVBoxLayout, QMessageBox
 from algorithm_multiproc import AlgorithmMultiProc
 from algorithm_resimulation import AlgorithmResimulation
+from algorithm_analytics import AlgorithmAnalytics
 from analytics import Analytics
 from experiment import Experiment
 
@@ -32,16 +33,19 @@ class Main(QWidget):
         self.tab1 = Experiment(serial_manager=self.serial_manager)
         self.tab2 = AlgorithmMultiProc(serial_manager=self.serial_manager)
         self.tab3 = AlgorithmResimulation(serial_manager=self.serial_manager)
-        self.tab4 = Analytics()
+        self.tab4 = AlgorithmAnalytics()
+        self.tab5 = Analytics()
 
         self.tab1.add_subscriber(self.tab2)
         self.tab1.add_subscriber(self.tab3)
         self.tab1.add_subscriber(self.tab4)
+        self.tab1.add_subscriber(self.tab5)
 
         self.tabs.addTab(self.tab1, '실험')
         self.tabs.addTab(self.tab2, '실시간 알고리즘 테스트')
         self.tabs.addTab(self.tab3, '알고리즘 리시뮬레이션')
-        self.tabs.addTab(self.tab4, '분석')
+        self.tabs.addTab(self.tab4, '알고리즘 분석')
+        self.tabs.addTab(self.tab5, '분석')
 
         vbox = QVBoxLayout()
         vbox.addWidget(self.tabs)
