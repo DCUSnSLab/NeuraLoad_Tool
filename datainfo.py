@@ -17,11 +17,12 @@ class SENSORLOCATION(Enum):
 
 
 class SensorData():
-    def __init__(self, sname, serialport, timestamp, value, sub_part1, sub_part2, loc=0):
+    def __init__(self, sname, serialport, timestamp, loc, value, sub_part1, sub_part2):
         """
         sname : 센서명
         serialport : 시리얼포트
         timestamp : 시간값
+        location : 센서 부착된 위치(0, 1, 2, 3)
         value : 센서값
         sub1 : 추가 센서값
         sub2 : 추가 센서값
@@ -29,10 +30,10 @@ class SensorData():
         self.sname = sname
         self.serialport = serialport
         self.timestamp = timestamp
+        self.location = SENSORLOCATION.get_sensor_location(loc)
         self.value = value
         self.sub1 = sub_part1
         self.sub2 = sub_part2
-        self.location = SENSORLOCATION.get_sensor_location(loc)
 
     def getSensorLoc(self):
         return self.location

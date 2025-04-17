@@ -181,7 +181,7 @@ class SensorVirtual(Sensor):
             sub_part1 = random.randint(400 + (pidxGap * 10), 450 + (pidxGap * 10))
             sub_part2 = random.randint(400 + (pidxGap * 10), 450 + (pidxGap * 10))
 
-            sdata = SensorData("Laser", self.port, timestamp, value, sub_part1, sub_part2)
+            sdata = SensorData("Laser", self.port, timestamp, self.sensorLoc, value, sub_part1, sub_part2)
 
             self.databuf.put(sdata)
             self.msleep(100)
@@ -299,7 +299,7 @@ class SerialManager(QObject):
 def sync_callback(group):
     print("Synchronized group:")
     for data in group:
-        print(f"{data.serialport}: (Timestamp: {data.timestamp}, port_index: {data.port_index}, value: {data.value}, sub1: {data.sub1}, sub2: {data.sub2})")
+        print(f"{data.serialport}: (Timestamp: {data.timestamp}, location: {data.location.name}, value: {data.value}, sub1: {data.sub1}, sub2: {data.sub2})")
     print("----")
 
 
