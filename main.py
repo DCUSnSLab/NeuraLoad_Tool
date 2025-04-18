@@ -7,11 +7,13 @@ from analytics import Analytics
 from experiment import Experiment
 
 from arduino_manager import SerialManager
+from experiment_v2 import ExperimentTab
+
 
 def sync_callback(group):
     print("Synchronized group:")
-    for port, record in group.items():
-        print(f"{port}: {record}")
+    for data in group:
+        print(f"{data.serialport}: (Timestamp: {data.timestamp}, port_index: {data.port_index}, value: {data.value}, sub1: {data.sub1}, sub2: {data.sub2})")
     print("----")
 
 class Main(QWidget):
@@ -22,13 +24,14 @@ class Main(QWidget):
     def initUI(self):
         self.tabs = QTabWidget()
 
-        self.DEBUG_MODE = True
+        self.DEBUG_MODE = False
 
         # self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE, callback=sync_callback)
         self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE)
         self.serial_manager.errorSignal.connect(self.showErrorMassage)
         self.serial_manager.start_threads()
 
+        self.tab0 = ExperimentTab(dataManager=self.serial_manager)
         self.tab1 = Experiment(serial_manager=self.serial_manager)
         self.tab2 = AlgorithmMultiProc(serial_manager=self.serial_manager)
         self.tab3 = AlgorithmResimulation(serial_manager=self.serial_manager)
@@ -42,6 +45,7 @@ class Main(QWidget):
         self.tabs.addTab(self.tab2, '실시간 알고리즘 테스트')
         self.tabs.addTab(self.tab3, '알고리즘 리시뮬레이션')
         self.tabs.addTab(self.tab4, '분석')
+        self.tabs.addTab(self.tab0, 'Experiment_V2')
 
         vbox = QVBoxLayout()
         vbox.addWidget(self.tabs)
