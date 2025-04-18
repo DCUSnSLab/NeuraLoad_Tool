@@ -1,6 +1,6 @@
 import os
 
-from PyQt5.QtCore import QTimer, QSize
+from PyQt5.QtCore import QTimer, QSize, pyqtSignal
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 
@@ -13,11 +13,12 @@ class AlgorithmResimulation(QWidget):
         super().__init__()
         self.procmanager = ProcsManager(serial_manager)
         self.serial_manager = serial_manager
-        self.algofile = AlgorithmFileManager()
+        self.algoFile = AlgorithmFileManager()
 
         self.files = dict() #Algorithm File List
         self.algorithm_checkbox = []
         self.outputLabels = dict()
+        self.loadFileName = None
 
         self.loadAlgorithmCbx()
         self.initUI()
@@ -29,11 +30,17 @@ class AlgorithmResimulation(QWidget):
         self.toggleBtn.setCheckable(True)
         self.toggleBtn.setChecked(False)  # toggle 초기 상태
         self.toggleBtn.toggled.connect(self.changeToggle)
-        self.toggleBtn.setMinimumSize(QSize(200, 50))
+        self.toggleBtn.setMinimumSize(QSize(150, 50))
         font = QFont()
         font.setBold(True)
-        font.setPointSize(15)
+        font.setPointSize(10)
         self.toggleBtn.setFont(font)
+        self.fileBtn = QPushButton("Data File Load")
+        self.fileBtn.clicked.connect(self.loadDataFile)
+        self.fileBtn.setMinimumSize(QSize(120, 50))
+        self.fileBtn.setFont(font)
+        self.filenameLabel = QLabel("")
+        self.filenameLabel.setMaximumHeight(50)
 
         self.checkbox_layout = QVBoxLayout()
         self.algorithm_list.setLayout(self.checkbox_layout)
@@ -64,9 +71,11 @@ class AlgorithmResimulation(QWidget):
         layout = QVBoxLayout()
         layout.addLayout(self.weight_layout)
 
-        toggle_layout = QHBoxLayout()  # 알고리즘, 버튼 박스와 분리를 위한 레이아웃
-        toggle_layout.addWidget(self.toggleBtn)
-        toggle_layout.addStretch()  # 버튼 오른쪽 공간 채우기
+        top_layout = QHBoxLayout()  # 알고리즘, 버튼 박스와 분리를 위한 레이아웃
+        top_layout.addWidget(self.toggleBtn)
+        top_layout.addWidget(self.fileBtn)
+        top_layout.addWidget(self.filenameLabel)
+        top_layout.addStretch()  # 버튼 오른쪽 공간 채우기
 
         btn_layout = QVBoxLayout()
         btn_layout.addWidget(self.start_btn)
@@ -74,7 +83,7 @@ class AlgorithmResimulation(QWidget):
         btn_layout.addWidget(self.stop_btn)
 
         layout1 = QVBoxLayout()
-        layout1.addLayout(toggle_layout)
+        layout1.addLayout(top_layout)
         layout1.addWidget(groupbox)
         layout1.addLayout(btn_layout)
 
@@ -87,8 +96,18 @@ class AlgorithmResimulation(QWidget):
     def changeToggle(self, status):
         if status:
             self.toggleBtn.setText("Step By Step ON")
+            self.all_btn.setEnabled(False)
         else:
             self.toggleBtn.setText("Step By Step OFF")
+            self.all_btn.setEnabled(True)
+
+    def loadDataFile(self):
+        fname = QFileDialog.getOpenFileName(self)
+        if not fname[0]:
+            return
+        self.loadFileName = fname[0]
+        self.filenameLabel.setText(fname[0])
+
 
     def updateLabel(self):
         resbuf = self.procmanager.getResultBufs()
@@ -98,7 +117,7 @@ class AlgorithmResimulation(QWidget):
                 print(bname, data)
 
     def loadAlgorithmCbx(self):
-        self.files = self.algofile.loadAlgorithmFromFile()
+        self.files = self.algoFile.loadAlgorithmFromFile()
         for file_name in self.files:
             checkbox = QCheckBox(file_name)
             self.algorithm_checkbox.append(checkbox)
