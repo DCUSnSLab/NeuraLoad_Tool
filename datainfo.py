@@ -3,8 +3,8 @@ from enum import Enum
 
 class SENSORLOCATION(Enum):
     TOP_LEFT = 0
-    TOP_RIGHT = 2
     BOTTOM_LEFT = 1
+    TOP_RIGHT = 2
     BOTTOM_RIGHT = 3
     NONE = -1
 

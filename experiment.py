@@ -8,6 +8,7 @@ import pyqtgraph as pg
 from collections import deque
 from GUIController import GUIController
 import traceback
+from datainfo import SENSORLOCATION
 
 
 class Experiment(QWidget):

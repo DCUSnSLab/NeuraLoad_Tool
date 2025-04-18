@@ -66,6 +66,7 @@ class Sensor(QThread):
 
         #get first Data from sensor
         data = None
+        self.msleep(100)
         while data is None:
             data = self.__getDatafromSerial()
             self.msleep(1)
@@ -80,6 +81,9 @@ class Sensor(QThread):
     def _setSensorLoc(self, data: 'SensorData'):
         if data is not None:
             self.sensorLoc = data.getSensorLoc()
+            return True
+        else:
+            return False
 
 
     def run(self):
@@ -106,7 +110,9 @@ class Sensor(QThread):
             parts = data.split(',')
             if len(parts) < 4:
                 return None
-            location = parts[0].strip()
+            location = int(parts[0].strip())
+            if location < 0 and location > 3:
+                return None
             value = parts[1].strip()
             sub_part1 = parts[2].strip()
             sub_part2 = parts[3].strip()
