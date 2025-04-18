@@ -6,29 +6,27 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 import pyqtgraph as pg
 from collections import deque
-
 from GUIController import GUIController
+import traceback
+from datainfo import SENSORLOCATION
 
 
 class Experiment(QWidget):
     def __init__(self, serial_manager):
         super().__init__()
         self.serial_manager = serial_manager
-        self.threads = []
         self.GUIThread = None
         self.subscribers = []
         self.port_index = {}
         self.weight_a = [0] * 9
         self.count = 0
         self.weight_total = 0
-        self.count_t = 't'
         self.last_direction = '-'
         self.is_paused_global = True
         self.is_experiment_active = False
         self.save_graph_max = 500
         self.save_graph_min = 0
         self.port_actual_distances = {}
-
         self.port_comboboxes = {}
         self.port_column_index = {}
         self.port_location = {}
@@ -53,6 +51,10 @@ class Experiment(QWidget):
         # 딕셔너리 초기화
         self.initializePortData()
         self.startGUIThread()
+
+        for port in self.ports:
+            location_name = self.port_comboboxes[port].currentText()
+            self.update_sensor_table_header(port, location_name)
 
         self.auto_save_timer = QTimer()
         self.auto_save_timer.timeout.connect(self.auto_save)
@@ -135,7 +137,6 @@ class Experiment(QWidget):
         self.graph_text_min.returnPressed.connect(self.saveGraphMin)
 
         self.port_label_layout = QVBoxLayout()
-        self.port_location_selection = {}
         common_items = ['BottomLeft', 'TopRight', 'TopLeft', 'BottomRight', 'IMU', 'etc']
 
         port_common_items = {
@@ -280,11 +281,6 @@ class Experiment(QWidget):
         self.port_actual_distances[port] = value
         print(f"{port}의 그래프 초기값 {value}로 설정")
 
-    def save_port_location(self, port, new_label):
-        index = self.port_column_index.get(port)
-        self.sensor_table.setHorizontalHeaderItem(index, QTableWidgetItem(new_label))
-        print(f"{port} → {new_label}")  # 디버깅용 출력
-
     def saveGraphMax(self):
         text = self.graph_text_max.text().strip()
         self.save_graph_max = int(text)
@@ -381,46 +377,34 @@ class Experiment(QWidget):
                 # Y축 데이터 추출 - 안전 처리
                 y_values = []
                 for point in self.plot_data[port]:
-                    if isinstance(point, (list, tuple)) and len(point) > 1:
-                        try:
-                            # value 부분이 숫자인지 확인
-                            y_value = float(point[1])
-                            y_values.append(y_value)
-                        except (ValueError, TypeError):
-                            # 숫자로 변환할 수 없는 경우 임의 값 사용
-                            y_values.append(0)
-                    else:
+                    try:
+                        y_value = float(point.value)
+                        y_values.append(y_value)
+                    except (ValueError, AttributeError):
                         y_values.append(0)
 
                 # 변화량 데이터 계산
                 change_values = []
                 if len(self.plot_change[port]) > 0:
-                    # 기준값을 첫번째 유효한 값으로 설정
                     base_val = None
                     for point in self.plot_change[port]:
-                        if isinstance(point, (list, tuple)) and len(point) > 1:
-                            try:
-                                base_val = float(point[1])
-                                break
-                            except (ValueError, TypeError):
-                                pass
+                        try:
+                            base_val = float(point.value)
+                            break
+                        except (ValueError, AttributeError):
+                            pass
 
                     base_input = self.port_actual_distances.get(port)
-                    # 기준값이 없으면 0으로 설정
                     if base_input is None:
                         base_val = 0
                     else:
                         base_val = float(base_input)
 
-                    # 변화량 계산
                     for point in self.plot_change[port]:
-                        if isinstance(point, (list, tuple)) and len(point) > 1:
-                            try:
-                                value = float(point[1])
-                                change_values.append(value - base_val)
-                            except (ValueError, TypeError):
-                                change_values.append(0)
-                        else:
+                        try:
+                            value = float(point.value)
+                            change_values.append(value - base_val)
+                        except (ValueError, AttributeError):
                             change_values.append(0)
 
                 # 데이터가 준비되면 그래프 업데이트
@@ -445,7 +429,6 @@ class Experiment(QWidget):
                     self.handle_serial_data(port, self.plot_data[port])
         except Exception as e:
             print(f"그래프 업데이트 중 오류 발생: {e}")
-            import traceback
             traceback.print_exc()
 
     def handle_serial_data(self, port, data):
@@ -483,95 +466,26 @@ class Experiment(QWidget):
         if not isinstance(data, list) or len(data) < 1:
             print(f"[경고] 예상치 못한 데이터 형식 또는 길이 부족: {data}")
             return
-
         try:
-            last_point = data[-1]
-            if not isinstance(last_point, (list, tuple)) or len(last_point) < 4:
-                print(f"[경고] 잘못된 포맷: {last_point}")
-                return
+            latest_point = data[-1]
 
-            timestamp_str = last_point[0]
-            try:
-                timestamp_int = int(timestamp_str.replace('_', ''))
-            except ValueError:
-                print(f"[경고] 타임스탬프 변환 실패: {timestamp_str}")
-                return
+            timestamp_str = latest_point.timestamp.strftime("%H%M%S%f")[:-3]
+            timestamp_int = int(timestamp_str)
 
-            try:
-                value1 = float(last_point[1])
-                value2 = float(last_point[2])
-                value3 = float(last_point[3])
-            except (ValueError, IndexError):
-                print(f"[경고] 값 변환 실패: {last_point}")
-                return
+            value1 = float(latest_point.value)
+            value2 = float(latest_point.sub1)
+            value3 = float(latest_point.sub2)
 
-            # 패킹 및 처리 코드
             weight_bin = struct.pack('<9h', *self.weight_a)
             name_bytes = name.encode('utf-8')[:16]
             name_bin = name_bytes + b'\x00' * (16 - len(name_bytes))
             values_bin = struct.pack('<fff', value1, value2, value3)
             record = struct.pack('<I', timestamp_int) + weight_bin + direction_byte + name_bin + values_bin + state_flag
 
-            # 파일에 append
             with open(file_path, 'ab') as f:
                 f.write(record)
         except Exception as e:
             print(f"[오류] 데이터 처리 중 예외 발생: {e}")
-
-    def save_serial_data(self, port, data):
-        if port not in self.port_index:
-            return
-
-        # 데이터가 비어있는지 확인
-        if not data:
-            # 디버그 수준을 낮추기 위해 경고 출력 생략
-            # print(f"[정보] {port}에 대한 저장할 데이터가 아직 없습니다.")
-            return
-
-        os.makedirs("log", exist_ok=True)
-        filename = datetime.datetime.now().strftime("raw_data_%Y-%m-%d.txt")
-        self.raw_data_file = open(os.path.join("log", filename), "a", encoding="utf-8")
-
-        # 무게 변화 방향 계산
-        total = sum(self.weight_a)
-        if total > self.weight_total:
-            direction = 'U'
-            self.last_direction = direction
-        elif total < self.weight_total:
-            direction = 'D'
-            self.last_direction = direction
-        else:
-            direction = self.last_direction
-        self.weight_total = total
-
-        # 현재 상태 플래그
-        state_flag = 'f' if self.is_paused_global else 't'
-        name = self.port_location.get(port, port)
-
-        # 데이터 포맷 정리
-        if isinstance(data, deque):
-            data = list(data)
-        if not isinstance(data, list) or len(data) < 1:
-            print(f"[경고] 예상치 못한 데이터 형식 또는 길이 부족: {data}")
-            return
-
-        try:
-            last_point = data[-1]
-            if not isinstance(last_point, (list, tuple)) or len(last_point) < 2:
-                print(f"[경고] 잘못된 포맷: {last_point}")
-                return
-
-            timestamp = last_point[0]
-            value1 = float(last_point[1])
-            value2 = float(last_point[2])
-            value3 = float(last_point[3])
-
-            log_line = f"{timestamp}\t{self.weight_a}\t{direction}\t{name}\t{value1}\t{value2}\t{value3}\t{state_flag}\n"
-            if hasattr(self, "raw_data_file") and not self.raw_data_file.closed:
-                self.raw_data_file.write(log_line)
-                self.raw_data_file.flush()
-        except Exception as e:
-            print(f"[오류] 데이터 저장 중 예외 발생: {e}")
 
     def stop(self):
         self.is_experiment_active = True  # 전역 상태 갱신
@@ -689,19 +603,18 @@ class Experiment(QWidget):
         os.makedirs("log", exist_ok=True)
         filename = datetime.datetime.now().strftime("raw_data_%Y-%m-%d.bin")
         file_path = os.path.join("log", filename)
-        with open(file_path, "ab") as f:  # 바이너리 append
+        with open(file_path, "ab") as f:
             for port in self.ports:
                 if port not in self.port_index:
                     continue
 
-                data = self.plot_data.get(port, [])
+                data = list(self.plot_data.get(port, []))
                 if not data:
                     continue
 
                 name = self.port_location.get(port, port)
                 state_flag = b'f' if self.is_paused_global else b't'
 
-                # 무게 변화 방향 계산
                 total = sum(self.weight_a)
                 if total > self.weight_total:
                     direction = b'U'
@@ -714,78 +627,28 @@ class Experiment(QWidget):
                 self.weight_total = total
 
                 for point in data:
-                    if not isinstance(point, (list, tuple)) or len(point) < 4:
-                        continue
-
-                    timestamp = point[0]
                     try:
-                        value1 = float(point[1])
-                        value2 = float(point[2])
-                        value3 = float(point[3])
-                    except (ValueError, IndexError):
+                        timestamp_str = point.timestamp.strftime("%H%M%S%f")[:-3]
+                        timestamp_int = int(timestamp_str)
+
+                        value1 = float(point.value)
+                        value2 = float(point.sub1)
+                        value3 = float(point.sub2)
+
+                        weight_data = struct.pack('<9h', *self.weight_a)
+                        name_bytes = name.encode('utf-8')[:16]
+                        name_data = name_bytes + b'\x00' * (16 - len(name_bytes))
+                        values_data = struct.pack('<fff', value1, value2, value3)
+
+                        binary_data = (
+                                struct.pack('<I', timestamp_int)
+                                + weight_data + direction + name_data
+                                + values_data + state_flag
+                        )
+                        f.write(binary_data)
+                    except Exception as e:
+                        print(f"[auto_save 오류] {e}")
                         continue
-
-                    # 타임스탬프 변경 ex)15_17_48_666 → 151748666
-                    try:
-                        timestamp_int = int(timestamp.replace('_', ''))
-                    except:
-                        continue
-
-                    # 무게: 9개 int16
-                    weight_data = struct.pack('<9h', *self.weight_a)
-
-                    # 포트 이름: 16바이트 문자열 (패딩 포함)
-                    name_bytes = name.encode('utf-8')[:16]
-                    name_data = name_bytes + b'\x00' * (16 - len(name_bytes))
-
-                    # 센서값 3개: float32
-                    values_data = struct.pack('<fff', value1, value2, value3)
-
-                    # 최종 패킹
-                    binary_data = struct.pack('<I',
-                                              timestamp_int) + weight_data + direction + name_data + values_data + state_flag
-                    f.write(binary_data)
-
-    def btn_save(self):
-        try:
-            timestamp = datetime.datetime.now().strftime("save_%H_%M_%S_%f")[:-3]
-            folder_name = datetime.datetime.now().strftime("saved_data_%Y-%m-%d")
-            self.save(timestamp, folder_name)
-        except Exception as e:
-            QMessageBox.critical(self, "저장 실패", f"오류 발생: {e}", QMessageBox.Ok)
-
-    def save(self, timestamp, folder_name):
-        print("일반 save ㅇㅇ")
-        file_name = f"{timestamp}.txt"
-        folder_path = os.path.join("log", folder_name)
-
-        os.makedirs(folder_path, exist_ok=True)
-
-        file_path = os.path.join(folder_path, file_name)
-
-        with open(file_path, 'w', encoding='utf-8') as file:
-            for row in range(self.logging.rowCount()):
-                print(self.logging.item(row, 5).text())
-                current_time = datetime.datetime.now().strftime("%H_%M_%S_%f")[:-3]
-
-                weight = self.logging.item(row, 0).text() if self.logging.item(row, 0) else ""
-
-                weight_change = self.logging.item(row, 1).text() if self.logging.item(row, 1) else ""
-
-                port = self.logging.item(row, 2).text() if self.logging.item(row, 2) else ""
-
-                log_data = self.logging.item(row, 3).text() if self.logging.item(row, 3) else ""
-                log_content = ",".join(log_data.split(','))
-                etc = self.logging.item(row, 4).text() if self.logging.item(row, 4) else ""
-                s_etc = self.logging.item(row, 5).text() if self.logging.item(row, 5) else ""
-                T_F = self.logging.item(row, 6).text() if self.logging.item(row, 6) else ""
-                # 파일에 기록
-                file.write(f"{current_time}\t{weight}\t{weight_change}\t{port}\t{log_content}\t{etc}\t{s_etc}\t{T_F}\n")
-
-        row_position = self.save_file_box_log.rowCount()
-        self.save_file_box_log.insertRow(row_position)
-        self.save_file_box_log.setItem(row_position, 0, QTableWidgetItem(file_name))
-        self.save_file_box_log.scrollToBottom()
 
     def setup(self):
         graph_max_layout = QHBoxLayout()
@@ -855,7 +718,6 @@ class Experiment(QWidget):
                 Qt.Key_P: self.weightP,
                 Qt.Key_O: self.weightM,
                 Qt.Key_I: self.weightZ,
-                Qt.Key_M: self.save,
                 Qt.Key_K: self.stop,
                 Qt.Key_L: self.restart
             }
@@ -882,14 +744,6 @@ class Experiment(QWidget):
                 return True
 
         return super().eventFilter(source, event)
-
-    def closeEvent(self, event):
-        for thread in self.threads:
-            thread.stop()
-        if hasattr(self, "sensor_data_file") and not self.sensor_data_file.closed:
-            self.sensor_data_file.close()
-
-        event.accept()
 
 
 if __name__ == '__main__':
