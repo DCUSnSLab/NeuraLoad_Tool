@@ -51,6 +51,10 @@ class Experiment(QWidget):
         self.initializePortData()
         self.startGUIThread()
 
+        for port in self.ports:
+            location_name = self.port_comboboxes[port].currentText()
+            self.update_sensor_table_header(port, location_name)
+
         self.auto_save_timer = QTimer()
         self.auto_save_timer.timeout.connect(self.auto_save)
         self.auto_save_timer.start(1000)
