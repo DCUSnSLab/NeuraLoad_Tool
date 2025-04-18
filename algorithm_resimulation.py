@@ -18,7 +18,7 @@ class AlgorithmResimulation(QWidget):
         self.files = dict() #Algorithm File List
         self.algorithm_checkbox = []
         self.outputLabels = dict()
-        self.loadFileName = None
+        self.loadFilePath = None
 
         self.loadAlgorithmCbx()
         self.initUI()
@@ -105,9 +105,8 @@ class AlgorithmResimulation(QWidget):
         fname = QFileDialog.getOpenFileName(self)
         if not fname[0]:
             return
-        self.loadFileName = fname[0]
+        self.loadFilePath = fname[0]
         self.filenameLabel.setText(fname[0])
-
 
     def updateLabel(self):
         resbuf = self.procmanager.getResultBufs()
