@@ -4,6 +4,7 @@ from PyQt5.QtCore import QTimer, QSize
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 
+from algorithm_multiproc import AlgorithmFileManager
 from procsManager import ProcsManager
 
 
@@ -12,12 +13,13 @@ class AlgorithmResimulation(QWidget):
         super().__init__()
         self.procmanager = ProcsManager(serial_manager)
         self.serial_manager = serial_manager
+        self.algofile = AlgorithmFileManager()
 
         self.files = dict() #Algorithm File List
         self.algorithm_checkbox = []
         self.outputLabels = dict()
 
-        self.loadAlgorithmFromFile()
+        self.loadAlgorithmCbx()
         self.initUI()
 
     def initUI(self):
@@ -95,13 +97,9 @@ class AlgorithmResimulation(QWidget):
                 data = val.get()
                 print(bname, data)
 
-    def loadAlgorithmFromFile(self):
-        folder = os.path.join(os.getcwd(), 'Algorithm')
-        py_files = [f for f in os.listdir(folder) if f.endswith('.py')]
-
-        for file_name in py_files:
-            full_path = os.path.join(folder, file_name)
-            self.files[file_name] = full_path
+    def loadAlgorithmCbx(self):
+        self.files = self.algofile.loadAlgorithmFromFile()
+        for file_name in self.files:
             checkbox = QCheckBox(file_name)
             self.algorithm_checkbox.append(checkbox)
 
