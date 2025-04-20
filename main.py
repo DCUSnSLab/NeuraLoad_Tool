@@ -8,6 +8,7 @@ from experiment import Experiment
 
 from arduino_manager import SerialManager
 from experiment_v2 import ExperimentTab
+from weight_action import WeightTable
 
 
 def sync_callback(group):
@@ -31,9 +32,15 @@ class Main(QWidget):
         self.serial_manager.errorSignal.connect(self.showErrorMassage)
         self.serial_manager.start_threads()
 
-        self.tab0 = ExperimentTab(dataManager=self.serial_manager)
-        self.tab1 = Experiment(serial_manager=self.serial_manager)
-        self.tab2 = AlgorithmMultiProc(serial_manager=self.serial_manager)
+        wtEx = WeightTable()
+        wtAlgo = WeightTable()
+
+        wtEx.addWeightTable(wtAlgo)
+        wtAlgo.addWeightTable(wtEx)
+        
+		self.tab0 = ExperimentTab(dataManager=self.serial_manager)
+        self.tab1 = Experiment(serial_manager=self.serial_manager, wt=wtEx)
+        self.tab2 = AlgorithmMultiProc(serial_manager=self.serial_manager, wt=wtAlgo)
         self.tab3 = AlgorithmResimulation(serial_manager=self.serial_manager)
         self.tab4 = Analytics()
 
