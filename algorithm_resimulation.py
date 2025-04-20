@@ -5,20 +5,22 @@ from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 
 from algorithm_multiproc import AlgorithmFileManager
+from file_manager import FileManager
 from procsManager import ProcsManager
 
 
 class AlgorithmResimulation(QWidget):
     def __init__(self, serial_manager):
         super().__init__()
-        self.procmanager = ProcsManager(serial_manager)
+        self.fileManager = FileManager()
+        self.procmanager = ProcsManager(self.fileManager)
         self.serial_manager = serial_manager
         self.algoFile = AlgorithmFileManager()
 
         self.files = dict() #Algorithm File List
         self.algorithm_checkbox = []
         self.outputLabels = dict()
-        self.loadFilePath = None
+        self.filepath = None
 
         self.loadAlgorithmCbx()
         self.initUI()
@@ -105,7 +107,7 @@ class AlgorithmResimulation(QWidget):
         fname = QFileDialog.getOpenFileName(self)
         if not fname[0]:
             return
-        self.loadFilePath = fname[0]
+        self.filepath = fname[0]
         self.filenameLabel.setText(fname[0])
 
     def updateLabel(self):
@@ -133,6 +135,7 @@ class AlgorithmResimulation(QWidget):
         self.runAlgorithm()
 
     def runAlgorithm(self):
+        self.fileManager.loadDataFile(self.filepath)
         for cbx in self.algorithm_checkbox:
             if cbx.isChecked():
                 print('run - ', cbx.text())
@@ -140,8 +143,8 @@ class AlgorithmResimulation(QWidget):
                     print('select algorithm file -> ',cbx.text(), self.files[cbx.text()])
                     self.procmanager.addProcess(cbx.text())
 
-        self.procmanager.startThread(callback=lambda: self.stop_btn.setEnabled(True))
+        self.procmanager.startThread(ResimulMode=True, callback=lambda: self.stop_btn.setEnabled(True))
 
     def finishAllAlgorithms(self):
-        self.procmanager.terminate()
+        self.procmanager.terminateResimulation()
         self.stop_btn.setEnabled(False)
