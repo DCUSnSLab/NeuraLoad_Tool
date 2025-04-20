@@ -22,11 +22,11 @@ class GUIController(QThread):
 
 
     def dataUpdate(self, data):
-        plot_data = self.guiModule.plot_data.get(data.serialport)
-        plot_change = self.guiModule.plot_change.get(data.serialport)
+        plot_data = self.guiModule.plot_data.get(data.serial_port)
+        plot_change = self.guiModule.plot_change.get(data.serial_port)
 
-        plot_curve = self.guiModule.plot_curve[data.serialport]
-        plot_curve_change = self.guiModule.plot_curve_change[data.serialport]
+        plot_curve = self.guiModule.plot_curve[data.serial_port]
+        plot_curve_change = self.guiModule.plot_curve_change[data.serial_port]
 
         plot_data.append(data)
         plot_change.append(data)

@@ -25,7 +25,7 @@ class Main(QWidget):
     def initUI(self):
         self.tabs = QTabWidget()
 
-        self.DEBUG_MODE = False
+        self.DEBUG_MODE = True
 
         # self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE, callback=sync_callback)
         self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE)
@@ -37,8 +37,8 @@ class Main(QWidget):
 
         wtEx.addWeightTable(wtAlgo)
         wtAlgo.addWeightTable(wtEx)
-        
-		self.tab0 = ExperimentTab(dataManager=self.serial_manager)
+
+        self.tab0 = ExperimentTab(dataManager=self.serial_manager)
         self.tab1 = Experiment(serial_manager=self.serial_manager, wt=wtEx)
         self.tab2 = AlgorithmMultiProc(serial_manager=self.serial_manager, wt=wtAlgo)
         self.tab3 = AlgorithmResimulation(serial_manager=self.serial_manager)

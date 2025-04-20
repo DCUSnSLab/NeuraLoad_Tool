@@ -99,33 +99,50 @@ class Sensor(QThread):
                 self.errorSignal.emit("센서 연결 끊김")
                 break
 
-    def __getDatafromSerial(self):
+    def _getDatafromSerial(self):
         try:
             data = self.serial.readline().decode('utf-8', errors='ignore').strip()
         except Exception as e:
             print(f"데이터 수신 오류: {e}")
             return None
-        timestamp = datetime.datetime.now()
-        if data:
-            parts = data.split(',')
-            if len(parts) < 4:
-                return None
+
+        if not data:
+            return None
+
+        parts = data.split(',')
+        if len(parts) != 4:
+            print(f"[경고] 잘못된 데이터 형식: {data}")
+            return None
+
+        try:
             location = int(parts[0].strip())
-            if location < 0 and location > 3:
-                return None
-            value = parts[1].strip()
-            sub_part1 = parts[2].strip()
-            sub_part2 = parts[3].strip()
+            distance = int(parts[1].strip())
+            intensity = int(parts[2].strip())
+            temperature = int(parts[3].strip())
+        except ValueError as ve:
+            print(f"[경고] 데이터 파싱 실패: {data} ({ve})")
+            return None
 
-            if not value.isdigit() and not location.isdigit():
-                return None
-            value = int(value)
-            location = int(location)
+        # 유효한 센서 위치인지 확인
+        if location not in range(4):
+            print(f"[경고] 잘못된 센서 위치: {location}")
+            return None
 
-            sdata = SensorData("Laser", self.port, timestamp, location, value, sub_part1, sub_part2)
-            self.databuf.put(sdata)
-            return sdata
-        else:
+        timestamp = datetime.datetime.now()
+
+        try:
+            sensor_data = SensorData(
+                timestamp=timestamp,
+                serial_port=self.port,
+                location=SENSORLOCATION.get_sensor_location(location),
+                distance=distance,
+                intensity=intensity,
+                temperature=temperature
+            )
+            self.databuf.put(sensor_data)
+            return sensor_data
+        except Exception as e:
+            print(f"[오류] SensorData 생성 실패: {e}")
             return None
 
     def pause(self):
@@ -175,19 +192,24 @@ class SensorVirtual(Sensor):
         except ValueError:
             pidxGap = 0
 
-        # test를 위한 시그널 전송
-        # self.errorSignal.emit("virtual start")
-
         while self.is_running:
             base_time = datetime.datetime.now()
-            offset_ms = random.randint(0, 20)   # 랜덤 오프셋
+            offset_ms = random.randint(0, 20)
             timestamp = base_time + datetime.timedelta(milliseconds=offset_ms)
 
-            value = random.randint(600 + (pidxGap * 10), 700 + (pidxGap * 10))
-            sub_part1 = random.randint(400 + (pidxGap * 10), 450 + (pidxGap * 10))
-            sub_part2 = random.randint(400 + (pidxGap * 10), 450 + (pidxGap * 10))
+            # 시뮬레이션용 랜덤 센서 값 생성
+            distance = random.randint(600 + (pidxGap * 10), 700 + (pidxGap * 10))
+            intensity = random.randint(400 + (pidxGap * 10), 450 + (pidxGap * 10))
+            temperature = random.randint(20, 40)
 
-            sdata = SensorData("Laser", self.port, timestamp, self.sensorLoc, value, sub_part1, sub_part2)
+            sdata = SensorData(
+                timestamp=timestamp,
+                serial_port=self.port,
+                location=self.sensorLoc,
+                distance=distance,
+                intensity=intensity,
+                temperature=temperature
+            )
 
             self.databuf.put(sdata)
             self.msleep(100)
@@ -256,7 +278,7 @@ class SerialManager(QObject):
                 try:
                     while True:
                         sdata = sensor.databuf.get_nowait()  # sdata : SensorData 객체
-                        port = sdata.serialport
+                        port = sdata.serial_port
                         with self.lock:
                             self.buffers[port].append(sdata)
                             self.buffers[port].sort(key=lambda x: x.timestamp)
@@ -305,7 +327,7 @@ class SerialManager(QObject):
 def sync_callback(group):
     print("Synchronized group:")
     for data in group:
-        print(f"{data.serialport}: (Timestamp: {data.timestamp}, location: {data.location.name}, value: {data.value}, sub1: {data.sub1}, sub2: {data.sub2})")
+        print(f"{data.serial_port}: (Timestamp: {data.timestamp}, location: {data.location.name}, value: {data.distance}, sub1: {data.intensity}, sub2: {data.temperature})")
     print("----")
 
 

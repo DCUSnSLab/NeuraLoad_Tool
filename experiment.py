@@ -341,7 +341,7 @@ class Experiment(QWidget):
                 y_values = []
                 for point in self.plot_data[port]:
                     try:
-                        y_value = float(point.value)
+                        y_value = float(point.distance)
                         y_values.append(y_value)
                     except (ValueError, AttributeError):
                         y_values.append(0)
@@ -352,7 +352,7 @@ class Experiment(QWidget):
                     base_val = None
                     for point in self.plot_change[port]:
                         try:
-                            base_val = float(point.value)
+                            base_val = float(point.distance)
                             break
                         except (ValueError, AttributeError):
                             pass
@@ -365,7 +365,7 @@ class Experiment(QWidget):
 
                     for point in self.plot_change[port]:
                         try:
-                            value = float(point.value)
+                            value = float(point.distance)
                             change_values.append(value - base_val)
                         except (ValueError, AttributeError):
                             change_values.append(0)
@@ -435,9 +435,9 @@ class Experiment(QWidget):
             timestamp_str = latest_point.timestamp.strftime("%H%M%S%f")[:-3]
             timestamp_int = int(timestamp_str)
 
-            value1 = float(latest_point.value)
-            value2 = float(latest_point.sub1)
-            value3 = float(latest_point.sub2)
+            value1 = float(latest_point.distance)
+            value2 = float(latest_point.intensity)
+            value3 = float(latest_point.temperature)
 
             weight_bin = struct.pack('<9h', *self.weight_a)
             name_bytes = name.encode('utf-8')[:16]
@@ -540,9 +540,9 @@ class Experiment(QWidget):
                         timestamp_str = point.timestamp.strftime("%H%M%S%f")[:-3]
                         timestamp_int = int(timestamp_str)
 
-                        value1 = float(point.value)
-                        value2 = float(point.sub1)
-                        value3 = float(point.sub2)
+                        value1 = float(point.distance)
+                        value2 = float(point.intensity)
+                        value3 = float(point.temperature)
 
                         weight_data = struct.pack('<9h', *self.weight_a)
                         name_bytes = name.encode('utf-8')[:16]
