@@ -13,7 +13,7 @@ class GUIController(QThread):
         while True:
             try:
                 group_data = self.serialManager.exper_buffer.get()
-                for data in group_data:
+                for data in group_data.sensors:
                     self.dataUpdate(data)
                 self.plot_updated.emit()
             except Exception as e:

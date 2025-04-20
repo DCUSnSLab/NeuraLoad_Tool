@@ -12,7 +12,7 @@ import datetime
 from threading import Thread, Lock
 import time
 
-from datainfo import SensorData, SENSORLOCATION
+from datainfo import SensorData, SENSORLOCATION, SensorFrame
 
 
 def find_arduino_port():
@@ -268,6 +268,16 @@ class SerialManager(QObject):
     def hadleThreadSignal(self, massage):
         self.errorSignal.emit(massage)
 
+    def __insert_by_timestamp(self, buffer, sdata):
+        left, right = 0, len(buffer)
+        while left < right:
+            mid = (left + right) // 2
+            if buffer[mid].timestamp < sdata.timestamp:
+                left = mid + 1
+            else:
+                right = mid
+        buffer.insert(left, sdata)
+
     def poll_sensors(self):
         """
         각 센서 스레드의 databuf에서 데이터를 읽어
@@ -280,8 +290,9 @@ class SerialManager(QObject):
                         sdata = sensor.databuf.get_nowait()  # sdata : SensorData 객체
                         port = sdata.serial_port
                         with self.lock:
-                            self.buffers[port].append(sdata)
-                            self.buffers[port].sort(key=lambda x: x.timestamp)
+                            self.__insert_by_timestamp(self.buffers[port], sdata)
+                            # self.buffers[port].append(sdata)
+                            # self.buffers[port].sort(key=lambda x: x.timestamp)
                         self.try_sync()
                 except Empty:
                     pass
@@ -298,24 +309,25 @@ class SerialManager(QObject):
 
             candidate_list = [self.buffers[port][0] for port in self.ports]
             times = [obj.timestamp for obj in candidate_list]
+            min_time, max_time = min(times), max(times)
 
-            if (max(times) - min(times)).total_seconds() <= self.slop:
+            if (max_time - min_time).total_seconds() <= self.slop:
+                frame = SensorFrame(
+                    timestamp=int(max_time.timestamp()),  # 동기화 기준 시간
+                    sensors=candidate_list.copy()
+                )
                 self.candidate_window = candidate_list.copy()
                 for port in self.ports:
                     self.buffers[port].pop(0)
                 if self.callback:
-                    self.callback(self.candidate_window)
+                    self.callback(frame)
                 for buf in self.algo_buffers:
                     buf.put(self.candidate_window.copy())
-                self.exper_buffer.put(self.candidate_window.copy())
+                self.exper_buffer.put(frame)
             else:
                 oldest_port = min(self.ports, key=lambda p: self.buffers[p][0].timestamp)
                 dropped = self.buffers[oldest_port].pop(0)
                 # print(f"[Dropped] Sensor {oldest_port} data {dropped} dropped")
-
-    def getCandidate(self):
-        if len(self.candidate_window) == len(self.ports):
-            return self.candidate_window
 
     def stop_threads(self):
         for thread in self.sensors:
@@ -324,9 +336,9 @@ class SerialManager(QObject):
     def getSensors(self):
         return self.sensors
 
-def sync_callback(group):
+def sync_callback(frame: SensorFrame):
     print("Synchronized group:")
-    for data in group:
+    for data in frame.sensors:
         print(f"{data.serial_port}: (Timestamp: {data.timestamp}, location: {data.location.name}, value: {data.distance}, sub1: {data.intensity}, sub2: {data.temperature})")
     print("----")
 
