@@ -8,11 +8,14 @@ import pyqtgraph as pg
 from collections import deque
 
 from GUIController import GUIController
+from weight_action import WeightTable
 
 
 class Experiment(QWidget):
-    def __init__(self, serial_manager):
+    def __init__(self, serial_manager, wt):
         super().__init__()
+        # weigt Table
+        self.weight_table = wt
         self.serial_manager = serial_manager
         self.threads = []
         self.GUIThread = None
@@ -87,17 +90,17 @@ class Experiment(QWidget):
         self.sensor_table.setMaximumWidth(1000)
         self.sensor_table.setMinimumWidth(500)
 
-        self.weight_table = QTableWidget(3, 3)
-        self.weight_table.installEventFilter(self)
-        self.weight_table.cellChanged.connect(self.onCellChanged)
-        self.weight_table.setMinimumHeight(200)
-
-        for row in range(3):
-            for col in range(3):
-                val = QTableWidgetItem(str(self.weight_a[self.count]))
-                val.setTextAlignment(Qt.AlignCenter)
-                self.weight_table.setItem(row, col, val)
-                self.count += 1
+        #self.weight_table = QTableWidget(3, 3)
+        #self.weight_table.installEventFilter(self)
+        # self.weight_table.cellChanged.connect(self.onCellChanged)
+        # self.weight_table.setMinimumHeight(200)
+        #
+        # for row in range(3):
+        #     for col in range(3):
+        #         val = QTableWidgetItem(str(self.weight_a[self.count]))
+        #         val.setTextAlignment(Qt.AlignCenter)
+        #         self.weight_table.setItem(row, col, val)
+        #         self.count += 1
 
         self.stop_btn = QPushButton('실험 시작', self)
         self.stop_btn.setCheckable(True)
@@ -567,58 +570,6 @@ class Experiment(QWidget):
             self.is_paused_global = True
             self.stop_btn.setText("실험 시작")
 
-    def onCellChanged(self, row, col):
-        try:
-            item = self.weight_table.item(row, col)
-            if item is None:
-                return
-
-            new_value = item.text().strip()
-            index = row * 3 + col
-
-            if 0 <= index < len(self.weight_a):
-                try:
-                    self.weight_a[index] = int(new_value)
-                    self.broadcast_weight()
-                except ValueError:
-                    prev_value = self.weight_a[index]
-                    item.setText(str(prev_value))
-            else:
-                prev_value = -1
-                item.setText(str(prev_value))
-
-        except Exception as e:
-            print(f"onCellChanged 오류: {e}")
-            # 로그 출력 객체가 있는지 확인
-            if hasattr(self, 'log_output'):
-                self.log_output.append(f"onCellChanged 오류: {e}")
-
-    # +, - 버튼
-    def weight_update(self, TF):
-        selected_items = self.weight_table.selectedItems()
-        if selected_items:
-            for val in selected_items:
-                text = val.text().strip()
-                current_value = int(text)
-
-                row = val.row()
-                col = val.column()
-
-                index = row * 3 + col
-
-                if TF:
-                    if self.weight_a[index] == -1:
-                        self.weight_a[index] = (current_value + 21)
-                    else:
-                        self.weight_a[index] = (current_value + 20)
-                else:
-                    if 0 <= index < len(self.weight_a):
-                        if current_value < 20:
-                            self.weight_a[index] = 0
-                        else:
-                            self.weight_a[index] = current_value - 20
-                val.setText(str(self.weight_a[index]))
-
     def set_weight(self, weight_a):
         if self.is_syncing:
             return
@@ -631,16 +582,6 @@ class Experiment(QWidget):
         self.weight_table.blockSignals(False)
 
         self.is_syncing = False
-
-    def table_update(self, weight_a):
-        self.weight_table.clear()
-        self.count = 0
-        for row in range(3):
-            for col in range(3):
-                val = QTableWidgetItem(str(weight_a[self.count]))
-                val.setTextAlignment(Qt.AlignCenter)
-                self.weight_table.setItem(row, col, val)
-                self.count += 1
 
         # def weightZ(self):
     #     self.weight_a = [0] * 9

@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import *
 from procsManager import ProcsManager
 
 class AlgorithmMultiProc(QWidget):
-    def __init__(self, serial_manager):
+    def __init__(self, serial_manager, wt):
         super().__init__()
         self.procmanager = ProcsManager(serial_manager)
         self.serial_manager = serial_manager
@@ -16,6 +16,8 @@ class AlgorithmMultiProc(QWidget):
         self.files = dict() #Algorithm File List
         self.algorithm_checkbox = []
         self.outputLabels = dict()
+
+        self.weight_table = wt
 
         self.real_weight = None
         self.real_position = None
@@ -60,17 +62,17 @@ class AlgorithmMultiProc(QWidget):
         self.stop_btn.clicked.connect(self.finishAllAlgorithms)
         self.stop_btn.setEnabled(False)  # 알고리즘 프로세스가 시작해야 활성화됨
 
-        self.weight_table = QTableWidget(3, 3)
-        self.weight_table.installEventFilter(self)
-        self.weight_table.cellChanged.connect(self.onCellChanged)
-        self.weight_table.setMinimumHeight(200)
-
-        for row in range(3):
-            for col in range(3):
-                val = QTableWidgetItem(str(self.weight_a[self.count]))
-                val.setTextAlignment(Qt.AlignCenter)
-                self.weight_table.setItem(row, col, val)
-                self.count += 1
+        # self.weight_table = QTableWidget(3, 3)
+        # self.weight_table.installEventFilter(self)
+        # self.weight_table.cellChanged.connect(self.onCellChanged)
+        # self.weight_table.setMinimumHeight(200)
+        #
+        # for row in range(3):
+        #     for col in range(3):
+        #         val = QTableWidgetItem(str(self.weight_a[self.count]))
+        #         val.setTextAlignment(Qt.AlignCenter)
+        #         self.weight_table.setItem(row, col, val)
+        #         self.count += 1
 
         self.weight_btn_p = QPushButton('+', self)
         self.weight_btn_p.clicked.connect(lambda: self.weight_update(True))
@@ -258,68 +260,3 @@ class AlgorithmMultiProc(QWidget):
         if self.real_weight and algo_weight is not None:
             data_file.write(log_line)
             data_file.flush()
-
-    def onCellChanged(self, row, col):
-        try:
-            item = self.weight_table.item(row, col)
-            if item is None:
-                return
-
-            new_value = item.text().strip()
-            index = row * 3 + col
-
-            if 0 <= index < len(self.weight_a):
-                try:
-                    self.weight_a[index] = int(new_value)
-                    self.broadcast_weight()
-                except ValueError:
-                    prev_value = self.weight_a[index]
-                    item.setText(str(prev_value))
-            else:
-                prev_value = -1
-                item.setText(str(prev_value))
-            self.data_update()
-
-        except Exception as e:
-            print(f"onCellChanged 오류: {e}")
-            # 로그 출력 객체가 있는지 확인
-            if hasattr(self, 'log_output'):
-                self.log_output.append(f"onCellChanged 오류: {e}")
-
-
-    # +, - 버튼
-    def weight_update(self, TF):
-        selected_items = self.weight_table.selectedItems()
-        if selected_items:
-            for val in selected_items:
-                text = val.text().strip()
-                current_value = int(text)
-
-                row = val.row()
-                col = val.column()
-
-                index = row * 3 + col
-
-                if TF:
-                    if self.weight_a[index] == -1:
-                        self.weight_a[index] = (current_value + 21)
-                    else:
-                        self.weight_a[index] = (current_value + 20)
-                else:
-                    if 0 <= index < len(self.weight_a):
-                        if current_value < 20:
-                            self.weight_a[index] = 0
-                        else:
-                            self.weight_a[index] = current_value - 20
-                val.setText(str(self.weight_a[index]))
-                self.data_update()
-
-    def table_update(self, weight_a):
-        self.weight_table.clear()
-        self.count = 0
-        for row in range(3):
-            for col in range(3):
-                val = QTableWidgetItem(str(weight_a[self.count]))
-                val.setTextAlignment(Qt.AlignCenter)
-                self.weight_table.setItem(row, col, val)
-                self.count += 1
