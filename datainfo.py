@@ -104,12 +104,18 @@ class ExperimentData(SensorData):
         )
 
 
-@dataclass
+@dataclass(init=False)
 class AlgorithmData(ExperimentData):
     predicted_weight: int
     error: int
 
     STRUCT_FORMAT_ALGO = '<H H'
+
+    def __init__(self, timestamp, serial_port, location, distance, intensity, temperature,
+                 weights=None, predicted_weight=0, error=0):
+        super().__init__(timestamp, serial_port, location, distance, intensity, temperature, weights)
+        self.predicted_weight = predicted_weight
+        self.error = error
 
     def pack(self) -> bytes:
         return super().pack() + struct.pack(self.STRUCT_FORMAT_ALGO, self.predicted_weight, self.error)
@@ -127,7 +133,6 @@ class AlgorithmData(ExperimentData):
             intensity=base.intensity,
             temperature=base.temperature,
             weights=base.weights,
-            is_experiment=base.is_experiment,
             predicted_weight=pred_weight,
             error=error
         )
@@ -150,7 +155,6 @@ class AlgorithmData(ExperimentData):
             intensity=sensor_data.intensity,
             temperature=sensor_data.temperature,
             weights=weights,
-            is_experiment=is_experiment,
             predicted_weight=predicted_weight,
             error=error
         )
@@ -265,7 +269,7 @@ class SensorFrame:
             sensor = cls.unpack(sensor_bytes)
             sensors.append(sensor)
 
-        return SensorFrame(timestamp, scenario, started, measured, sensors)
+        return SensorFrame(timestamp, sensors, scenario, started, measured)
 
 
 class SensorBinaryFileHandler:
@@ -293,15 +297,16 @@ if __name__ == '__main__':
     # 여러 개의 SensorFrame 생성
     frames = []
     for i in range(3):  # 예: 3개 프레임
-        timestamp = int((now + datetime.timedelta(seconds=i)).timestamp())
+        timestamp = (now + datetime.timedelta(seconds=i)).timestamp()
         frame = SensorFrame(
             timestamp=timestamp,
             scenario=REVERSE_SCENARIO_TYPE_MAP['sequential_front'],
+            started=True,
             sensors=[
                 SensorData(timestamp, 'VCOM1', SENSORLOCATION.TOP_LEFT, 500 + i, 200 + i, 30 + i),
-                ExperimentData(timestamp, 'VCOM2',SENSORLOCATION.BOTTOM_LEFT, 510 + i, 210 + i, 31 + i, [101 + i] * 9, i % 2 == 0),
-                AlgorithmData(timestamp, 'VCOM3',SENSORLOCATION.TOP_RIGHT, 520 + i, 220 + i, 32 + i, [102 + i] * 9, True, 850 + i, 5 + i),
-                AlgorithmData(timestamp, 'VCOM4',SENSORLOCATION.BOTTOM_RIGHT, 530 + i, 230 + i, 33 + i, [103 + i] * 9, False, 870 + i, 6 + i),
+                ExperimentData(timestamp, 'VCOM2',SENSORLOCATION.BOTTOM_LEFT, 510 + i, 210 + i, 31 + i, [101 + i] * 9),
+                AlgorithmData(timestamp, 'VCOM3',SENSORLOCATION.TOP_RIGHT, 520 + i, 220 + i, 32 + i, [102 + i] * 9, 850 + i, 5 + i),
+                AlgorithmData(timestamp, 'VCOM4',SENSORLOCATION.BOTTOM_RIGHT, 530 + i, 230 + i, 33 + i, [103 + i] * 9, 870 + i, 6 + i),
             ]
         )
         frames.append(frame)
