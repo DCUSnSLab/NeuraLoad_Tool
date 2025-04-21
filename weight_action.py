@@ -45,3 +45,14 @@ class WeightTable(QVBoxLayout):
         changed_val = self.boxwidget.item(row, col).text()
         for wt in self.wtables:
             wt.setElement(index, changed_val)
+
+    def table_clear(self):
+        cnt = 0
+        for row in range(3):
+            for col in range(3):
+                val = QTableWidgetItem()
+                val.setText(str(0))
+                val.setTextAlignment(Qt.AlignCenter)
+                self.boxwidget.setItem(row, col, val)
+                self.elements[cnt] = val
+                cnt += 1

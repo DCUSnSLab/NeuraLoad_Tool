@@ -21,7 +21,7 @@ class Experiment(QWidget):
         self.GUIThread = None
         self.subscribers = []
         self.port_index = {}
-        self.weight_a = [-1] * 9
+        self.weight_a = [0] * 9
         self.count = 0
         self.weight_total = 0
         self.last_direction = '-'
@@ -31,6 +31,7 @@ class Experiment(QWidget):
         self.save_graph_min = 0
         self.port_actual_distances = {}
         self.is_syncing = False
+        self.current_filename = datetime.datetime.now().strftime("sensor_data_%Y-%m-%d.bin")
         self.port_comboboxes = {}
         self.port_column_index = {}
         self.port_location = {}
@@ -105,7 +106,7 @@ class Experiment(QWidget):
         self.weight_btn_m.clicked.connect(lambda: self.weight_update(False))
 
         self.weight_btn_init = QPushButton('init', self)
-        # self.weight_btn_init.clicked.connect(self.weight_init)
+        self.weight_btn_init.clicked.connect(self.weight_init)
 
         self.graph_change = pg.PlotWidget()
         self.graph_change.setTitle("Sensor Change")
@@ -389,7 +390,7 @@ class Experiment(QWidget):
             return
 
         os.makedirs("log", exist_ok=True)
-        filename = datetime.datetime.now().strftime("sensor_data_%Y-%m-%d.bin")
+        filename = self.current_filename
         file_path = os.path.join("log", filename)
 
         # 무게 변화 방향
@@ -481,16 +482,11 @@ class Experiment(QWidget):
 
         self.is_syncing = False
 
-        # def weightZ(self):
-    #     self.weight_a = [0] * 9
-    #     self.count = 0
-    #     for row in range(3):
-    #         for col in range(3):
-    #             val = QTableWidgetItem(str(self.weight_a[self.count]))
-    #             val.setTextAlignment(Qt.AlignCenter)
-    #             self.weight_table.setItem(row, col, val)
-    #             self.count += 1
-    #     self.weight_update_text()
+    def weight_init(self):
+        self.weight_a = [0] * 9
+        self.weight_table.table_clear()
+        self.current_filename = datetime.datetime.now().strftime("sensor_data_%Y-%m-%d-%H-%M.bin")
+        self.weight_update_text()
 
     def auto_save(self):
         os.makedirs("log", exist_ok=True)
