@@ -91,6 +91,18 @@ class AlgorithmBase(processImpl):
             i += 1
             sleep(0.1)
 
+    def doProcResimul(self):
+        print('init Algorithm..',self.name)
+        self.initAlgorithm()
+        while True:
+            if not self.databuf.empty():
+                data = self.databuf.get()
+                if data == "__DONE__":
+                    break
+                for sensor in data:
+                    print(sensor.__dict__)
+                res = self.execute(data)
+                self.resBuf.put(res)
 
     def execute(self, input_data: Optional[SensorFrame] = None) -> Dict[str, Any]:
         if input_data is None:
