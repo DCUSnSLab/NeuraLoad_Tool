@@ -261,6 +261,9 @@ class SerialManager(QObject):
             sensor.start()
             self.sensors.append(sensor)
 
+        #sort by sensor location value
+        self.sensors.sort(key=lambda s: s.sensorLoc.value)
+
         # 별도의 폴링 스레드에서 센서 스레드의 데이터를 버퍼에 저장
         self.poll_thread = Thread(target=self.poll_sensors, daemon=True)
         self.poll_thread.start()
@@ -338,6 +341,7 @@ class SerialManager(QObject):
 
 def sync_callback(frame: SensorFrame):
     print("Synchronized group:")
+    print(f"\ntimestamp={frame.timestamp}, scenario={frame.get_scenario_name()}")
     for data in frame.sensors:
         print(f"{data.serial_port}: (Timestamp: {data.timestamp}, location: {data.location.name}, value: {data.distance}, sub1: {data.intensity}, sub2: {data.temperature})")
     print("----")
