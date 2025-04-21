@@ -175,6 +175,44 @@ class Experiment(QWidget):
         self.weight_position = QLabel("Weight position")
         self.weight_position_output = QLabel("-")
 
+        self.weight_position = QLabel("Weight position")
+        self.weight_position_output = QLabel("-")
+
+        weather_text = QLabel("Weather:")
+        weather = QLineEdit()
+        weather.returnPressed.connect(lambda name='weather', input=weather: self.enter_update(name, input))
+
+        temperature_text = QLabel("Temperature:")
+        temperature = QLineEdit()
+        temperature.returnPressed.connect(lambda name='temperature', input=temperature: self.enter_update(name, input))
+
+        self.groupbox = QGroupBox('Enter')
+
+        text_layout1 = QHBoxLayout()
+        text_layout1.addWidget(weather_text)
+        text_layout1.addWidget(weather)
+        text_layout1.addWidget(temperature_text)
+        text_layout1.addWidget(temperature)
+
+        groupbox_layout2 = QVBoxLayout()
+
+        common_items = ['BottomLeft', 'TopRight', 'TopLeft', 'BottomRight']
+
+        for i in common_items[0:4]:
+            groupbox_layout = QHBoxLayout()
+            name = QLabel(i + ':')
+            distance = QLineEdit()
+            distance.returnPressed.connect(lambda name=i, input=distance: self.enter_update(name, input))
+            groupbox_layout.addWidget(name)
+            groupbox_layout.addWidget(distance)
+            groupbox_layout2.addLayout(groupbox_layout)
+
+        groupbox_layout3 = QVBoxLayout()
+        groupbox_layout3.addLayout(text_layout1)
+        groupbox_layout3.addLayout(groupbox_layout2)
+
+        self.groupbox.setLayout(groupbox_layout3)
+
     def update_sensor_table_header(self, port, new_label):
         index = self.port_column_index.get(port)
         if index is None or new_label.strip() == '':
@@ -579,6 +617,7 @@ class Experiment(QWidget):
         weight_layout_a.addLayout(self.weight_table)
         weight_layout_a.addLayout(weight_layout)
         weight_layout_a.addLayout(weight_layout1)
+        weight_layout_a.addWidget(self.groupbox)
 
         table_layout = QHBoxLayout()
         table_layout.addLayout(setting_layout)
