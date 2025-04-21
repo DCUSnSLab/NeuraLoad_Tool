@@ -1,10 +1,8 @@
 from abc import ABC, abstractmethod
-import logging
-import os
 import time
+from enum import Enum
 from typing import Dict, List, Any, Optional
 from time import sleep
-
 from datainfo import SensorFrame
 from procImpl import processImpl
 
