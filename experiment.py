@@ -31,7 +31,7 @@ class Experiment(QWidget):
         self.save_graph_min = 0
         self.port_actual_distances = {}
         self.is_syncing = False
-        self.current_filename = datetime.datetime.now().strftime("sensor_data_%Y-%m-%d.bin")
+        self.current_filename = datetime.datetime.now().strftime("sensor_data_%Y-%m-%d-%H-%M.bin")
         self.port_comboboxes = {}
         self.port_column_index = {}
         self.port_location = {}
@@ -425,7 +425,7 @@ class Experiment(QWidget):
         self.weight_total = total
 
         state_flag = b'f' if self.is_paused_global else b't'
-        name = self.port_location.get(port, port)
+        name = self.port_comboboxes[port].currentText()
 
         # data 가 deque 면 list 로 변환
         if isinstance(data, deque):
