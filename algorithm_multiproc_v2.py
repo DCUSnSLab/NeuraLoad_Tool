@@ -20,30 +20,11 @@ class AlgorithmMultiProcV2(QWidget):
 
         self.weight_table = wt
 
-        self.real_weight = None
-        self.real_position = None
-        self.rate = 0
-
-        self.weight_a = [-1] * 9
-        self.count = 0
-        self.is_syncing = False
-
-        self.subscribers = []
-
         self.experiment_count = 0
 
         self.loadAlgorithmFromFile()
         self.initUI()
         self.initTimer()
-
-    def add_subscriber(self, subscriber):
-        self.subscribers.append(subscriber)
-
-    def broadcast_weight(self):
-        for sub in self.subscribers:
-            # 각 subscriber가 set_weight 메소드를 가지고 있는지 확인
-            if hasattr(sub, 'set_weight'):
-                sub.set_weight(self.weight_a)
 
     def initUI(self):
         self.algorithm_list = QWidget(self)
@@ -82,16 +63,31 @@ class AlgorithmMultiProcV2(QWidget):
         # 실험 리스트뷰
         self.experimentList = QListWidget()
         self.experimentList.setFont(QFont("Arial", 12))
-        self.experimentList.setFixedHeight(10 * 20)  # 약 10줄
+        self.experimentList.setFixedHeight(10 * 20)
         self.experimentList.setSelectionMode(QAbstractItemView.NoSelection)
 
-        # 파일 라벨, 시나리오 콤보박스
-        self.exFileLabel = QLineEdit('set File Label')
-        self.cbx_scenario = self.__getScenarioCBX()
+        # 파일명 출력용 (ReadOnly)
+        self.generatedFilenameLine = QLineEdit()
+        self.generatedFilenameLine.setReadOnly(True)
 
-        # 실험 횟수 표시용
+        # 파일 라벨
+        self.exFileLabel = QLineEdit('set File Label')
+        fileLabelLayout = QHBoxLayout()
+        fileLabelLayout.addWidget(QLabel("파일라벨 : "))
+        fileLabelLayout.addWidget(self.exFileLabel)
+
+        # 시나리오 콤보박스
+        self.cbx_scenario = self.__getScenarioCBX()
+        scenarioLayout = QHBoxLayout()
+        scenarioLayout.addWidget(QLabel("시나리오 : "))
+        scenarioLayout.addWidget(self.cbx_scenario)
+
+        # 실험 횟수
         self.experimentCountLine = QLineEdit("0")
         self.experimentCountLine.setReadOnly(True)
+        countLayout = QHBoxLayout()
+        countLayout.addWidget(QLabel("실험횟수 : "))
+        countLayout.addWidget(self.experimentCountLine)
 
         # 버튼
         self.startMeasureBtn = QPushButton('Start Measure', self)
@@ -104,9 +100,10 @@ class AlgorithmMultiProcV2(QWidget):
         weightControllerLayout = QVBoxLayout()
         weightControllerLayout.addWidget(self.experimentList)
         weightControllerLayout.addLayout(self.weight_table)
-        weightControllerLayout.addWidget(self.exFileLabel)
-        weightControllerLayout.addWidget(self.cbx_scenario)
-        weightControllerLayout.addWidget(self.experimentCountLine)
+        weightControllerLayout.addWidget(self.generatedFilenameLine)
+        weightControllerLayout.addLayout(fileLabelLayout)
+        weightControllerLayout.addLayout(scenarioLayout)
+        weightControllerLayout.addLayout(countLayout)
         weightControllerLayout.addWidget(self.startMeasureBtn)
         weightControllerLayout.addWidget(self.finishMeasureBtn)
 
@@ -161,7 +158,7 @@ class AlgorithmMultiProcV2(QWidget):
                 data = val.get()
                 print(bname, data)
                 label = self.outputLabels[bname]
-                label.setText(str(data['weight']))
+                label.setText(str(data['output']['weight']))
 
     def clear_layout(self, layout):
         self.outputLabels.clear()
@@ -187,10 +184,15 @@ class AlgorithmMultiProcV2(QWidget):
         self.experimentCountLine.setText(str(self.experiment_count))
 
         label = self.exFileLabel.text().strip()
+        scenario_name = self.cbx_scenario.currentText().split(":")[1].split("(")[0].strip()
         scenario_index = self.cbx_scenario.currentData()
-        scenario_text = self.cbx_scenario.currentText()
-        item_text = f"{label}_{scenario_text}_{self.experiment_count}"
+        item_text = f"{label}_{self.cbx_scenario.currentText()}_{self.experiment_count}"
         self.experimentList.addItem(item_text)
+
+        # 파일명 생성
+        now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{label}_{scenario_name}_{now_str}.bin"
+        self.generatedFilenameLine.setText(filename)
 
     def on_finish_measure(self):
         self.experiment_count = 0
@@ -239,7 +241,3 @@ class AlgorithmMultiProcV2(QWidget):
                 label.setText('-')
 
         self.stop_btn.setEnabled(False)
-
-    def data_update(self):
-        self.real_weight = sum(w if w != -1 else 0 for w in self.weight_a)
-        self.real_position = [i + 1 for i, val in enumerate(self.weight_a) if val != -1]
