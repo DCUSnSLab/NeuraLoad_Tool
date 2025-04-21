@@ -35,9 +35,9 @@ class Experiment(QWidget):
         self.port_column_index = {}
         self.port_location = {}
         self.port_colors = {
+            'TopLeft': 'b',
             'BottomLeft': 'r',
             'TopRight': 'g',
-            'TopLeft': 'b',
             'BottomRight': 'orange',
             'IMU': 'yellow',
             'etc': 'purple'
@@ -47,8 +47,12 @@ class Experiment(QWidget):
         self.plot_curve_change = {}
         self.plot_change = {}
 
-        # self.ports = self.serial_manager.ports
+        # 정렬된 ports 사용
         self.ports = [sensor.port for sensor in self.serial_manager.sensors]
+        self.port_index = {
+            sensor.port: sensor.sensorLoc.value
+            for sensor in self.serial_manager.sensors
+        }
 
         self.setupUI()
         self.setup()
@@ -79,14 +83,14 @@ class Experiment(QWidget):
                 sub.set_weight(self.weight_a)
 
     def setupUI(self):
-        self.sensor_table = QTableWidget()
-        self.sensor_table.setColumnCount(len(self.ports))
-        self.sensor_table.setRowCount(1)
-        for i in range(len(self.ports)):
-            port = self.ports[i]
-            name = self.port_location.get(port, "")
-            self.sensor_table.setHorizontalHeaderItem(i, QTableWidgetItem(name))
-            self.port_index[port] = i
+        headers = [
+            loc.name.title().replace('_', '')
+            for loc in SENSORLOCATION
+            if loc is not SENSORLOCATION.NONE
+        ]
+        print(headers)
+        self.sensor_table = QTableWidget(1, len(headers))
+        self.sensor_table.setHorizontalHeaderLabels(headers)
         self.sensor_table.setVerticalHeaderLabels(['value'])
         self.sensor_table.setMaximumHeight(200)
         self.sensor_table.setMinimumHeight(150)
@@ -130,42 +134,36 @@ class Experiment(QWidget):
         self.graph_text_min.returnPressed.connect(self.saveGraphMin)
 
         self.port_label_layout = QVBoxLayout()
+
         # SENSORLOCATION에 정의된 순서대로 정렬(TOP_LEFT, BOTTOM_LEFT, TOP_RIGHT, BOTTOM_RIGHT)
-        location_names = [
-            loc.name.title().replace('_', '')
-            for loc in SENSORLOCATION
-            if loc is not SENSORLOCATION.NONE
-            ]
-
-        for idx, port in enumerate(self.ports):
+        for port in self.ports:
             port_label = QLabel(port)
-            port_location_cb = QComboBox()
-            port_location_cb.addItems(location_names)
 
-            enum_loc = self.serial_manager.sensors[idx].sensorLoc
-            default_text = enum_loc.name.title().replace('_', '')
-            port_location_cb.setCurrentText(default_text)
+            cmb = QComboBox()
+            cmb.addItems(headers)
+            # 기본 선택: port_index[port] 로 설정
+            cmb.setCurrentIndex(self.port_index[port])
 
-            self.port_comboboxes[port] = port_location_cb
-            self.port_column_index[port] = idx
-
-            port_location_cb.currentTextChanged.connect(
-                lambda value, p=port: self.update_sensor_table_header(p, value)
+            # 콤보 바뀔 때 인덱스만 재할당
+            cmb.currentTextChanged.connect(
+                lambda new_loc, p=port, hdrs=headers:
+                self.port_index.__setitem__(p, hdrs.index(new_loc))
             )
 
+            # 거리 입력창 (기존 로직)
             distance_input = QLineEdit()
             distance_input.returnPressed.connect(
-                lambda p=port, box=distance_input: self.update_graph_start(p, box.text())
+                lambda _, p=port, b=distance_input: self.update_graph_start(p, b.text())
             )
-
             unit = QLabel('mm')
-            self.port_label_layout_sensor = QHBoxLayout()
-            self.port_label_layout_sensor.addWidget(port_label)
-            self.port_label_layout_sensor.addWidget(port_location_cb)
-            self.port_label_layout_sensor.addWidget(distance_input)
-            self.port_label_layout_sensor.addWidget(unit)
+            row = QHBoxLayout()
+            row.addWidget(port_label)
+            row.addWidget(cmb)
+            row.addWidget(distance_input)
+            row.addWidget(unit)
+            self.port_label_layout.addLayout(row)
 
-            self.port_label_layout.addLayout(self.port_label_layout_sensor)
+            self.port_comboboxes[port] = cmb
 
         self.all_weight_text = QLabel("Actual distance")
         self.all_weight_output = QLabel("-")
@@ -362,15 +360,11 @@ class Experiment(QWidget):
                     self.plot_curve_change[port].setData(x, change_values)
 
                 # 실험 중일 때만 데이터 처리 및 테이블 업데이트
-                if self.is_experiment_active and port in self.port_index:
-                    # 최신 값 표시
-                    value = -1
-                    if len(y_values) > 0:
-                        value = y_values[-1]
-
-                    # 테이블 업데이트
-                    location = self.port_index[port]
-                    self.sensor_table.setItem(0, location, QTableWidgetItem(str(value)))
+                if self.is_experiment_active:
+                    for port in self.ports:
+                        val = float(self.plot_data[port][-1].distance)
+                        col = self.port_index[port]
+                        self.sensor_table.setItem(0, col, QTableWidgetItem(str(val)))
 
                     # 데이터 저장 처리
                     self.handle_serial_data(port, self.plot_data[port])
