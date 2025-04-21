@@ -9,16 +9,19 @@ from collections import deque
 from GUIController import GUIController
 import traceback
 from datainfo import SENSORLOCATION
+from weight_action import WeightTable
 
 
 class Experiment(QWidget):
-    def __init__(self, serial_manager):
+    def __init__(self, serial_manager, wt):
         super().__init__()
+        # weigt Table
+        self.weight_table = wt
         self.serial_manager = serial_manager
         self.GUIThread = None
         self.subscribers = []
         self.port_index = {}
-        self.weight_a = [0] * 9
+        self.weight_a = [-1] * 9
         self.count = 0
         self.weight_total = 0
         self.last_direction = '-'
@@ -27,6 +30,7 @@ class Experiment(QWidget):
         self.save_graph_max = 500
         self.save_graph_min = 0
         self.port_actual_distances = {}
+        self.is_syncing = False
         self.port_comboboxes = {}
         self.port_column_index = {}
         self.port_location = {}
@@ -88,31 +92,30 @@ class Experiment(QWidget):
         self.sensor_table.setMaximumWidth(1000)
         self.sensor_table.setMinimumWidth(500)
 
-        self.weight_table = QTableWidget(3, 3)
-        self.weight_table.setHorizontalHeaderLabels([f"{i + 1}" for i in range(3)])
-        self.weight_table.setVerticalHeaderLabels([f"{i + 1}" for i in range(3)])
-        self.weight_table.installEventFilter(self)
-        self.weight_table.cellChanged.connect(self.onCellChanged)
-
-        for row in range(3):
-            for col in range(3):
-                val = QTableWidgetItem(str(self.weight_a[self.count]))
-                val.setTextAlignment(Qt.AlignCenter)
-                self.weight_table.setItem(row, col, val)
-                self.count += 1
+        #self.weight_table = QTableWidget(3, 3)
+        #self.weight_table.installEventFilter(self)
+        # self.weight_table.cellChanged.connect(self.onCellChanged)
+        # self.weight_table.setMinimumHeight(200)
+        #
+        # for row in range(3):
+        #     for col in range(3):
+        #         val = QTableWidgetItem(str(self.weight_a[self.count]))
+        #         val.setTextAlignment(Qt.AlignCenter)
+        #         self.weight_table.setItem(row, col, val)
+        #         self.count += 1
 
         self.stop_btn = QPushButton('실험 시작', self)
         self.stop_btn.setCheckable(True)
         self.stop_btn.clicked.connect(self.toggle_btn)
 
         self.weight_btn_p = QPushButton('+', self)
-        self.weight_btn_p.clicked.connect(self.weightP)
+        self.weight_btn_p.clicked.connect(lambda: self.weight_update(True))
 
         self.weight_btn_m = QPushButton('-', self)
-        self.weight_btn_m.clicked.connect(self.weightM)
+        self.weight_btn_m.clicked.connect(lambda: self.weight_update(False))
 
-        self.weight_btn_z = QPushButton('리셋', self)
-        self.weight_btn_z.clicked.connect(self.weightZ)
+        self.weight_btn_init = QPushButton('init', self)
+        # self.weight_btn_init.clicked.connect(self.weight_init)
 
         self.graph_change = pg.PlotWidget()
         self.graph_change.setTitle("Sensor Change")
@@ -187,46 +190,6 @@ class Experiment(QWidget):
         self.weight_position = QLabel("Weight position")
         self.weight_position_output = QLabel("-")
 
-        weather_text = QLabel("Weather:")
-        weather = QLineEdit()
-        weather.returnPressed.connect(lambda name='weather', input=weather: self.enter_update(name, input))
-
-        temperature_text = QLabel("Temperature:")
-        temperature = QLineEdit()
-        temperature.returnPressed.connect(lambda name='temperature', input=temperature: self.enter_update(name, input))
-
-        self.groupbox = QGroupBox('Enter')
-
-        text_layout1 = QHBoxLayout()
-        text_layout1.addWidget(weather_text)
-        text_layout1.addWidget(weather)
-        text_layout1.addWidget(temperature_text)
-        text_layout1.addWidget(temperature)
-
-        groupbox_layout2 = QVBoxLayout()
-
-        for i in common_items[0:4]:
-            groupbox_layout = QHBoxLayout()
-            name = QLabel(i+':')
-            distance = QLineEdit()
-            distance.returnPressed.connect(lambda name=i, input=distance: self.enter_update(name, input))
-            groupbox_layout.addWidget(name)
-            groupbox_layout.addWidget(distance)
-            groupbox_layout2.addLayout(groupbox_layout)
-
-        groupbox_layout3 = QVBoxLayout()
-        groupbox_layout3.addLayout(text_layout1)
-        groupbox_layout3.addLayout(groupbox_layout2)
-
-        self.groupbox.setLayout(groupbox_layout3)
-
-        distance.returnPressed.connect(
-            lambda p=port, box=distance_input: self.update_graph_start(p, box.text())
-        )
-
-    def enter_update(self, name, input):
-        pass
-
     def update_sensor_table_header(self, port, new_label):
         index = self.port_column_index.get(port)
         if index is None or new_label.strip() == '':
@@ -257,7 +220,7 @@ class Experiment(QWidget):
         self.graph_value.addLegend()
         self.graph_change.addLegend()
 
-    def weight_update(self):
+    def weight_update_text(self):
         weight = sum(self.weight_a)
         if weight == 0:
             self.all_weight_output.setText("0")
@@ -378,7 +341,7 @@ class Experiment(QWidget):
                 y_values = []
                 for point in self.plot_data[port]:
                     try:
-                        y_value = float(point.value)
+                        y_value = float(point.distance)
                         y_values.append(y_value)
                     except (ValueError, AttributeError):
                         y_values.append(0)
@@ -389,7 +352,7 @@ class Experiment(QWidget):
                     base_val = None
                     for point in self.plot_change[port]:
                         try:
-                            base_val = float(point.value)
+                            base_val = float(point.distance)
                             break
                         except (ValueError, AttributeError):
                             pass
@@ -402,7 +365,7 @@ class Experiment(QWidget):
 
                     for point in self.plot_change[port]:
                         try:
-                            value = float(point.value)
+                            value = float(point.distance)
                             change_values.append(value - base_val)
                         except (ValueError, AttributeError):
                             change_values.append(0)
@@ -472,9 +435,9 @@ class Experiment(QWidget):
             timestamp_str = latest_point.timestamp.strftime("%H%M%S%f")[:-3]
             timestamp_int = int(timestamp_str)
 
-            value1 = float(latest_point.value)
-            value2 = float(latest_point.sub1)
-            value3 = float(latest_point.sub2)
+            value1 = float(latest_point.distance)
+            value2 = float(latest_point.intensity)
+            value3 = float(latest_point.temperature)
 
             weight_bin = struct.pack('<9h', *self.weight_a)
             name_bytes = name.encode('utf-8')[:16]
@@ -521,83 +484,29 @@ class Experiment(QWidget):
             self.is_paused_global = True
             self.stop_btn.setText("실험 시작")
 
+    def set_weight(self, weight_a):
+        if self.is_syncing:
+            return
 
-    def onCellChanged(self, row, col):
-        try:
-            item = self.weight_table.item(row, col)
-            if item is None:
-                return
+        self.is_syncing = True
 
-            new_value = item.text().strip()
-            index = row * 3 + col
+        self.weight_a = weight_a.copy()
+        self.weight_table.blockSignals(True)
+        self.table_update(weight_a)
+        self.weight_table.blockSignals(False)
 
-            if 0 <= index < len(self.weight_a):
-                try:
-                    self.weight_a[index] = int(new_value)
-                    self.broadcast_weight()
-                except ValueError:
-                    prev_value = self.weight_a[index]
-                    item.setText(str(prev_value))
-            else:
-                prev_value = -1
-                item.setText(str(prev_value))
+        self.is_syncing = False
 
-        except Exception as e:
-            print(f"onCellChanged 오류: {e}")
-            # 로그 출력 객체가 있는지 확인
-            if hasattr(self, 'log_output'):
-                self.log_output.append(f"onCellChanged 오류: {e}")
-
-    def weightP(self):
-        selected_items = self.weight_table.selectedItems()
-        if selected_items:
-            for val in selected_items:
-                try:
-                    current_value = int(val.text())
-
-                    row = val.row()
-                    col = val.column()
-
-                    index = row * 3 + col
-                    self.weight_a[index] = (current_value + 20)
-                    val.setText(str(self.weight_a[index]))
-                except ValueError:
-                    continue
-        self.weight_update()
-
-    def weightM(self):
-        selected_items = self.weight_table.selectedItems()
-        if selected_items:
-            for val in selected_items:
-                try:
-                    text = val.text().strip()
-                    current_value = int(text)
-
-                    row = val.row()
-                    col = val.column()
-                    index = row * 3 + col
-
-                    if 0 <= index < len(self.weight_a):
-                        if current_value < 4:
-                            self.weight_a[index] = 0
-                        else:
-                            self.weight_a[index] = current_value - 20
-
-                        val.setText(str(self.weight_a[index]))
-                except ValueError:
-                    continue
-        self.weight_update()
-
-    def weightZ(self):
-        self.weight_a = [0] * 9
-        self.count = 0
-        for row in range(3):
-            for col in range(3):
-                val = QTableWidgetItem(str(self.weight_a[self.count]))
-                val.setTextAlignment(Qt.AlignCenter)
-                self.weight_table.setItem(row, col, val)
-                self.count += 1
-        self.weight_update()
+        # def weightZ(self):
+    #     self.weight_a = [0] * 9
+    #     self.count = 0
+    #     for row in range(3):
+    #         for col in range(3):
+    #             val = QTableWidgetItem(str(self.weight_a[self.count]))
+    #             val.setTextAlignment(Qt.AlignCenter)
+    #             self.weight_table.setItem(row, col, val)
+    #             self.count += 1
+    #     self.weight_update_text()
 
     def auto_save(self):
         os.makedirs("log", exist_ok=True)
@@ -631,9 +540,9 @@ class Experiment(QWidget):
                         timestamp_str = point.timestamp.strftime("%H%M%S%f")[:-3]
                         timestamp_int = int(timestamp_str)
 
-                        value1 = float(point.value)
-                        value2 = float(point.sub1)
-                        value3 = float(point.sub2)
+                        value1 = float(point.distance)
+                        value2 = float(point.intensity)
+                        value3 = float(point.temperature)
 
                         weight_data = struct.pack('<9h', *self.weight_a)
                         name_bytes = name.encode('utf-8')[:16]
@@ -670,7 +579,7 @@ class Experiment(QWidget):
 
         layout_btn2 = QVBoxLayout()
         layout_btn2.addLayout(weight_input_layout2)
-        layout_btn2.addWidget(self.weight_btn_z)
+        layout_btn2.addWidget(self.weight_btn_init)
         layout_btn2.addWidget(self.stop_btn)
 
         layout1 = QHBoxLayout()
@@ -687,10 +596,9 @@ class Experiment(QWidget):
         weight_layout1.addWidget(self.weight_position_output)
 
         weight_layout_a = QVBoxLayout()
-        weight_layout_a.addWidget(self.weight_table)
+        weight_layout_a.addLayout(self.weight_table)
         weight_layout_a.addLayout(weight_layout)
         weight_layout_a.addLayout(weight_layout1)
-        weight_layout_a.addWidget(self.groupbox)
 
         table_layout = QHBoxLayout()
         table_layout.addLayout(setting_layout)
@@ -710,40 +618,41 @@ class Experiment(QWidget):
 
         self.setLayout(layout3)
 
-    def eventFilter(self, source, event):
-        if event.type() == QEvent.KeyPress:
-            key = event.key()
-
-            function_keys = {
-                Qt.Key_P: self.weightP,
-                Qt.Key_O: self.weightM,
-                Qt.Key_I: self.weightZ,
-                Qt.Key_K: self.stop,
-                Qt.Key_L: self.restart
-            }
-
-            if key in function_keys:
-                function_keys[key]()
-                return True
-
-            key_to_cell = {
-                Qt.Key_Q: (0, 0), Qt.Key_W: (0, 1), Qt.Key_E: (0, 2),
-                Qt.Key_A: (1, 0), Qt.Key_S: (1, 1), Qt.Key_D: (1, 2),
-                Qt.Key_Z: (2, 0), Qt.Key_X: (2, 1), Qt.Key_C: (2, 2)
-            }
-
-            if key in key_to_cell:
-                row, col = key_to_cell[key]
-                self.weight_table.setFocus()
-                self.weight_table.setCurrentCell(row, col)
-                return True
-
-            if key in [Qt.Key_Return, Qt.Key_Enter]:
-                self.weight_table.clearFocus()
-                self.setFocus()
-                return True
-
-        return super().eventFilter(source, event)
+    # def eventFilter(self, source, event):
+    #     if event.type() == QEvent.KeyPress:
+    #         key = event.key()
+    #
+    #         function_keys = {
+    #             Qt.Key_P: self.weightP,
+    #             Qt.Key_O: self.weightM,
+    #             Qt.Key_I: self.weightZ,
+    #             Qt.Key_M: self.save,
+    #             Qt.Key_K: self.stop,
+    #             Qt.Key_L: self.restart
+    #         }
+    #
+    #         if key in function_keys:
+    #             function_keys[key]()
+    #             return True
+    #
+    #         key_to_cell = {
+    #             Qt.Key_Q: (0, 0), Qt.Key_W: (0, 1), Qt.Key_E: (0, 2),
+    #             Qt.Key_A: (1, 0), Qt.Key_S: (1, 1), Qt.Key_D: (1, 2),
+    #             Qt.Key_Z: (2, 0), Qt.Key_X: (2, 1), Qt.Key_C: (2, 2)
+    #         }
+    #
+    #         if key in key_to_cell:
+    #             row, col = key_to_cell[key]
+    #             self.weight_table.setFocus()
+    #             self.weight_table.setCurrentCell(row, col)
+    #             return True
+    #
+    #         if key in [Qt.Key_Return, Qt.Key_Enter]:
+    #             self.weight_table.clearFocus()
+    #             self.setFocus()
+    #             return True
+    #
+    #     return super().eventFilter(source, event)
 
 
 if __name__ == '__main__':

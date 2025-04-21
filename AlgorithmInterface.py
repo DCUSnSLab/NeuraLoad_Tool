@@ -5,6 +5,7 @@ import time
 from typing import Dict, List, Any, Optional
 from time import sleep
 
+from datainfo import SensorFrame
 from procImpl import processImpl
 
 
@@ -44,7 +45,7 @@ class AlgorithmBase(processImpl):
         """
         pass
 
-    def set_input_data(self, data: Dict[str, Any]) -> None:
+    def set_input_data(self, data: Optional[SensorFrame]) -> None:
         """
         알고리즘 입력 데이터 설정
 
@@ -88,7 +89,7 @@ class AlgorithmBase(processImpl):
                 #print('run algorithm->', self.name, ' : ', res)
             #print('run algorithm->',self.name)
             i += 1
-            sleep(0.5)
+            sleep(0.1)
 
     def doProcResimul(self):
         print('init Algorithm..',self.name)
@@ -103,7 +104,7 @@ class AlgorithmBase(processImpl):
                 res = self.execute(data)
                 self.resBuf.put(res)
 
-    def execute(self, input_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    def execute(self, input_data: Optional[SensorFrame] = None) -> Dict[str, Any]:
         if input_data is None:
             pass
         else:
@@ -125,17 +126,17 @@ class AlgorithmBase(processImpl):
                 self.execution_time = time.time() - start_time
 
                 # 실행 이력 업데이트
-                self.execution_history.append({
-                    'timestamp': time.time(),
-                    'input_keys': list(self.input_data.keys()),
-                    'output_keys': list(self.output_data.keys()),
-                    'execution_time': self.execution_time
-                })
+                # self.execution_history.append({
+                #     'timestamp': time.time(),
+                #     'input_keys': list(self.input_data.keys()),
+                #     'output_keys': list(self.output_data.keys()),
+                #     'execution_time': self.execution_time
+                # })
 
                 return self.output_data
 
             except Exception as e:
-                return {'error': f'알고리즘 실행 중 오류: {str(e)}'}
+                raise {'error': f'알고리즘 실행 중 오류: {str(e)}'}
                 #raise
             finally:
                 self.is_running = False
