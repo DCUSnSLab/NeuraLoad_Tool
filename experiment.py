@@ -206,15 +206,6 @@ class Experiment(QWidget):
 
         self.groupbox.setLayout(groupbox_layout3)
 
-    def update_sensor_table_header(self, port, new_label):
-        index = self.port_column_index.get(port)
-        if index is None or new_label.strip() == '':
-            return
-
-        self.sensor_table.setHorizontalHeaderItem(index, QTableWidgetItem(new_label))
-        print(f"{port} → 센서 테이블 헤더 이름 변경됨: {new_label}")
-        self.port_location[port] = new_label
-
     def update_sensor_graph(self, port: str, new_label: str):
         """
         콤보 박스 변경 시 그래프 업데이트
@@ -396,13 +387,13 @@ class Experiment(QWidget):
 
                 # 실험 중일 때만 데이터 처리 및 테이블 업데이트
                 if self.is_experiment_active:
-                    for port in self.ports:
-                        val = float(self.plot_data[port][-1].distance)
-                        col = self.port_index[port]
+                    for p in self.ports:
+                        val = float(self.plot_data[p][-1].distance)
+                        col = self.port_index[p]
                         self.sensor_table.setItem(0, col, QTableWidgetItem(str(val)))
 
-                    # 데이터 저장 처리
-                    self.handle_serial_data(port, self.plot_data[port])
+                        # 데이터 저장 처리
+                        self.handle_serial_data(p, self.plot_data[p])
         except Exception as e:
             print(f"그래프 업데이트 중 오류 발생: {e}")
             traceback.print_exc()
@@ -626,42 +617,6 @@ class Experiment(QWidget):
         layout3.addLayout(graph_layout)
 
         self.setLayout(layout3)
-
-    # def eventFilter(self, source, event):
-    #     if event.type() == QEvent.KeyPress:
-    #         key = event.key()
-    #
-    #         function_keys = {
-    #             Qt.Key_P: self.weightP,
-    #             Qt.Key_O: self.weightM,
-    #             Qt.Key_I: self.weightZ,
-    #             Qt.Key_M: self.save,
-    #             Qt.Key_K: self.stop,
-    #             Qt.Key_L: self.restart
-    #         }
-    #
-    #         if key in function_keys:
-    #             function_keys[key]()
-    #             return True
-    #
-    #         key_to_cell = {
-    #             Qt.Key_Q: (0, 0), Qt.Key_W: (0, 1), Qt.Key_E: (0, 2),
-    #             Qt.Key_A: (1, 0), Qt.Key_S: (1, 1), Qt.Key_D: (1, 2),
-    #             Qt.Key_Z: (2, 0), Qt.Key_X: (2, 1), Qt.Key_C: (2, 2)
-    #         }
-    #
-    #         if key in key_to_cell:
-    #             row, col = key_to_cell[key]
-    #             self.weight_table.setFocus()
-    #             self.weight_table.setCurrentCell(row, col)
-    #             return True
-    #
-    #         if key in [Qt.Key_Return, Qt.Key_Enter]:
-    #             self.weight_table.clearFocus()
-    #             self.setFocus()
-    #             return True
-    #
-    #     return super().eventFilter(source, event)
 
 
 if __name__ == '__main__':
