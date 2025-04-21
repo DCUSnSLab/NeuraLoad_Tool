@@ -61,10 +61,6 @@ class Experiment(QWidget):
         self.initializePortData()
         self.startGUIThread()
 
-        for port in self.ports:
-            location_name = self.port_comboboxes[port].currentText()
-            self.update_sensor_table_header(port, location_name)
-
         self.auto_save_timer = QTimer()
         self.auto_save_timer.timeout.connect(self.auto_save)
         self.auto_save_timer.start(1000)
@@ -88,7 +84,6 @@ class Experiment(QWidget):
             for loc in SENSORLOCATION
             if loc is not SENSORLOCATION.NONE
         ]
-        print(headers)
         self.sensor_table = QTableWidget(1, len(headers))
         self.sensor_table.setHorizontalHeaderLabels(headers)
         self.sensor_table.setVerticalHeaderLabels(['value'])
@@ -133,9 +128,8 @@ class Experiment(QWidget):
         self.graph_text_min = QLineEdit()
         self.graph_text_min.returnPressed.connect(self.saveGraphMin)
 
-        self.port_label_layout = QVBoxLayout()
-
         # SENSORLOCATION에 정의된 순서대로 정렬(TOP_LEFT, BOTTOM_LEFT, TOP_RIGHT, BOTTOM_RIGHT)
+        self.port_label_layout = QVBoxLayout()
         for port in self.ports:
             port_label = QLabel(port)
 
@@ -144,13 +138,14 @@ class Experiment(QWidget):
             # 기본 선택: port_index[port] 로 설정
             cmb.setCurrentIndex(self.port_index[port])
 
-            # 콤보 바뀔 때 인덱스만 재할당
+            # 콤보 박스 변경 시 호출
             cmb.currentTextChanged.connect(
-                lambda new_loc, p=port, hdrs=headers:
-                self.port_index.__setitem__(p, hdrs.index(new_loc))
+                lambda new_loc, p=port, hdrs=headers:(
+                    self.port_index.__setitem__(p, hdrs.index(new_loc)),
+                    self.update_sensor_graph(p, new_loc)
+                )
             )
-
-            # 거리 입력창 (기존 로직)
+            # 거리 입력창
             distance_input = QLineEdit()
             distance_input.returnPressed.connect(
                 lambda _, p=port, b=distance_input: self.update_graph_start(p, b.text())
@@ -172,24 +167,17 @@ class Experiment(QWidget):
         self.weight_position = QLabel("Weight position")
         self.weight_position_output = QLabel("-")
 
-    def update_sensor_table_header(self, port, new_label):
-        index = self.port_column_index.get(port)
-        if index is None or new_label.strip() == '':
-            return
-
-        self.sensor_table.setHorizontalHeaderItem(index, QTableWidgetItem(new_label))
-        print(f"{port} → 센서 테이블 헤더 이름 변경됨: {new_label}")
-        self.port_location[port] = new_label
-
+    def update_sensor_graph(self, port: str, new_label: str):
+        """
+        콤보 박스 변경 시 그래프 업데이트
+        """
         # 기존 그래프 제거
         if port in self.plot_curve:
             self.graph_value.removeItem(self.plot_curve[port])
-        if port in self.plot_curve_change:
             self.graph_change.removeItem(self.plot_curve_change[port])
 
-        color = self.port_colors.get(new_label, 'gray')
-
         # 새로운 그래프 추가 (legend 포함)
+        color = self.port_colors.get(new_label, 'gray')
         self.plot_curve[port] = self.graph_value.plot(
             pen=pg.mkPen(color=color, width=1),
             name=new_label
@@ -198,7 +186,6 @@ class Experiment(QWidget):
             pen=pg.mkPen(color=color, width=1),
             name=new_label
         )
-
         self.graph_value.addLegend()
         self.graph_change.addLegend()
 
