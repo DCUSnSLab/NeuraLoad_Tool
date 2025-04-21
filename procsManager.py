@@ -1,6 +1,6 @@
 from PyQt5.QtCore import QThread, pyqtSignal
 
-from Algorithm.COGMassEstimation import COGMassEstimation
+from Algorithm.COGMassEstimation_v2 import COGMassEstimation
 from Algorithm.MLPPredictor import KerasMLPPredictor
 from Algorithm.RandomForestPredictor import RandomForestPredictor
 import multiprocessing as mp
@@ -24,7 +24,7 @@ class ProcsManager:
         self.thread = None
 
     def addProcess(self, algoName):
-        if algoName == "COGMassEstimation.py":
+        if algoName == "COGMassEstimation_v2.py":
             algo = COGMassEstimation(algoName)
         elif algoName == "MLPPredictor.py":
             algo = KerasMLPPredictor(algoName)

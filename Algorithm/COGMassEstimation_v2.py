@@ -5,6 +5,9 @@ from scipy.stats import mode
 import time
 import numpy as np
 from typing import Dict, List, Any, Optional
+
+from datainfo import SensorFrame, SENSORLOCATION
+
 # 상위 디렉토리의 모듈을 import 하기 위한 경로 설정
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -44,6 +47,37 @@ class COGMassEstimation(AlgorithmBase):
             init - curr for curr, init in zip(current_values, self.initial_laser_values)
         ]
         return deltas
+
+    def preprocess_data_new(self, frame: SensorFrame) -> Dict[str, Any]:
+        # 1. 거리값 추출 (location 순서대로)
+        try:
+            laser_values = [
+                frame.get_sensor_data(SENSORLOCATION.TOP_LEFT).distance,
+                frame.get_sensor_data(SENSORLOCATION.BOTTOM_LEFT).distance,
+                frame.get_sensor_data(SENSORLOCATION.TOP_RIGHT).distance,
+                frame.get_sensor_data(SENSORLOCATION.BOTTOM_RIGHT).distance,
+            ]
+        except Exception as e:
+            return {'error': f'센서 데이터 추출 오류: {str(e)}'}
+
+        # 2. 변화량 계산
+        deltas = self.compute_deltas(laser_values)
+        for idx, change in enumerate(deltas):
+            self.laser_changes[idx] = [change]
+
+        # 3. 모든 포트의 변화량이 준비된 경우
+        if all(len(self.laser_changes[i]) >= 1 for i in range(4)):
+            return {
+                'processed': True,
+                'laser_values': laser_values,
+                'delta_values': deltas,
+                'timestamp': frame.timestamp,
+                'scenario': frame.get_scenario_name(),
+                'measured': frame.measured
+            }
+        else:
+            return {'error': '모든 센서 변화량이 충분하지 않습니다'}
+
     def preprocess_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
         if all(k in data for k in ['VCOM1', 'VCOM2', 'VCOM3', 'VCOM4']):
             laser_values = [
@@ -135,10 +169,10 @@ class COGMassEstimation(AlgorithmBase):
 
     def runAlgo(self) -> Dict[str, Any]:
         print('in process')
-        if 'error' in self.input_data:
-            return self.input_data
+        if self.input_data is None:
+            raise Exception('input data is None')
 
-        inputdata = self.preprocess_data(self.input_data)
+        inputdata = self.preprocess_data_new(self.input_data)
 
         location = self.determine_loading_position()
         estimated_weight = self.calculate_weight_estimation(location)

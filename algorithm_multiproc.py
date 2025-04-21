@@ -62,18 +62,6 @@ class AlgorithmMultiProc(QWidget):
         self.stop_btn.clicked.connect(self.finishAllAlgorithms)
         self.stop_btn.setEnabled(False)  # 알고리즘 프로세스가 시작해야 활성화됨
 
-        # self.weight_table = QTableWidget(3, 3)
-        # self.weight_table.installEventFilter(self)
-        # self.weight_table.cellChanged.connect(self.onCellChanged)
-        # self.weight_table.setMinimumHeight(200)
-        #
-        # for row in range(3):
-        #     for col in range(3):
-        #         val = QTableWidgetItem(str(self.weight_a[self.count]))
-        #         val.setTextAlignment(Qt.AlignCenter)
-        #         self.weight_table.setItem(row, col, val)
-        #         self.count += 1
-
         self.weight_btn_p = QPushButton('+', self)
         self.weight_btn_p.clicked.connect(lambda: self.weight_update(True))
 
@@ -87,7 +75,6 @@ class AlgorithmMultiProc(QWidget):
         groupbox.setLayout(layout)
 
         self.weight_layout = QVBoxLayout()
-        #weight_layout1.addWidget(self.actual_weight_text)
 
         self.weight_layout.addStretch()
         self.weight_layout.setSpacing(10)
@@ -100,18 +87,9 @@ class AlgorithmMultiProc(QWidget):
         layout_w.addWidget(self.weight_table)
         layout_w.addLayout(layout_btn)
 
-        #
-        # weight_layout2 = QHBoxLayout()
-        # weight_layout2.addWidget(self.actual_location_text)
-        # weight_layout2.addWidget(self.actual_location_output)
-        # weight_layout2.addStretch()
-        # weight_layout2.setSpacing(10)
-        #
         layout = QVBoxLayout()
         layout.addLayout(layout_w)
         layout.addLayout(self.weight_layout)
-        # layout.addLayout(weight_layout2)
-        # layout.addWidget(self.weight_table)
 
         btn_layout = QVBoxLayout()
         btn_layout.addWidget(self.start_btn)

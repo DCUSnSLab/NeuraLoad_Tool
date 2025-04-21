@@ -325,7 +325,7 @@ class SerialManager(QObject):
                 if self.callback:
                     self.callback(frame)
                 for buf in self.algo_buffers:
-                    buf.put(self.candidate_window.copy())
+                    buf.put(frame)
                 self.exper_buffer.put(frame)
             else:
                 oldest_port = min(self.ports, key=lambda p: self.buffers[p][0].timestamp)
