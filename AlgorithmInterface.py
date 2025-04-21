@@ -30,7 +30,7 @@ class AlgorithmBase(processImpl):
         self.description = description
         self.model_path = model_path
         self.input_data = []
-        self.output_data = {}
+        self.output_data = {'input':None, 'output':None}
         self.execution_time = 0
         self.is_running = False
         self.execution_history = []
@@ -121,7 +121,8 @@ class AlgorithmBase(processImpl):
                 results = self.runAlgo()
 
                 # 출력 데이터 설정
-                self.output_data = results
+                self.output_data['input'] = self.input_data
+                self.output_data['output'] = results
 
                 self.execution_time = time.time() - start_time
 

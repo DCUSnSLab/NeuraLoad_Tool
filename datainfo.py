@@ -18,7 +18,7 @@ class SENSORLOCATION(Enum):
 
 @dataclass
 class SensorData:
-    timestamp: int
+    timestamp: datetime.datetime
     serial_port: str
     location: SENSORLOCATION
     distance: int
@@ -198,7 +198,7 @@ REVERSE_SCENARIO_DESC_MAP = {
 
 @dataclass
 class SensorFrame:
-    timestamp: int  # UNIX timestamp (int)
+    timestamp: datetime.datetime  # UNIX timestamp (int)
     scenario: int  # Experiment Scenario
     started: bool   # 실험 시작 여부
     measured: bool  # 측정 시작 여부
@@ -206,7 +206,7 @@ class SensorFrame:
 
     STRUCT_HEADER_FORMAT = '<I H ??'  # timestamp, scenario, started, measured
 
-    def __init__(self, timestamp: int, sensors: List[SensorData], scenario: int = -1, started: bool = False, measured: bool = False):
+    def __init__(self, timestamp: datetime.datetime, sensors: List[SensorData], scenario: int = -1, started: bool = False, measured: bool = False):
         self.timestamp = timestamp
         self.scenario = scenario
         self.started = started
@@ -228,7 +228,7 @@ class SensorFrame:
     def pack(self) -> bytes:
         packed = struct.pack(
             self.STRUCT_HEADER_FORMAT,
-            self.timestamp,
+            int(self.timestamp),
             self.scenario,
             self.started,
             self.measured
