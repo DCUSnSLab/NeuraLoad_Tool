@@ -54,6 +54,9 @@ class SensorData:
     def get_total_size(cls):
         return struct.calcsize(cls.STRUCT_FORMAT)
 
+    def getSensorLoc(self):
+        return self.location
+
 
 
 @dataclass(init=False)

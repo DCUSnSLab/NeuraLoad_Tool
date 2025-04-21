@@ -596,7 +596,7 @@ class Experiment(QWidget):
         weight_layout1.addWidget(self.weight_position_output)
 
         weight_layout_a = QVBoxLayout()
-        weight_layout_a.addWidget(self.weight_table)
+        weight_layout_a.addLayout(self.weight_table)
         weight_layout_a.addLayout(weight_layout)
         weight_layout_a.addLayout(weight_layout1)
 

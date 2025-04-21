@@ -2,6 +2,7 @@ import sys
 
 from PyQt5.QtWidgets import QApplication, QWidget, QTabWidget, QVBoxLayout, QMessageBox
 from algorithm_multiproc import AlgorithmMultiProc
+from algorithm_multiproc_v2 import AlgorithmMultiProcV2
 from algorithm_resimulation import AlgorithmResimulation
 from analytics import Analytics
 from experiment import Experiment
@@ -40,7 +41,7 @@ class Main(QWidget):
 
         self.tab0 = ExperimentTab(dataManager=self.serial_manager)
         self.tab1 = Experiment(serial_manager=self.serial_manager, wt=wtEx)
-        self.tab2 = AlgorithmMultiProc(serial_manager=self.serial_manager, wt=wtAlgo)
+        self.tab2 = AlgorithmMultiProcV2(serial_manager=self.serial_manager, wt=wtAlgo)
         self.tab3 = AlgorithmResimulation(serial_manager=self.serial_manager)
         self.tab4 = Analytics()
 

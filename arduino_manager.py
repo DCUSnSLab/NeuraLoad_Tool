@@ -99,7 +99,7 @@ class Sensor(QThread):
                 self.errorSignal.emit("센서 연결 끊김")
                 break
 
-    def _getDatafromSerial(self):
+    def __getDatafromSerial(self):
         try:
             data = self.serial.readline().decode('utf-8', errors='ignore').strip()
         except Exception as e:

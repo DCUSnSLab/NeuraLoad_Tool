@@ -89,7 +89,7 @@ class AlgorithmBase(processImpl):
                 #print('run algorithm->', self.name, ' : ', res)
             #print('run algorithm->',self.name)
             i += 1
-            sleep(0.5)
+            sleep(0.1)
 
 
     def execute(self, input_data: Optional[SensorFrame] = None) -> Dict[str, Any]:
