@@ -21,7 +21,7 @@ class Experiment(QWidget):
         self.GUIThread = None
         self.subscribers = []
         self.port_index = {}
-        self.weight_a = [-1] * 9
+        self.weight_a = [0] * 9
         self.count = 0
         self.weight_total = 0
         self.last_direction = '-'
@@ -31,6 +31,7 @@ class Experiment(QWidget):
         self.save_graph_min = 0
         self.port_actual_distances = {}
         self.is_syncing = False
+        self.current_filename = datetime.datetime.now().strftime("sensor_data_%Y-%m-%d.bin")
         self.port_comboboxes = {}
         self.port_column_index = {}
         self.port_location = {}
@@ -104,7 +105,7 @@ class Experiment(QWidget):
         self.weight_btn_m.clicked.connect(lambda: self.weight_update(False))
 
         self.weight_btn_init = QPushButton('init', self)
-        # self.weight_btn_init.clicked.connect(self.weight_init)
+        self.weight_btn_init.clicked.connect(self.weight_init)
 
         self.graph_change = pg.PlotWidget()
         self.graph_change.setTitle("Sensor Change")
@@ -166,6 +167,53 @@ class Experiment(QWidget):
 
         self.weight_position = QLabel("Weight position")
         self.weight_position_output = QLabel("-")
+
+        self.weight_position = QLabel("Weight position")
+        self.weight_position_output = QLabel("-")
+
+        weather_text = QLabel("Weather:")
+        weather = QLineEdit()
+        weather.returnPressed.connect(lambda name='weather', input=weather: self.enter_update(name, input))
+
+        temperature_text = QLabel("Temperature:")
+        temperature = QLineEdit()
+        temperature.returnPressed.connect(lambda name='temperature', input=temperature: self.enter_update(name, input))
+
+        self.groupbox = QGroupBox('Enter')
+
+        text_layout1 = QHBoxLayout()
+        text_layout1.addWidget(weather_text)
+        text_layout1.addWidget(weather)
+        text_layout1.addWidget(temperature_text)
+        text_layout1.addWidget(temperature)
+
+        groupbox_layout2 = QVBoxLayout()
+
+        common_items = ['BottomLeft', 'TopRight', 'TopLeft', 'BottomRight']
+
+        for i in common_items[0:4]:
+            groupbox_layout = QHBoxLayout()
+            name = QLabel(i + ':')
+            distance = QLineEdit()
+            distance.returnPressed.connect(lambda name=i, input=distance: self.enter_update(name, input))
+            groupbox_layout.addWidget(name)
+            groupbox_layout.addWidget(distance)
+            groupbox_layout2.addLayout(groupbox_layout)
+
+        groupbox_layout3 = QVBoxLayout()
+        groupbox_layout3.addLayout(text_layout1)
+        groupbox_layout3.addLayout(groupbox_layout2)
+
+        self.groupbox.setLayout(groupbox_layout3)
+
+    def update_sensor_table_header(self, port, new_label):
+        index = self.port_column_index.get(port)
+        if index is None or new_label.strip() == '':
+            return
+
+        self.sensor_table.setHorizontalHeaderItem(index, QTableWidgetItem(new_label))
+        print(f"{port} → 센서 테이블 헤더 이름 변경됨: {new_label}")
+        self.port_location[port] = new_label
 
     def update_sensor_graph(self, port: str, new_label: str):
         """
@@ -370,7 +418,7 @@ class Experiment(QWidget):
             return
 
         os.makedirs("log", exist_ok=True)
-        filename = datetime.datetime.now().strftime("sensor_data_%Y-%m-%d.bin")
+        filename = self.current_filename
         file_path = os.path.join("log", filename)
 
         # 무게 변화 방향
@@ -462,16 +510,11 @@ class Experiment(QWidget):
 
         self.is_syncing = False
 
-        # def weightZ(self):
-    #     self.weight_a = [0] * 9
-    #     self.count = 0
-    #     for row in range(3):
-    #         for col in range(3):
-    #             val = QTableWidgetItem(str(self.weight_a[self.count]))
-    #             val.setTextAlignment(Qt.AlignCenter)
-    #             self.weight_table.setItem(row, col, val)
-    #             self.count += 1
-    #     self.weight_update_text()
+    def weight_init(self):
+        self.weight_a = [0] * 9
+        self.weight_table.table_clear()
+        self.current_filename = datetime.datetime.now().strftime("sensor_data_%Y-%m-%d-%H-%M.bin")
+        self.weight_update_text()
 
     def auto_save(self):
         os.makedirs("log", exist_ok=True)
@@ -564,6 +607,7 @@ class Experiment(QWidget):
         weight_layout_a.addLayout(self.weight_table)
         weight_layout_a.addLayout(weight_layout)
         weight_layout_a.addLayout(weight_layout1)
+        weight_layout_a.addWidget(self.groupbox)
 
         table_layout = QHBoxLayout()
         table_layout.addLayout(setting_layout)
