@@ -47,7 +47,8 @@ class Experiment(QWidget):
         self.plot_curve_change = {}
         self.plot_change = {}
 
-        self.ports = self.serial_manager.ports
+        # self.ports = self.serial_manager.ports
+        self.ports = [sensor.port for sensor in self.serial_manager.sensors]
 
         self.setupUI()
         self.setup()
@@ -92,17 +93,6 @@ class Experiment(QWidget):
         self.sensor_table.setMaximumWidth(1000)
         self.sensor_table.setMinimumWidth(500)
 
-        #self.weight_table = QTableWidget(3, 3)
-        #self.weight_table.installEventFilter(self)
-        # self.weight_table.cellChanged.connect(self.onCellChanged)
-        # self.weight_table.setMinimumHeight(200)
-        #
-        # for row in range(3):
-        #     for col in range(3):
-        #         val = QTableWidgetItem(str(self.weight_a[self.count]))
-        #         val.setTextAlignment(Qt.AlignCenter)
-        #         self.weight_table.setItem(row, col, val)
-        #         self.count += 1
 
         self.stop_btn = QPushButton('실험 시작', self)
         self.stop_btn.setCheckable(True)
@@ -140,27 +130,21 @@ class Experiment(QWidget):
         self.graph_text_min.returnPressed.connect(self.saveGraphMin)
 
         self.port_label_layout = QVBoxLayout()
-        common_items = ['BottomLeft', 'TopRight', 'TopLeft', 'BottomRight', 'IMU', 'etc']
+        # SENSORLOCATION에 정의된 순서대로 정렬(TOP_LEFT, BOTTOM_LEFT, TOP_RIGHT, BOTTOM_RIGHT)
+        location_names = [
+            loc.name.title().replace('_', '')
+            for loc in SENSORLOCATION
+            if loc is not SENSORLOCATION.NONE
+            ]
 
-        port_common_items = {
-            0 : 'BottomLeft',
-            1 : 'TopRight',
-            2 : 'TopLeft',
-            3 : 'BottomRight',
-            4 : 'IMU',
-            5 : 'etc'
-        }
         for idx, port in enumerate(self.ports):
             port_label = QLabel(port)
             port_location_cb = QComboBox()
-            port_location_cb.addItems(common_items)
-            default_label = port_common_items.get(idx, '')
-            if default_label in common_items:
-                default_index = common_items.index(default_label)
-                port_location_cb.setCurrentIndex(default_index)
-            else:
-                port_location_cb.setCurrentIndex(0)
-                port_location_cb.adjustSize()
+            port_location_cb.addItems(location_names)
+
+            enum_loc = self.serial_manager.sensors[idx].sensorLoc
+            default_text = enum_loc.name.title().replace('_', '')
+            port_location_cb.setCurrentText(default_text)
 
             self.port_comboboxes[port] = port_location_cb
             self.port_column_index[port] = idx
