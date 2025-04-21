@@ -78,3 +78,7 @@ class processImpl(metaclass=ABCMeta):
     @abstractmethod
     def doProc(self):
         pass
+
+    @abstractmethod
+    def doProcResimul(self):
+        pass

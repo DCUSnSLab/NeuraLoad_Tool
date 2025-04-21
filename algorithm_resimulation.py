@@ -4,15 +4,14 @@ from PyQt5.QtCore import QTimer, QSize, pyqtSignal
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 
-from file_manager import FileManager, AlgorithmFileManager
-from procsManager import ProcsManager
+from file_manager import AlgorithmFileManager
+from resimulation_manager import ResimulationManager
 
 
 class AlgorithmResimulation(QWidget):
     def __init__(self, serial_manager):
         super().__init__()
-        self.fileManager = FileManager()
-        self.procmanager = ProcsManager(self.fileManager)
+        self.resimulManager = ResimulationManager(sm=serial_manager)
         self.serial_manager = serial_manager
         self.algoFile = AlgorithmFileManager()
 
@@ -134,16 +133,16 @@ class AlgorithmResimulation(QWidget):
         self.runAlgorithm()
 
     def runAlgorithm(self):
-        self.fileManager.loadDataFile(self.filepath)
+        self.resimulManager.getDataFile(self.filepath)
         for cbx in self.algorithm_checkbox:
             if cbx.isChecked():
                 print('run - ', cbx.text())
                 if cbx.text() in self.files:
                     print('select algorithm file -> ',cbx.text(), self.files[cbx.text()])
-                    self.procmanager.addProcess(cbx.text())
+                    self.resimulManager.addProcess(cbx.text())
 
-        self.procmanager.startThread(ResimulMode=True, callback=lambda: self.stop_btn.setEnabled(True))
+        self.resimulManager.startThread(callback=lambda: self.stop_btn.setEnabled(True))
 
     def finishAllAlgorithms(self):
-        self.procmanager.terminateResimulation()
+        self.resimulManager.terminate()
         self.stop_btn.setEnabled(False)
