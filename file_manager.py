@@ -1,3 +1,4 @@
+import os
 from enum import Enum
 
 from datainfo import SensorData, SENSORLOCATION
@@ -86,7 +87,6 @@ class FileManager:
                 location_enum = self._get_SensorLocation(name)
 
                 sensor  = SensorData(
-                    sname="Laser",
                     serialport=name,
                     timestamp=timestamp,
                     loc=location_enum.value,  # 실제 센서 위치 파악 가능하다면 설정
@@ -131,3 +131,15 @@ class FileManager:
             groupData.append(buffer.copy())
 
         return groupData
+
+class AlgorithmFileManager():
+    def __init__(self):
+        self.files = dict()
+
+    def loadAlgorithmFromFile(self):
+        folder = os.path.join(os.getcwd(), 'Algorithm')
+        py_files = [f for f in os.listdir(folder) if f.endswith('.py')]
+        for file_name in py_files:
+            full_path = os.path.join(folder, file_name)
+            self.files[file_name] = full_path
+        return self.files

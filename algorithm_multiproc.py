@@ -5,6 +5,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 
+from file_manager import AlgorithmFileManager
 from procsManager import ProcsManager
 
 class AlgorithmMultiProc(QWidget):
@@ -234,15 +235,3 @@ class AlgorithmMultiProc(QWidget):
         if self.real_weight and algo_weight is not None:
             data_file.write(log_line)
             data_file.flush()
-
-class AlgorithmFileManager():
-    def __init__(self):
-        self.files = dict()
-
-    def loadAlgorithmFromFile(self):
-        folder = os.path.join(os.getcwd(), 'Algorithm')
-        py_files = [f for f in os.listdir(folder) if f.endswith('.py')]
-        for file_name in py_files:
-            full_path = os.path.join(folder, file_name)
-            self.files[file_name] = full_path
-        return self.files

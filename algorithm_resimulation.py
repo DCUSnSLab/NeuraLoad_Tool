@@ -4,8 +4,7 @@ from PyQt5.QtCore import QTimer, QSize, pyqtSignal
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 
-from algorithm_multiproc import AlgorithmFileManager
-from file_manager import FileManager
+from file_manager import FileManager, AlgorithmFileManager
 from procsManager import ProcsManager
 
 
