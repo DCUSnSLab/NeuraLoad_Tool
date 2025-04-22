@@ -4,6 +4,9 @@ from typing import List, BinaryIO
 import struct
 import datetime
 
+from Algorithm.algorithmtype import ALGORITHM_TYPE
+
+
 class SENSORLOCATION(Enum):
     TOP_LEFT = 0
     BOTTOM_LEFT = 1
@@ -59,112 +62,51 @@ class SensorData:
 
 
 
-@dataclass(init=False)
-class ExperimentData(SensorData):
+@dataclass
+class ExperimentData():
     weights: List[int]
 
     STRUCT_FORMAT_EX = '<9H'
 
-    def __init__(self, timestamp, serial_port, location, distance, intensity, temperature, weights=None):
-        super().__init__(timestamp, serial_port, location, distance, intensity, temperature)
-        self.weights = weights if weights is not None else [0] * 9
-
     def pack(self) -> bytes:
-        return super().pack() + struct.pack(self.STRUCT_FORMAT_EX, *self.weights)
+        return struct.pack(self.STRUCT_FORMAT_EX, *self.weights)
 
     @classmethod
     def unpack(cls, data: bytes) -> 'ExperimentData':
-        base_size = SensorData.get_total_size()
-        base = SensorData.unpack(data[:base_size])
-        weights = list(struct.unpack(cls.STRUCT_FORMAT_EX, data[base_size:]))
+        weights = list(struct.unpack(cls.STRUCT_FORMAT_EX, data))
         return cls(
-            timestamp=base.timestamp,
-            serial_port=base.serial_port,
-            location=base.location,
-            distance=base.distance,
-            intensity=base.intensity,
-            temperature=base.temperature,
             weights=weights
         )
 
     @classmethod
     def get_total_size(cls):
-        return SensorData.get_total_size() + struct.calcsize(cls.STRUCT_FORMAT_EX)
-
-    @classmethod
-    def from_sensor(cls, sensor_data: SensorData, weights: List[int] = None):
-        return cls(
-            timestamp=sensor_data.timestamp,
-            serial_port=sensor_data.serial_port,
-            location=sensor_data.location,
-            distance=sensor_data.distance,
-            intensity=sensor_data.intensity,
-            temperature=sensor_data.temperature,
-            weights=weights
-        )
+        return struct.calcsize(cls.STRUCT_FORMAT_EX)
 
 
-@dataclass(init=False)
-class AlgorithmData(ExperimentData):
+@dataclass
+class AlgorithmData():
+    algo_type: 'ALGORITHM_TYPE'
     predicted_weight: int
     error: int
 
-    STRUCT_FORMAT_ALGO = '<H H'
-
-    def __init__(self, timestamp, serial_port, location, distance, intensity, temperature,
-                 weights=None, predicted_weight=0, error=0):
-        super().__init__(timestamp, serial_port, location, distance, intensity, temperature, weights)
-        self.predicted_weight = predicted_weight
-        self.error = error
+    STRUCT_FORMAT_ALGO = '<B H H'
 
     def pack(self) -> bytes:
-        return super().pack() + struct.pack(self.STRUCT_FORMAT_ALGO, self.predicted_weight, self.error)
+        return struct.pack(self.STRUCT_FORMAT_ALGO, self.algo_type.value, self.predicted_weight, self.error)
 
     @classmethod
     def unpack(cls, data: bytes) -> 'AlgorithmData':
-        base_size = ExperimentData.get_total_size()
-        base = ExperimentData.unpack(data[:base_size])
-        pred_weight, error = struct.unpack(cls.STRUCT_FORMAT_ALGO, data[base_size:])
+        algotype, pred_weight, error = struct.unpack(cls.STRUCT_FORMAT_ALGO, data)
         return cls(
-            timestamp=base.timestamp,
-            serial_port=base.serial_port,
-            location=base.location,
-            distance=base.distance,
-            intensity=base.intensity,
-            temperature=base.temperature,
-            weights=base.weights,
+            algo_type=ALGORITHM_TYPE.get_sensor_location(algotype),
             predicted_weight=pred_weight,
             error=error
         )
 
     @classmethod
     def get_total_size(cls):
-        return ExperimentData.get_total_size() + struct.calcsize(cls.STRUCT_FORMAT_ALGO)
+        return struct.calcsize(cls.STRUCT_FORMAT_ALGO)
 
-    @classmethod
-    def from_sensor(cls, sensor_data: SensorData,
-                    weights: List[int] = None,
-                    is_experiment: bool = False,
-                    predicted_weight: int = 0,
-                    error: int = 0) -> 'AlgorithmData':
-        return cls(
-            timestamp=sensor_data.timestamp,
-            serial_port=sensor_data.serial_port,
-            location=sensor_data.location,
-            distance=sensor_data.distance,
-            intensity=sensor_data.intensity,
-            temperature=sensor_data.temperature,
-            weights=weights,
-            predicted_weight=predicted_weight,
-            error=error
-        )
-
-DATA_TYPE_MAP = {
-    0: SensorData,
-    1: ExperimentData,
-    2: AlgorithmData
-}
-REVERSE_TYPE_MAP = {v: k for k, v in DATA_TYPE_MAP.items()}
 
 SCENARIO_TYPE_MAP = {
     -1: {
@@ -203,19 +145,30 @@ REVERSE_SCENARIO_DESC_MAP = {
 @dataclass
 class SensorFrame:
     timestamp: datetime.datetime  # UNIX timestamp (int)
+    sensors: List[SensorData]
     scenario: int  # Experiment Scenario
     started: bool   # 실험 시작 여부
     measured: bool  # 측정 시작 여부
-    sensors: List[SensorData]
+    experiment: ExperimentData
+    algorithms: List[AlgorithmData]
 
-    STRUCT_HEADER_FORMAT = '<I H ??'  # timestamp, scenario, started, measured
-
-    def __init__(self, timestamp: datetime.datetime, sensors: List[SensorData], scenario: int = -1, started: bool = False, measured: bool = False):
+    def __init__(self,
+                 timestamp: datetime.datetime,
+                 sensors: List[SensorData],
+                 scenario: int = -1,
+                 started: bool = False,
+                 measured: bool = False,
+                 experiment: ExperimentData = None,
+                 algorithms: List[AlgorithmData] = None):
         self.timestamp = timestamp
         self.scenario = scenario
         self.started = started
         self.measured = measured
         self.sensors = sensors
+        self.experiment = experiment
+        self.algorithms = algorithms
+
+    STRUCT_HEADER_FORMAT = '<I H ??'  # timestamp, scenario, started, measured
 
     def get_scenario_name(self) -> str:
         return SCENARIO_TYPE_MAP[self.scenario]["name"]
@@ -238,38 +191,28 @@ class SensorFrame:
             self.measured
         )
         for sensor in self.sensors:
-            dtype = REVERSE_TYPE_MAP[type(sensor)]
-            sensor_data = sensor.pack()
-            packed += struct.pack('<B', dtype) + sensor_data
+            packed += sensor.pack()
+        packed += self.experiment.pack()
+        packed += struct.pack('<B', len(self.algorithms))  # 알고리즘 수
+        for algo in self.algorithms:
+            packed += algo.pack()
         return packed
 
-    @staticmethod
-    def unpack(f: BinaryIO) -> 'SensorFrame':
-        header_size = struct.calcsize(SensorFrame.STRUCT_HEADER_FORMAT)
-        header_data = f.read(header_size)
-        if not header_data:
+    @classmethod
+    def unpack(cls, f) -> 'SensorFrame':
+        header_size = struct.calcsize(cls.STRUCT_HEADER_FORMAT)
+        header = f.read(header_size)
+        if not header:
             return None
-        if len(header_data) < header_size:
-            raise ValueError("불완전한 SensorFrame 헤더")
+        timestamp, scenario, started, measured = struct.unpack(cls.STRUCT_HEADER_FORMAT, header)
 
-        timestamp, scenario, started, measured = struct.unpack(SensorFrame.STRUCT_HEADER_FORMAT, header_data)
+        sensors = [SensorData.unpack(f.read(SensorData.get_total_size())) for _ in range(4)]
+        experiment = ExperimentData.unpack(f.read(ExperimentData.get_total_size()))
 
-        sensors = []
-        for _ in range(4):
-            dtype_data = f.read(1)
-            if not dtype_data:
-                raise ValueError("센서 타입 누락")
-            dtype = struct.unpack('<B', dtype_data)[0]
-            cls = DATA_TYPE_MAP.get(dtype)
-            if cls is None:
-                raise ValueError(f"알 수 없는 센서 타입 코드: {dtype}")
-            sensor_bytes = f.read(cls.get_total_size())
-            if len(sensor_bytes) < cls.get_total_size():
-                raise ValueError("불완전한 센서 데이터")
-            sensor = cls.unpack(sensor_bytes)
-            sensors.append(sensor)
+        num_algos = struct.unpack('<B', f.read(1))[0]
+        algorithms = [AlgorithmData.unpack(f.read(AlgorithmData.get_total_size())) for _ in range(num_algos)]
 
-        return SensorFrame(timestamp, sensors, scenario, started, measured)
+        return cls(timestamp, sensors, scenario, started, measured, experiment, algorithms)
 
 
 class SensorBinaryFileHandler:
@@ -301,13 +244,14 @@ if __name__ == '__main__':
         frame = SensorFrame(
             timestamp=timestamp,
             scenario=REVERSE_SCENARIO_TYPE_MAP['sequential_front'],
-            started=True,
             sensors=[
                 SensorData(timestamp, 'VCOM1', SENSORLOCATION.TOP_LEFT, 500 + i, 200 + i, 30 + i),
-                ExperimentData(timestamp, 'VCOM2',SENSORLOCATION.BOTTOM_LEFT, 510 + i, 210 + i, 31 + i, [101 + i] * 9),
-                AlgorithmData(timestamp, 'VCOM3',SENSORLOCATION.TOP_RIGHT, 520 + i, 220 + i, 32 + i, [102 + i] * 9, 850 + i, 5 + i),
-                AlgorithmData(timestamp, 'VCOM4',SENSORLOCATION.BOTTOM_RIGHT, 530 + i, 230 + i, 33 + i, [103 + i] * 9, 870 + i, 6 + i),
-            ]
+                SensorData(timestamp, 'VCOM2',SENSORLOCATION.BOTTOM_LEFT, 510 + i, 210 + i, 31 + i),
+                SensorData(timestamp, 'VCOM3',SENSORLOCATION.TOP_RIGHT, 520 + i, 220 + i, 32 + i),
+                SensorData(timestamp, 'VCOM4',SENSORLOCATION.BOTTOM_RIGHT, 530 + i, 230 + i, 33 + i),
+            ],
+            experiment=ExperimentData([20,40,20,0,0,0,0,0,0]),
+            algorithms=[AlgorithmData(ALGORITHM_TYPE.COGMassEstimation, 20, 10), AlgorithmData(ALGORITHM_TYPE.MLPPredictor, 20, 10)]
         )
         frames.append(frame)
 
@@ -320,6 +264,6 @@ if __name__ == '__main__':
 
     # 출력
     for idx, f in enumerate(loaded_frames):
-        print(f"\n[Frame {idx}] timestamp={f.timestamp}, scenario={f.get_scenario_name()}")
+        print(f"\n[Frame {idx}] timestamp={f.timestamp}, scenario={f.get_scenario_name()}, experiment={f.experiment}, algorithms={f.algorithms}")
         for s in f.sensors:
             print(f"  - {type(s).__name__} @ {s.timestamp} @ {s.serial_port} @ {s.location.name}")
