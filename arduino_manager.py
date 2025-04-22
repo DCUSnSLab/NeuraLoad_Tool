@@ -76,7 +76,7 @@ class Sensor(QThread):
             self.sensorInitted = True
 
         #set sensor reference value
-        self.refValue = data.value
+        self.refValue = data.distance
 
     def _setSensorLoc(self, data: 'SensorData'):
         if data is not None:

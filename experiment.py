@@ -21,7 +21,7 @@ class Experiment(QWidget):
         self.GUIThread = None
         self.subscribers = []
         self.port_index = {}
-        self.weight_a = [-1] * 9
+        self.weight_a = [0] * 9
         self.count = 0
         self.weight_total = 0
         self.last_direction = '-'
@@ -31,13 +31,14 @@ class Experiment(QWidget):
         self.save_graph_min = 0
         self.port_actual_distances = {}
         self.is_syncing = False
+        self.current_filename = datetime.datetime.now().strftime("sensor_data_%Y-%m-%d-%H-%M.bin")
         self.port_comboboxes = {}
         self.port_column_index = {}
         self.port_location = {}
         self.port_colors = {
+            'TopLeft': 'b',
             'BottomLeft': 'r',
             'TopRight': 'g',
-            'TopLeft': 'b',
             'BottomRight': 'orange',
             'IMU': 'yellow',
             'etc': 'purple'
@@ -47,7 +48,12 @@ class Experiment(QWidget):
         self.plot_curve_change = {}
         self.plot_change = {}
 
-        self.ports = self.serial_manager.ports
+        # 정렬된 ports 사용
+        self.ports = [sensor.port for sensor in self.serial_manager.sensors]
+        self.port_index = {
+            sensor.port: sensor.sensorLoc.value
+            for sensor in self.serial_manager.sensors
+        }
 
         self.setupUI()
         self.setup()
@@ -55,10 +61,6 @@ class Experiment(QWidget):
         # 딕셔너리 초기화
         self.initializePortData()
         self.startGUIThread()
-
-        for port in self.ports:
-            location_name = self.port_comboboxes[port].currentText()
-            self.update_sensor_table_header(port, location_name)
 
         self.auto_save_timer = QTimer()
         self.auto_save_timer.timeout.connect(self.auto_save)
@@ -78,31 +80,19 @@ class Experiment(QWidget):
                 sub.set_weight(self.weight_a)
 
     def setupUI(self):
-        self.sensor_table = QTableWidget()
-        self.sensor_table.setColumnCount(len(self.ports))
-        self.sensor_table.setRowCount(1)
-        for i in range(len(self.ports)):
-            port = self.ports[i]
-            name = self.port_location.get(port, "")
-            self.sensor_table.setHorizontalHeaderItem(i, QTableWidgetItem(name))
-            self.port_index[port] = i
+        headers = [
+            loc.name.title().replace('_', '')
+            for loc in SENSORLOCATION
+            if loc is not SENSORLOCATION.NONE
+        ]
+        self.sensor_table = QTableWidget(1, len(headers))
+        self.sensor_table.setHorizontalHeaderLabels(headers)
         self.sensor_table.setVerticalHeaderLabels(['value'])
         self.sensor_table.setMaximumHeight(200)
         self.sensor_table.setMinimumHeight(150)
         self.sensor_table.setMaximumWidth(1000)
         self.sensor_table.setMinimumWidth(500)
 
-        #self.weight_table = QTableWidget(3, 3)
-        #self.weight_table.installEventFilter(self)
-        # self.weight_table.cellChanged.connect(self.onCellChanged)
-        # self.weight_table.setMinimumHeight(200)
-        #
-        # for row in range(3):
-        #     for col in range(3):
-        #         val = QTableWidgetItem(str(self.weight_a[self.count]))
-        #         val.setTextAlignment(Qt.AlignCenter)
-        #         self.weight_table.setItem(row, col, val)
-        #         self.count += 1
 
         self.stop_btn = QPushButton('실험 시작', self)
         self.stop_btn.setCheckable(True)
@@ -115,7 +105,7 @@ class Experiment(QWidget):
         self.weight_btn_m.clicked.connect(lambda: self.weight_update(False))
 
         self.weight_btn_init = QPushButton('init', self)
-        # self.weight_btn_init.clicked.connect(self.weight_init)
+        self.weight_btn_init.clicked.connect(self.weight_init)
 
         self.graph_change = pg.PlotWidget()
         self.graph_change.setTitle("Sensor Change")
@@ -139,49 +129,37 @@ class Experiment(QWidget):
         self.graph_text_min = QLineEdit()
         self.graph_text_min.returnPressed.connect(self.saveGraphMin)
 
+        # SENSORLOCATION에 정의된 순서대로 정렬(TOP_LEFT, BOTTOM_LEFT, TOP_RIGHT, BOTTOM_RIGHT)
         self.port_label_layout = QVBoxLayout()
-        common_items = ['BottomLeft', 'TopRight', 'TopLeft', 'BottomRight', 'IMU', 'etc']
-
-        port_common_items = {
-            0 : 'BottomLeft',
-            1 : 'TopRight',
-            2 : 'TopLeft',
-            3 : 'BottomRight',
-            4 : 'IMU',
-            5 : 'etc'
-        }
-        for idx, port in enumerate(self.ports):
+        for port in self.ports:
             port_label = QLabel(port)
-            port_location_cb = QComboBox()
-            port_location_cb.addItems(common_items)
-            default_label = port_common_items.get(idx, '')
-            if default_label in common_items:
-                default_index = common_items.index(default_label)
-                port_location_cb.setCurrentIndex(default_index)
-            else:
-                port_location_cb.setCurrentIndex(0)
-                port_location_cb.adjustSize()
 
-            self.port_comboboxes[port] = port_location_cb
-            self.port_column_index[port] = idx
+            cmb = QComboBox()
+            cmb.addItems(headers)
+            # 기본 선택: port_index[port] 로 설정
+            cmb.setCurrentIndex(self.port_index[port])
 
-            port_location_cb.currentTextChanged.connect(
-                lambda value, p=port: self.update_sensor_table_header(p, value)
+            # 콤보 박스 변경 시 호출
+            cmb.currentTextChanged.connect(
+                lambda new_loc, p=port, hdrs=headers:(
+                    self.port_index.__setitem__(p, hdrs.index(new_loc)),
+                    self.update_sensor_graph(p, new_loc)
+                )
             )
-
+            # 거리 입력창
             distance_input = QLineEdit()
             distance_input.returnPressed.connect(
-                lambda p=port, box=distance_input: self.update_graph_start(p, box.text())
+                lambda _, p=port, b=distance_input: self.update_graph_start(p, b.text())
             )
-
             unit = QLabel('mm')
-            self.port_label_layout_sensor = QHBoxLayout()
-            self.port_label_layout_sensor.addWidget(port_label)
-            self.port_label_layout_sensor.addWidget(port_location_cb)
-            self.port_label_layout_sensor.addWidget(distance_input)
-            self.port_label_layout_sensor.addWidget(unit)
+            row = QHBoxLayout()
+            row.addWidget(port_label)
+            row.addWidget(cmb)
+            row.addWidget(distance_input)
+            row.addWidget(unit)
+            self.port_label_layout.addLayout(row)
 
-            self.port_label_layout.addLayout(self.port_label_layout_sensor)
+            self.port_comboboxes[port] = cmb
 
         self.all_weight_text = QLabel("Actual distance")
         self.all_weight_output = QLabel("-")
@@ -190,24 +168,55 @@ class Experiment(QWidget):
         self.weight_position = QLabel("Weight position")
         self.weight_position_output = QLabel("-")
 
-    def update_sensor_table_header(self, port, new_label):
-        index = self.port_column_index.get(port)
-        if index is None or new_label.strip() == '':
-            return
+        self.weight_position = QLabel("Weight position")
+        self.weight_position_output = QLabel("-")
 
-        self.sensor_table.setHorizontalHeaderItem(index, QTableWidgetItem(new_label))
-        print(f"{port} → 센서 테이블 헤더 이름 변경됨: {new_label}")
-        self.port_location[port] = new_label
+        weather_text = QLabel("Weather:")
+        weather = QLineEdit()
+        weather.returnPressed.connect(lambda name='weather', input=weather: self.enter_update(name, input))
 
+        temperature_text = QLabel("Temperature:")
+        temperature = QLineEdit()
+        temperature.returnPressed.connect(lambda name='temperature', input=temperature: self.enter_update(name, input))
+
+        self.groupbox = QGroupBox('Enter')
+
+        text_layout1 = QHBoxLayout()
+        text_layout1.addWidget(weather_text)
+        text_layout1.addWidget(weather)
+        text_layout1.addWidget(temperature_text)
+        text_layout1.addWidget(temperature)
+
+        groupbox_layout2 = QVBoxLayout()
+
+        common_items = ['BottomLeft', 'TopRight', 'TopLeft', 'BottomRight']
+
+        for i in common_items[0:4]:
+            groupbox_layout = QHBoxLayout()
+            name = QLabel(i + ':')
+            distance = QLineEdit()
+            distance.returnPressed.connect(lambda name=i, input=distance: self.enter_update(name, input))
+            groupbox_layout.addWidget(name)
+            groupbox_layout.addWidget(distance)
+            groupbox_layout2.addLayout(groupbox_layout)
+
+        groupbox_layout3 = QVBoxLayout()
+        groupbox_layout3.addLayout(text_layout1)
+        groupbox_layout3.addLayout(groupbox_layout2)
+
+        self.groupbox.setLayout(groupbox_layout3)
+
+    def update_sensor_graph(self, port: str, new_label: str):
+        """
+        콤보 박스 변경 시 그래프 업데이트
+        """
         # 기존 그래프 제거
         if port in self.plot_curve:
             self.graph_value.removeItem(self.plot_curve[port])
-        if port in self.plot_curve_change:
             self.graph_change.removeItem(self.plot_curve_change[port])
 
-        color = self.port_colors.get(new_label, 'gray')
-
         # 새로운 그래프 추가 (legend 포함)
+        color = self.port_colors.get(new_label, 'gray')
         self.plot_curve[port] = self.graph_value.plot(
             pen=pg.mkPen(color=color, width=1),
             name=new_label
@@ -216,7 +225,6 @@ class Experiment(QWidget):
             pen=pg.mkPen(color=color, width=1),
             name=new_label
         )
-
         self.graph_value.addLegend()
         self.graph_change.addLegend()
 
@@ -378,18 +386,14 @@ class Experiment(QWidget):
                     self.plot_curve_change[port].setData(x, change_values)
 
                 # 실험 중일 때만 데이터 처리 및 테이블 업데이트
-                if self.is_experiment_active and port in self.port_index:
-                    # 최신 값 표시
-                    value = -1
-                    if len(y_values) > 0:
-                        value = y_values[-1]
+                if self.is_experiment_active:
+                    for p in self.ports:
+                        val = float(self.plot_data[p][-1].distance)
+                        col = self.port_index[p]
+                        self.sensor_table.setItem(0, col, QTableWidgetItem(str(val)))
 
-                    # 테이블 업데이트
-                    location = self.port_index[port]
-                    self.sensor_table.setItem(0, location, QTableWidgetItem(str(value)))
-
-                    # 데이터 저장 처리
-                    self.handle_serial_data(port, self.plot_data[port])
+                        # 데이터 저장 처리
+                        self.handle_serial_data(p, self.plot_data[p])
         except Exception as e:
             print(f"그래프 업데이트 중 오류 발생: {e}")
             traceback.print_exc()
@@ -405,7 +409,7 @@ class Experiment(QWidget):
             return
 
         os.makedirs("log", exist_ok=True)
-        filename = datetime.datetime.now().strftime("sensor_data_%Y-%m-%d.bin")
+        filename = self.current_filename
         file_path = os.path.join("log", filename)
 
         # 무게 변화 방향
@@ -421,7 +425,7 @@ class Experiment(QWidget):
         self.weight_total = total
 
         state_flag = b'f' if self.is_paused_global else b't'
-        name = self.port_location.get(port, port)
+        name = self.port_comboboxes[port].currentText()
 
         # data 가 deque 면 list 로 변환
         if isinstance(data, deque):
@@ -497,16 +501,11 @@ class Experiment(QWidget):
 
         self.is_syncing = False
 
-        # def weightZ(self):
-    #     self.weight_a = [0] * 9
-    #     self.count = 0
-    #     for row in range(3):
-    #         for col in range(3):
-    #             val = QTableWidgetItem(str(self.weight_a[self.count]))
-    #             val.setTextAlignment(Qt.AlignCenter)
-    #             self.weight_table.setItem(row, col, val)
-    #             self.count += 1
-    #     self.weight_update_text()
+    def weight_init(self):
+        self.weight_a = [0] * 9
+        self.weight_table.table_clear()
+        self.current_filename = datetime.datetime.now().strftime("sensor_data_%Y-%m-%d-%H-%M.bin")
+        self.weight_update_text()
 
     def auto_save(self):
         os.makedirs("log", exist_ok=True)
@@ -599,6 +598,7 @@ class Experiment(QWidget):
         weight_layout_a.addLayout(self.weight_table)
         weight_layout_a.addLayout(weight_layout)
         weight_layout_a.addLayout(weight_layout1)
+        weight_layout_a.addWidget(self.groupbox)
 
         table_layout = QHBoxLayout()
         table_layout.addLayout(setting_layout)
@@ -617,42 +617,6 @@ class Experiment(QWidget):
         layout3.addLayout(graph_layout)
 
         self.setLayout(layout3)
-
-    # def eventFilter(self, source, event):
-    #     if event.type() == QEvent.KeyPress:
-    #         key = event.key()
-    #
-    #         function_keys = {
-    #             Qt.Key_P: self.weightP,
-    #             Qt.Key_O: self.weightM,
-    #             Qt.Key_I: self.weightZ,
-    #             Qt.Key_M: self.save,
-    #             Qt.Key_K: self.stop,
-    #             Qt.Key_L: self.restart
-    #         }
-    #
-    #         if key in function_keys:
-    #             function_keys[key]()
-    #             return True
-    #
-    #         key_to_cell = {
-    #             Qt.Key_Q: (0, 0), Qt.Key_W: (0, 1), Qt.Key_E: (0, 2),
-    #             Qt.Key_A: (1, 0), Qt.Key_S: (1, 1), Qt.Key_D: (1, 2),
-    #             Qt.Key_Z: (2, 0), Qt.Key_X: (2, 1), Qt.Key_C: (2, 2)
-    #         }
-    #
-    #         if key in key_to_cell:
-    #             row, col = key_to_cell[key]
-    #             self.weight_table.setFocus()
-    #             self.weight_table.setCurrentCell(row, col)
-    #             return True
-    #
-    #         if key in [Qt.Key_Return, Qt.Key_Enter]:
-    #             self.weight_table.clearFocus()
-    #             self.setFocus()
-    #             return True
-    #
-    #     return super().eventFilter(source, event)
 
 
 if __name__ == '__main__':
