@@ -5,6 +5,7 @@ class WeightTable(QVBoxLayout):
     def __init__(self):
         super().__init__()
         self.elements = [None,None,None,None,None,None,None,None,None]
+        self.weights = [0] * 9
 
         #set Table
         self.boxwidget = QTableWidget(3,3)
@@ -42,9 +43,17 @@ class WeightTable(QVBoxLayout):
 
     def onCellChanged(self, row, col):
         index = row * 3 + col
-        changed_val = self.boxwidget.item(row, col).text()
-        for wt in self.wtables:
-            wt.setElement(index, changed_val)
+        item = self.boxwidget.item(row, col)
+        if item:
+            try:
+                val = int(item.text())
+            except ValueError:
+                val = 0
+                item.setText("0")
+            self.weights[index] = val  # weights 업데이트
+            for wt in self.wtables:
+                wt.setElement(index, str(val))
+            print(self.weights)
 
     def table_clear(self):
         cnt = 0
@@ -55,4 +64,8 @@ class WeightTable(QVBoxLayout):
                 val.setTextAlignment(Qt.AlignCenter)
                 self.boxwidget.setItem(row, col, val)
                 self.elements[cnt] = val
+                self.weights[cnt] = 0
                 cnt += 1
+
+    def getWeights(self):
+        return self.weights
