@@ -103,7 +103,7 @@ class RandomForestPredictor(AlgorithmBase):
             return {'error': f"모델 예측 중 오류 발생: {str(e)}"}
 
     def initAlgorithm(self):
-        print('init Algorithm -> ',self.name)
+        pass#print('init Algorithm -> ',self.name)
 
     def execute(self, input_data: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         self.data = input_data
