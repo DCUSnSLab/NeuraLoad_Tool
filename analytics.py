@@ -3,10 +3,11 @@ from PyQt5.QtWidgets import *
 import os
 
 class Analytics(QWidget):
+    file_data = {}
+    clicked_file_list = []
+
     def __init__(self):
         super().__init__()
-        self.file_data = {}
-        self.clicked_file_list = []
 
         self.setupUI()
 
@@ -71,6 +72,8 @@ class Analytics(QWidget):
         self.setLayout(layout2)
 
     def upload(self):
+        self.file_data.clear()
+
         options = QFileDialog.Options()
         files, _ = QFileDialog.getOpenFileNames(self, "Select Files", "", "All Files (*)", options=options)
 

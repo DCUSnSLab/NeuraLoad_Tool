@@ -48,7 +48,7 @@ class Main(QWidget):
         self.tabs.addTab(self.tab1, '실험 데이터 수집')
         self.tabs.addTab(self.tab2, '실시간 알고리즘 테스트')
         self.tabs.addTab(self.tab3, '알고리즘 리시뮬레이션')
-        self.tabs.addTab(self.tab4, '분석')
+        self.tabs.addTab(self.tab4, '실험 데이터 분석')
         self.tabs.addTab(self.tab0, 'Experiment_V2')
 
         vbox = QVBoxLayout()
