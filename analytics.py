@@ -2,41 +2,46 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 import os
 
-class Analytics(QWidget):
-    file_data = {}
-    clicked_file_list = []
+from analytics_data_graph import AnalyticsDataGraph
 
+class Analytics(QWidget):
     def __init__(self):
         super().__init__()
+        self.file_data = {}
+        self.loc = []
 
         self.setupUI()
 
     def setupUI(self):
         # 파일 업로드 버튼
-        self.upload_btn = QPushButton('Uploading data files', self)
-        self.upload_btn.clicked.connect(self.upload)
+        self.upload_btn = QPushButton('Data load', self)
+        self.upload_btn.clicked.connect(self.data_load)
 
-        # 업로드한 파일 확인 테이블
+        # 로드한 파일 확인 테이블
         self.save_file_log = QTableWidget()
         self.save_file_log.setColumnCount(1)
         self.save_file_log.setHorizontalHeaderLabels(['Saved files'])
         self.save_file_log.horizontalHeader().setStretchLastSection(True)
         self.save_file_log.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.save_file_log.itemSelectionChanged.connect(self.clicked_file)
 
-        # x축 부분 라벨과 콤보박스
+        # x축 부분 라벨과 콤보 박스
         self.x_text = QLabel('x: ')
-        self.x_text_cb = QComboBox()
-        self.x_text_cb.addItems(['', '추가'])
-        self.x_text_cb.adjustSize()
-        self.x_text_cb.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.x_cb = QComboBox()
+        self.x_cb.addItems(['무게'])
+        self.x_cb.adjustSize()
+        self.x_cb.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
-        # y축 부분 라벨과 콤보박스
+        # y축 부분 라벨과 콤보 박스
         self.y_text = QLabel('y: ')
-        self.y_text_cb = QComboBox()
-        self.y_text_cb.addItems(['', '추가'])
-        self.y_text_cb.adjustSize()
-        self.y_text_cb.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.y_cb = QComboBox()
+        self.y_cb.addItems(['데이터 변화량', '데이터 값'])
+        self.y_cb.adjustSize()
+        self.y_cb.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+
+        # 확인할 무게 위치 설정을 위한 라벨과 입력창
+        self.location_text = QLabel('Location: ')
+        self.location = QLineEdit()
+        self.location.textEdited.connect(self.location_save)
 
         # 그래프 시작 버튼
         self.start_btn = QPushButton('Start', self)
@@ -48,17 +53,22 @@ class Analytics(QWidget):
         # gui 배치
         layout_x = QHBoxLayout()
         layout_x.addWidget(self.x_text)
-        layout_x.addWidget(self.x_text_cb)
+        layout_x.addWidget(self.x_cb)
 
         layout_y = QHBoxLayout()
         layout_y.addWidget(self.y_text)
-        layout_y.addWidget(self.y_text_cb)
+        layout_y.addWidget(self.y_cb)
+
+        layout_loc = QHBoxLayout()
+        layout_loc.addWidget(self.location_text)
+        layout_loc.addWidget(self.location)
 
         layout1 = QVBoxLayout()
         layout1.addWidget(self.upload_btn)
         layout1.addWidget(self.save_file_log)
         layout1.addLayout(layout_x)
         layout1.addLayout(layout_y)
+        layout1.addLayout(layout_loc)
         layout1.addWidget(self.start_btn)
 
         layout_widget = QWidget()
@@ -71,7 +81,8 @@ class Analytics(QWidget):
 
         self.setLayout(layout2)
 
-    def upload(self):
+    # 데이터 업로드
+    def data_load(self):
         self.file_data.clear()
 
         options = QFileDialog.Options()
@@ -83,6 +94,7 @@ class Analytics(QWidget):
                     self.file_data[file] = None
                     self.add_file_log(file)
 
+    # 파일 로그 업로드
     def add_file_log(self, file):
         filename = os.path.basename(file)
 
@@ -90,16 +102,36 @@ class Analytics(QWidget):
         self.save_file_log.insertRow(row)
         self.save_file_log.setItem(row, 0, QTableWidgetItem(filename))
 
-    def clicked_file(self):
-        self.clicked_file_list.clear()
-        selected_rows = set()
-        for item in self.save_file_log.selectedItems():
-            selected_rows.add(item.row())
+    # 그래프 구현을 위한 무게 위치 선정
+    def location_save(self):
+        self.loc.clear()
+        raw_text = self.location.text().strip()
+        texts = [text.strip() for text in raw_text.split(",") if text.strip()]
 
-        for row in selected_rows:
-            item = self.save_file_log.item(row, 0)
-            if item:
-                self.clicked_file_list.append(item.text())
+        for text in texts:
+            if 0 < int(text) < 10:
+                self.loc.append(text)
+            else:
+                QMessageBox.warning(self, 'Warning', '1에서 9까지의 숫자를 입력해주세요.')
 
+    # 시작 버튼
     def start(self):
-        pass
+        '''
+        x:
+        0 = 무게
+
+        y:
+        0 = 데이터 변화량
+        1 = 데이터 값
+
+        self.file_data = 업로드한 파일 경로
+        self.loc =
+        '''
+
+        x = self.x_cb.currentIndex()
+        y = self.y_cb.currentIndex()
+
+        if len(self.loc) > 0:
+            AnalyticsDataGraph(x, y, self.file_data, self.loc)
+        else:
+            QMessageBox.warning(self, 'Warning', '확인할 무게 위치를 입력해주세요.')
