@@ -6,6 +6,7 @@ class Analytics(QWidget):
     def __init__(self):
         super().__init__()
         self.file_data = {}
+        self.clicked_file_list = []
 
         self.setupUI()
 
@@ -20,7 +21,7 @@ class Analytics(QWidget):
         self.save_file_log.setHorizontalHeaderLabels(['Saved files'])
         self.save_file_log.horizontalHeader().setStretchLastSection(True)
         self.save_file_log.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.save_file_log.setMaximumWidth(500)
+        self.save_file_log.itemSelectionChanged.connect(self.clicked_file)
 
         # x축 부분 라벨과 콤보박스
         self.x_text = QLabel('x: ')
@@ -85,6 +86,17 @@ class Analytics(QWidget):
         row = self.save_file_log.rowCount()
         self.save_file_log.insertRow(row)
         self.save_file_log.setItem(row, 0, QTableWidgetItem(filename))
+
+    def clicked_file(self):
+        self.clicked_file_list.clear()
+        selected_rows = set()
+        for item in self.save_file_log.selectedItems():
+            selected_rows.add(item.row())
+
+        for row in selected_rows:
+            item = self.save_file_log.item(row, 0)
+            if item:
+                self.clicked_file_list.append(item.text())
 
     def start(self):
         pass
