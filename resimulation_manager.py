@@ -68,35 +68,13 @@ class ResimulationManager(ProcsManager):
         bin파일에 있는 데이터를 읽어와 알고리즘 버퍼에 전달
         """
         records = self.load_File()
-        # print(records)
-        # recordsGroup = self.groupSensorData(records)
-        # for data in records:
-        #     for algo_buf in self.algo_buffers:
-        #         algo_buf.put(data)
-        for algo_buf in self.algo_buffers:
-            algo_buf.put(records)
+        for data in records:
+            for algo_buf in self.algo_buffers:
+                algo_buf.put(data)
 
         for algo_buf in self.algo_buffers:
             algo_buf.put("__DONE__")
-        print("Clear")
 
     def load_File(self):
         loadData = SensorBinaryFileHandler(self.file).load_frames()
         return loadData
-
-    def groupSensorData(self, records):
-        groupData = []
-        buffer = []
-
-        for data in records:
-            if not buffer:
-                buffer.append(data)
-            else:
-                buffer.append(data)
-                if len(buffer) == 4:
-                    groupData.append(buffer.copy())
-                    buffer.clear()
-        if len(buffer) == 4:
-            groupData.append(buffer.copy())
-
-        return groupData

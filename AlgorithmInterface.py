@@ -96,9 +96,9 @@ class AlgorithmBase(processImpl):
             if not self.databuf.empty():
                 data = self.databuf.get()
                 if data == "__DONE__":
+                    print("Clear Resimulation")
                     break
-                for sensor in data:
-                    print(sensor.__dict__)
+                print(data)
                 res = self.execute(data)
                 self.resBuf.put(res)
 
