@@ -2,12 +2,14 @@ import sys
 
 from PyQt5.QtWidgets import QApplication, QWidget, QTabWidget, QVBoxLayout, QMessageBox
 from algorithm_multiproc import AlgorithmMultiProc
+from algorithm_multiproc_v2 import AlgorithmMultiProcV2
 from algorithm_resimulation import AlgorithmResimulation
 from analytics import Analytics
 from experiment import Experiment
 
 from arduino_manager import SerialManager
 from experiment_v2 import ExperimentTab
+from weight_action import WeightTable
 
 
 def sync_callback(group):
@@ -24,22 +26,24 @@ class Main(QWidget):
     def initUI(self):
         self.tabs = QTabWidget()
 
-        self.DEBUG_MODE = False
+        self.DEBUG_MODE = True
 
         # self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE, callback=sync_callback)
         self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE)
         self.serial_manager.errorSignal.connect(self.showErrorMassage)
         self.serial_manager.start_threads()
 
+        wtEx = WeightTable()
+        wtAlgo = WeightTable()
+
+        wtEx.addWeightTable(wtAlgo)
+        wtAlgo.addWeightTable(wtEx)
+
         self.tab0 = ExperimentTab(dataManager=self.serial_manager)
-        self.tab1 = Experiment(serial_manager=self.serial_manager)
-        self.tab2 = AlgorithmMultiProc(serial_manager=self.serial_manager)
+        self.tab1 = Experiment(serial_manager=self.serial_manager, wt=wtEx)
+        self.tab2 = AlgorithmMultiProcV2(serial_manager=self.serial_manager, wt=wtAlgo)
         self.tab3 = AlgorithmResimulation(serial_manager=self.serial_manager)
         self.tab4 = Analytics()
-
-        self.tab1.add_subscriber(self.tab2)
-        self.tab1.add_subscriber(self.tab3)
-        self.tab1.add_subscriber(self.tab4)
 
         self.tabs.addTab(self.tab1, '실험 데이터 수집')
         self.tabs.addTab(self.tab2, '실시간 알고리즘 테스트')

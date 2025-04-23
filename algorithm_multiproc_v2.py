@@ -5,15 +5,14 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 
-from file_manager import AlgorithmFileManager
+from datainfo import SCENARIO_TYPE_MAP
 from procsManager import ProcsManager
 
-class AlgorithmMultiProc(QWidget):
+class AlgorithmMultiProcV2(QWidget):
     def __init__(self, serial_manager, wt):
         super().__init__()
         self.procmanager = ProcsManager(serial_manager)
         self.serial_manager = serial_manager
-        self.algofile = AlgorithmFileManager()
 
         self.files = dict() #Algorithm File List
         self.algorithm_checkbox = []
@@ -21,28 +20,11 @@ class AlgorithmMultiProc(QWidget):
 
         self.weight_table = wt
 
-        self.real_weight = None
-        self.real_position = None
-        self.rate = 0
-
-        self.weight_a = [-1] * 9
-        self.count = 0
-        self.is_syncing = False
-
-        self.subscribers = []
+        self.experiment_count = 0
 
         self.loadAlgorithmFromFile()
         self.initUI()
         self.initTimer()
-
-    def add_subscriber(self, subscriber):
-        self.subscribers.append(subscriber)
-
-    def broadcast_weight(self):
-        for sub in self.subscribers:
-            # 각 subscriber가 set_weight 메소드를 가지고 있는지 확인
-            if hasattr(sub, 'set_weight'):
-                sub.set_weight(self.weight_a)
 
     def initUI(self):
         self.algorithm_list = QWidget(self)
@@ -64,47 +46,84 @@ class AlgorithmMultiProc(QWidget):
         self.stop_btn.clicked.connect(self.finishAllAlgorithms)
         self.stop_btn.setEnabled(False)  # 알고리즘 프로세스가 시작해야 활성화됨
 
-        self.weight_btn_p = QPushButton('+', self)
-        self.weight_btn_p.clicked.connect(lambda: self.weight_update(True))
-
-        self.weight_btn_m = QPushButton('-', self)
-        self.weight_btn_m.clicked.connect(lambda: self.weight_update(False))
-
         layout = QVBoxLayout()
         layout.addWidget(self.algorithm_list)
 
         groupbox = QGroupBox('Currently available algorithms')
         groupbox.setLayout(layout)
 
+        #weight Presentation layout
         self.weight_layout = QVBoxLayout()
-
         self.weight_layout.addStretch()
         self.weight_layout.setSpacing(10)
+        self.weightWidget = QWidget()
+        self.weightWidget.setLayout(self.weight_layout)
+        self.weightWidget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
 
-        layout_btn = QHBoxLayout()
-        layout_btn.addWidget(self.weight_btn_p)
-        layout_btn.addWidget(self.weight_btn_m)
+        # 실험 리스트뷰
+        self.experimentList = QListWidget()
+        self.experimentList.setFont(QFont("Arial", 12))
+        self.experimentList.setFixedHeight(10 * 20)
+        self.experimentList.setSelectionMode(QAbstractItemView.NoSelection)
 
-        layout_w = QVBoxLayout()
-        layout_w.addWidget(self.weight_table)
-        layout_w.addLayout(layout_btn)
+        # 파일명 출력용 (ReadOnly)
+        self.generatedFilenameLine = QLineEdit()
+        self.generatedFilenameLine.setReadOnly(True)
 
-        layout = QVBoxLayout()
-        layout.addLayout(layout_w)
-        layout.addLayout(self.weight_layout)
+        # 파일 라벨
+        self.exFileLabel = QLineEdit('set File Label')
+        fileLabelLayout = QHBoxLayout()
+        fileLabelLayout.addWidget(QLabel("파일라벨 : "))
+        fileLabelLayout.addWidget(self.exFileLabel)
 
+        # 시나리오 콤보박스
+        self.cbx_scenario = self.__getScenarioCBX()
+        scenarioLayout = QHBoxLayout()
+        scenarioLayout.addWidget(QLabel("시나리오 : "))
+        scenarioLayout.addWidget(self.cbx_scenario)
+
+        # 실험 횟수
+        self.experimentCountLine = QLineEdit("0")
+        self.experimentCountLine.setReadOnly(True)
+        countLayout = QHBoxLayout()
+        countLayout.addWidget(QLabel("실험횟수 : "))
+        countLayout.addWidget(self.experimentCountLine)
+
+        # 버튼
+        self.startMeasureBtn = QPushButton('Start Measure', self)
+        self.startMeasureBtn.clicked.connect(self.on_start_measure)
+
+        self.finishMeasureBtn = QPushButton('Finish (Reset) Measure', self)
+        self.finishMeasureBtn.clicked.connect(self.on_finish_measure)
+
+        # weightControllerLayout 구성
+        weightControllerLayout = QVBoxLayout()
+        weightControllerLayout.addWidget(self.experimentList)
+        weightControllerLayout.addLayout(self.weight_table)
+        weightControllerLayout.addWidget(self.generatedFilenameLine)
+        weightControllerLayout.addLayout(fileLabelLayout)
+        weightControllerLayout.addLayout(scenarioLayout)
+        weightControllerLayout.addLayout(countLayout)
+        weightControllerLayout.addWidget(self.startMeasureBtn)
+        weightControllerLayout.addWidget(self.finishMeasureBtn)
+
+        # Button
         btn_layout = QVBoxLayout()
         btn_layout.addWidget(self.start_btn)
         btn_layout.addWidget(self.all_btn)
         btn_layout.addWidget(self.stop_btn)
 
-        layout1 = QVBoxLayout()
-        layout1.addWidget(groupbox)
-        layout1.addLayout(btn_layout)
+        leftMenu = QVBoxLayout()
+        leftMenu.addWidget(groupbox)
+        leftMenu.addLayout(btn_layout)
+        leftMenuWidget = QWidget()
+        leftMenuWidget.setLayout(leftMenu)
+        leftMenuWidget.setFixedWidth(400)  # 원하는 너비로 설정
 
         layout2 = QHBoxLayout()
-        layout2.addLayout(layout1)
-        layout2.addLayout(layout)
+        layout2.addWidget(leftMenuWidget, alignment=Qt.AlignLeft)
+        layout2.addLayout(weightControllerLayout)
+        layout2.addWidget(self.weightWidget)
 
         self.setLayout(layout2)
 
@@ -139,8 +158,7 @@ class AlgorithmMultiProc(QWidget):
                 data = val.get()
                 print(bname, data)
                 label = self.outputLabels[bname]
-                label.setText(str(data['weight']))
-                self.data_save(bname, data)
+                label.setText(str(data['output']['weight']))
 
     def clear_layout(self, layout):
         self.outputLabels.clear()
@@ -153,9 +171,43 @@ class AlgorithmMultiProc(QWidget):
             # layout 안에 또 다른 layout이 있을 수 있으므로 재귀적으로 처리
             elif item.layout() is not None:
                 self.clear_layout(item.layout())
-    def loadAlgorithmCbx(self):
-        self.files = self.algofile.loadAlgorithmFromFile()
-        for file_name in self.files:
+
+    def __getScenarioCBX(self) -> QComboBox:
+        cbx_scenario = QComboBox()
+        for key, value in SCENARIO_TYPE_MAP.items():
+            text = f"{key}: {value['name']} ({value['description']})"
+            cbx_scenario.addItem(text, userData=key)  # 표시될 텍스트, 실제 값은 key
+        return cbx_scenario
+
+    def on_start_measure(self):
+        self.experiment_count += 1
+        self.experimentCountLine.setText(str(self.experiment_count))
+
+        label = self.exFileLabel.text().strip()
+        scenario_name = self.cbx_scenario.currentText().split(":")[1].split("(")[0].strip()
+        scenario_index = self.cbx_scenario.currentData()
+        item_text = f"{label}_{self.cbx_scenario.currentText()}_{self.experiment_count}"
+        self.experimentList.addItem(item_text)
+
+        # 파일명 생성
+        now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{label}_{scenario_name}_{now_str}.bin"
+        self.generatedFilenameLine.setText(filename)
+
+    def on_finish_measure(self):
+        self.experiment_count = 0
+        self.experimentCountLine.setText("0")
+        self.cbx_scenario.setCurrentIndex(0)
+        self.experimentList.clear()
+
+
+    def loadAlgorithmFromFile(self):
+        folder = os.path.join(os.getcwd(), 'Algorithm')
+        py_files = [f for f in os.listdir(folder) if f.endswith('.py')]
+
+        for file_name in py_files:
+            full_path = os.path.join(folder, file_name)
+            self.files[file_name] = full_path
             checkbox = QCheckBox(file_name)
             self.algorithm_checkbox.append(checkbox)
 
@@ -189,49 +241,3 @@ class AlgorithmMultiProc(QWidget):
                 label.setText('-')
 
         self.stop_btn.setEnabled(False)
-
-    def data_update(self):
-        self.real_weight = sum(w if w != -1 else 0 for w in self.weight_a)
-        self.real_position = [i + 1 for i, val in enumerate(self.weight_a) if val != -1]
-
-    # 실제 무게 및 적재 위치 저장
-    def set_weight(self, weight_a):
-        self.data_update()
-        if self.is_syncing:
-            return
-
-        self.is_syncing = True
-
-        self.weight_a = weight_a.copy()
-        self.weight_table.blockSignals(True)
-
-        self.table_update(self.weight_a)
-
-        self.weight_table.blockSignals(False)
-
-        self.is_syncing = False
-
-    # 오차율 계산
-    def error_rate_cal(self, algo_weight):
-        if  self.real_weight and algo_weight is not None:
-            self.rate = ((abs(self.real_weight) - abs(algo_weight)) / self.real_weight) * 100
-
-    #알고리즘 데이터 저장
-    def data_save(self, bname, data):
-        os.makedirs('algorithms_result', exist_ok=True)
-        filename = datetime.datetime.now().strftime(bname+'_%y%m%d.txt')
-        data_file = open(os.path.join('algorithms_result', filename), 'a', encoding='utf-8')
-
-        timestamp = datetime.datetime.now().strftime('%H%M%S')
-
-        last_data = data
-        algo_position = int(last_data['position'])
-        algo_weight = float(last_data['weight'])
-
-        self.error_rate_cal(algo_weight)
-
-        log_line = f'{timestamp}\t{self.real_weight}\t{self.real_position}\t{algo_weight}\t{algo_position}\t{self.rate}\n'
-
-        if self.real_weight and algo_weight is not None:
-            data_file.write(log_line)
-            data_file.flush()
