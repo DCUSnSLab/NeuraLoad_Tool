@@ -1,5 +1,6 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QTextEdit, QPushButton, QTableWidget, QAbstractItemView, QLabel, \
-    QComboBox, QHBoxLayout
+from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
+import pyqtgraph as pg
 
 class Analytics(QWidget):
     def __init__(self):
@@ -17,18 +18,21 @@ class Analytics(QWidget):
         self.save_file_log.setHorizontalHeaderLabels(['Saved files'])
         self.save_file_log.horizontalHeader().setStretchLastSection(True)
         self.save_file_log.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.save_file_log.setMaximumWidth(500)
 
         # x축 부분 라벨과 콤보박스
         self.x_text = QLabel('x: ')
         self.x_text_cb = QComboBox()
         self.x_text_cb.addItems(['', '추가'])
         self.x_text_cb.adjustSize()
+        self.x_text_cb.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         # y축 부분 라벨과 콤보박스
         self.y_text = QLabel('y: ')
         self.y_text_cb = QComboBox()
         self.y_text_cb.addItems(['', '추가'])
         self.y_text_cb.adjustSize()
+        self.y_text_cb.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
         # 그래프 시작 버튼
         self.start_btn = QPushButton('Start', self)
@@ -36,9 +40,8 @@ class Analytics(QWidget):
 
         # 그래프 공간 임의 제작
         self.graph_space = QLabel()
-        self.graph_space.setMaximumHeight(500) #공간을 주기위해 적은 것으로 제작시 제거해도 됨
-        self.graph_space.setMinimumWidth(500) #공간을 주기위해 적은 것으로 제작시 제거해도 됨
 
+        # gui 배치
         layout_x = QHBoxLayout()
         layout_x.addWidget(self.x_text)
         layout_x.addWidget(self.x_text_cb)
@@ -54,8 +57,12 @@ class Analytics(QWidget):
         layout1.addLayout(layout_y)
         layout1.addWidget(self.start_btn)
 
+        layout_widget = QWidget()
+        layout_widget.setLayout(layout1)
+        layout_widget.setFixedWidth(500)
+
         layout2 = QHBoxLayout()
-        layout2.addLayout(layout1)
+        layout2.addWidget(layout_widget, alignment=Qt.AlignLeft)
         layout2.addWidget(self.graph_space)
 
         self.setLayout(layout2)
