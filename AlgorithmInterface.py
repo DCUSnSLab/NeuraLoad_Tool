@@ -3,7 +3,7 @@ import time
 from enum import Enum
 from typing import Dict, List, Any, Optional
 from time import sleep
-from datainfo import SensorFrame
+from datainfo import SensorFrame, AlgorithmData
 from procImpl import processImpl
 
 
@@ -34,7 +34,7 @@ class AlgorithmBase(processImpl):
         self.execution_history = []
 
     @abstractmethod
-    def runAlgo(self) -> Dict[str, Any]:
+    def runAlgo(self) -> AlgorithmData:
         """
         알고리즘 주요 처리 로직
 
@@ -75,7 +75,7 @@ class AlgorithmBase(processImpl):
         pass
 
     def doProc(self):
-        print('init Algorithm..',self.name)
+        #print('init Algorithm..',self.name)
         self.initAlgorithm()
         i = 0
         while True:
@@ -90,7 +90,7 @@ class AlgorithmBase(processImpl):
             sleep(0.1)
 
     def doProcResimul(self):
-        print('init Algorithm..',self.name)
+        #print('init Algorithm..',self.name)
         self.initAlgorithm()
         while True:
             if not self.databuf.empty():

@@ -5,6 +5,9 @@ from Algorithm.MLPPredictor import KerasMLPPredictor
 from Algorithm.RandomForestPredictor import RandomForestPredictor
 import multiprocessing as mp
 
+from Algorithm.algorithmtype import ALGORITHM_TYPE
+
+
 class ProcsManagerThread(QThread):
     finishSignal = pyqtSignal()
 
@@ -33,18 +36,26 @@ class ProcsManager:
         self.manager = manager
         self.resbuf = dict()
         self.thread = None
+        self._ready_handlers = []
+
+    def on_ready(self, handler):
+        self._ready_handlers.append(handler)
+
+    def _AlgorithmReady(self):
+        for handler in self._ready_handlers:
+            handler()
 
     def addProcess(self, algoName):
-        if algoName == "COGMassEstimation_v2.py":
-            algo = COGMassEstimation(algoName)
-        elif algoName == "MLPPredictor.py":
-            algo = KerasMLPPredictor(algoName)
-        elif algoName == "RandomForestPredictor.py":
-            algo = RandomForestPredictor(algoName)
+        if algoName == ALGORITHM_TYPE.COGMassEstimation:
+            algo = COGMassEstimation(algoName.name)
+        elif algoName == ALGORITHM_TYPE.MLPPredictor:
+            algo = KerasMLPPredictor(algoName.name)
+        elif algoName == ALGORITHM_TYPE.RandomForestPredictor:
+            algo = RandomForestPredictor(algoName.name)
         else:
             return
 
-        self.procs[algoName] = algo
+        self.procs[algoName.name] = algo
 
     def startThread(self, ResimulMode=False, callback=None):  # callback은 스레드가 작업을 끝내고 실행하는 함수(버튼 활성화)
         if ResimulMode:
@@ -66,8 +77,11 @@ class ProcsManager:
             val.start(p)
 
             readySig.wait()  # 큐 준비 완료 신호를 보낼때 까지 기다림
+            print('Algorithm',n,' is Ready..')
             self.manager.add_buffer(databufQue.get())  # 데이터 큐
             self.resbuf[val.name] = databufQue.get()  # 결과 큐
+
+        self._AlgorithmReady()
 
     def _startResimulation(self):
         for n, val in self.procs.items():
