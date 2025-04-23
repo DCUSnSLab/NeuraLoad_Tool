@@ -1,10 +1,12 @@
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
-import pyqtgraph as pg
+import os
 
 class Analytics(QWidget):
     def __init__(self):
         super().__init__()
+        self.file_data = {}
+
         self.setupUI()
 
     def setupUI(self):
@@ -68,7 +70,21 @@ class Analytics(QWidget):
         self.setLayout(layout2)
 
     def upload(self):
-        pass
+        options = QFileDialog.Options()
+        files, _ = QFileDialog.getOpenFileNames(self, "Select Files", "", "All Files (*)", options=options)
+
+        if files:
+            for file in files:
+                if file not in self.file_data:
+                    self.file_data[file] = None
+                    self.add_file_log(file)
+
+    def add_file_log(self, file):
+        filename = os.path.basename(file)
+
+        row = self.save_file_log.rowCount()
+        self.save_file_log.insertRow(row)
+        self.save_file_log.setItem(row, 0, QTableWidgetItem(filename))
 
     def start(self):
         pass
