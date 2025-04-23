@@ -4,6 +4,7 @@ from PyQt5.QtCore import QTimer, QSize, pyqtSignal
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 
+from Algorithm.algorithmtype import ALGORITHM_TYPE
 from file_manager import AlgorithmFileManager
 from resimulation_manager import ResimulationManager
 
@@ -116,9 +117,9 @@ class AlgorithmResimulation(QWidget):
                 print(bname, data)
 
     def loadAlgorithmCbx(self):
-        self.files = self.algoFile.loadAlgorithmFromFile()
-        for file_name in self.files:
-            checkbox = QCheckBox(file_name)
+        for algo_name in ALGORITHM_TYPE.list_all():
+            self.files[algo_name.name] = algo_name
+            checkbox = QCheckBox(algo_name.name)
             self.algorithm_checkbox.append(checkbox)
 
     def run(self):
@@ -139,7 +140,7 @@ class AlgorithmResimulation(QWidget):
                 print('run - ', cbx.text())
                 if cbx.text() in self.files:
                     print('select algorithm file -> ',cbx.text(), self.files[cbx.text()])
-                    self.resimulManager.addProcess(cbx.text())
+                    self.resimulManager.addProcess(self.files[cbx.text()])
 
         self.resimulManager.startThread(callback=lambda: self.stop_btn.setEnabled(True))
 

@@ -31,6 +31,7 @@ class AlgorithmBase(processImpl):
         self.output_data = {'input':None, 'output':None}
         self.execution_time = 0
         self.is_running = False
+        self.isTerminated = False
         self.execution_history = []
 
     @abstractmethod
@@ -77,30 +78,16 @@ class AlgorithmBase(processImpl):
     def doProc(self):
         #print('init Algorithm..',self.name)
         self.initAlgorithm()
-        i = 0
         while True:
             if not self.databuf.empty():
-                data = self.databuf.get()#print('run algorithm->',self.name,' : ',self.databuf.get())
-                #print(data)
+                data:SensorFrame = self.databuf.get()#print('run algorithm->',self.name,' : ',self.databuf.get())
+                if data.isEoF:
+                    break
                 res = self.execute(data)
                 self.resBuf.put(res)
                 #print('run algorithm->', self.name, ' : ', res)
             #print('run algorithm->',self.name)
-            i += 1
-            sleep(0.1)
-
-    def doProcResimul(self):
-        #print('init Algorithm..',self.name)
-        self.initAlgorithm()
-        while True:
-            if not self.databuf.empty():
-                data = self.databuf.get()
-                if data == "__DONE__":
-                    print("Clear Resimulation")
-                    break
-                print(data)
-                res = self.execute(data)
-                self.resBuf.put(res)
+            # sleep(0.1)
 
     def execute(self, input_data: Optional[SensorFrame] = None) -> Dict[str, Any]:
         if input_data is None:
@@ -116,8 +103,10 @@ class AlgorithmBase(processImpl):
                     self.set_input_data(input_data)
 
                 # 알고리즘 처리
-                results = self.runAlgo()
-
+                if input_data.isEoF is not True:
+                    results = self.runAlgo()
+                else:
+                    results = None
                 # 출력 데이터 설정
                 self.output_data['input'] = self.input_data
                 self.output_data['output'] = results
@@ -151,3 +140,6 @@ class AlgorithmBase(processImpl):
         """입력 및 출력 데이터 초기화"""
         self.input_data = {}
         self.output_data = {}
+
+    def isTerminated(self, isTerminated):
+        self.isTerminated = isTerminated

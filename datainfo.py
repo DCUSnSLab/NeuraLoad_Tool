@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass
 from enum import Enum
 from typing import List, BinaryIO
@@ -157,6 +158,7 @@ class SensorFrame:
     measured: bool  # 측정 시작 여부
     experiment: ExperimentData
     algorithms: AlgorithmData
+    isEoF: bool = False
 
     def __init__(self,
                  timestamp: datetime.datetime,
@@ -166,7 +168,8 @@ class SensorFrame:
                  started: bool = False,
                  measured: bool = False,
                  experiment: ExperimentData = None,
-                 algorithms: AlgorithmData = None):
+                 algorithms: AlgorithmData = None,
+                 isEoF: bool = False):
         self.timestamp = timestamp
         self.scenario = scenario
         self.started = started
@@ -175,6 +178,7 @@ class SensorFrame:
         self.sensors = sensors
         self.experiment = experiment
         self.algorithms = algorithms
+        self.isEoF = isEoF
 
     STRUCT_HEADER_FORMAT = '<d H H ??'  # timestamp, scenario, started, measured
 
@@ -223,7 +227,7 @@ class SensorFrame:
 
 class SensorBinaryFileHandler:
     def __init__(self, filename: str):
-        self.filename = filename
+        self.filename = os.path.join("log", filename)
         self._lock = threading.Lock()
         self._buffer = deque()  # deque로 변경
         self._running = False
@@ -356,7 +360,7 @@ if __name__ == '__main__':
     # # 파일에 저장
     # handler = SensorBinaryFileHandler('sensor_log.bin')
     # handler.save_frames(frames)
-    handler = AlgorithmFileHandler('COGMassEstimation1_center_concentrated_20250423.bin')
+    handler = AlgorithmFileHandler('COGMassEstimation_vertical_center_20250424.bin')
     # 파일에서 불러오기
     loaded_frames = handler.load_frames()
     handler.export_to_csv('COGMassEstimation_center_concentrated_20250423.csv')

@@ -1,6 +1,6 @@
 from PyQt5.QtCore import QThread, pyqtSignal
 
-from datainfo import SensorBinaryFileHandler
+from datainfo import SensorBinaryFileHandler, SensorFrame
 from procsManager import ProcsManager
 import multiprocessing as mp
 
@@ -37,7 +37,7 @@ class ResimulationManager(ProcsManager):
 
             val.event_readyBuffer(readySig, databufQue)
 
-            p = mp.Process(name=n, target=val.runResimul)
+            p = mp.Process(name=n, target=val.run)
             val.start(p)
 
             readySig.wait()  # 큐 준비 완료 신호를 보낼때 까지 기다림
@@ -73,7 +73,7 @@ class ResimulationManager(ProcsManager):
                 algo_buf.put(data)
 
         for algo_buf in self.algo_buffers:
-            algo_buf.put("__DONE__")
+            algo_buf.put(SensorFrame(timestamp=None, sensors=None, isEoF=True))
 
     def load_File(self):
         loadData = SensorBinaryFileHandler(self.file).load_frames()
