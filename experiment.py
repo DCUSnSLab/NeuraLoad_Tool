@@ -98,11 +98,26 @@ class Experiment(QWidget):
         self.stop_btn.setCheckable(True)
         self.stop_btn.clicked.connect(self.toggle_btn)
 
+        self.weight_table = QTableWidget(3, 3, self)
+        self.weight_table.setHorizontalHeaderLabels(['1', '2', '3'])
+        self.weight_table.setVerticalHeaderLabels(['1', '2', '3'])
+        # self.weight_table.cellChanged.connect(self.onCellChanged)
+
+        # 초기값 0 채우기
+        # self.weight_table.blockSignals(True)
+        # for r in range(3):
+        #     for c in range(3):
+        #         itm = QTableWidgetItem("0")
+        #         itm.setTextAlignment(Qt.AlignCenter)
+        #         self.weight_table.setItem(r, c, itm)
+        # self.weight_table.blockSignals(False)
+
         self.weight_btn_p = QPushButton('+', self)
-        self.weight_btn_p.clicked.connect(lambda: self.weight_update(True))
+        self.weight_btn_p.clicked.connect(self.weightP)
 
         self.weight_btn_m = QPushButton('-', self)
-        self.weight_btn_m.clicked.connect(lambda: self.weight_update(False))
+        self.weight_btn_m.clicked.connect(self.weightM)
+
 
         self.weight_btn_init = QPushButton('init', self)
         self.weight_btn_init.clicked.connect(self.weight_init)
@@ -189,9 +204,7 @@ class Experiment(QWidget):
 
         groupbox_layout2 = QVBoxLayout()
 
-        common_items = ['BottomLeft', 'TopRight', 'TopLeft', 'BottomRight']
-
-        for i in common_items[0:4]:
+        for i in headers:
             groupbox_layout = QHBoxLayout()
             name = QLabel(i + ':')
             distance = QLineEdit()
@@ -205,6 +218,7 @@ class Experiment(QWidget):
         groupbox_layout3.addLayout(groupbox_layout2)
 
         self.groupbox.setLayout(groupbox_layout3)
+        self.weight_init()
 
     def update_sensor_graph(self, port: str, new_label: str):
         """
@@ -227,6 +241,56 @@ class Experiment(QWidget):
         )
         self.graph_value.addLegend()
         self.graph_change.addLegend()
+
+    # def onCellChanged(self, row, col):
+    #     """무게 테이블 수정 시 호출"""
+    #     try:
+    #         text = self.weight_table.item(row, col).text()
+    #         val = int(text)
+    #     except Exception:
+    #         val = 0
+    #         # 잘못된 입력은 0으로 복원
+    #         self.weight_table.blockSignals(True)
+    #         self.weight_table.item(row, col).setText("0")
+    #         self.weight_table.blockSignals(False)
+    #
+    #     idx = row * self.weight_table.columnCount() + col
+    #     self.weight_a[idx] = val
+    #     self.weight_update_text()
+
+    def get_weights_from_table(self) -> list[int]:
+        """테이블에 있는 9개 무게값을 순서대로 리스트로 반환"""
+        weights = []
+        for r in range(self.weight_table.rowCount()):
+            for c in range(self.weight_table.columnCount()):
+                text = self.weight_table.item(r, c).text()
+                try:
+                    weights.append(int(text))
+                except ValueError:
+                    weights.append(0)
+        return weights
+
+    def weightP(self):
+        """선택된 셀의 값 증가"""
+        for itm in self.weight_table.selectedItems():
+            try:
+                v = int(itm.text()) + 20
+            except ValueError:
+                print("weighP err")
+                v = 20
+            itm.setText(str(v))
+        self.weight_update_text()
+
+    def weightM(self):
+        """선택된 셀의 값 감소(최소 0)"""
+        for itm in self.weight_table.selectedItems():
+            try:
+                v = max(0, int(itm.text()) - 20)
+            except ValueError:
+                print("weighM err")
+                v = 0
+            itm.setText(str(v))
+        self.weight_update_text()
 
     def weight_update_text(self):
         weight = sum(self.weight_a)
@@ -443,7 +507,10 @@ class Experiment(QWidget):
             value2 = float(latest_point.intensity)
             value3 = float(latest_point.temperature)
 
-            weight_bin = struct.pack('<9h', *self.weight_a)
+            weights = self.get_weights_from_table()
+
+            # weight_bin = struct.pack('<9h', *self.weight_a)
+            weight_bin = struct.pack('<9h', *weights)
             name_bytes = name.encode('utf-8')[:16]
             name_bin = name_bytes + b'\x00' * (16 - len(name_bytes))
             values_bin = struct.pack('<fff', value1, value2, value3)
@@ -502,8 +569,14 @@ class Experiment(QWidget):
         self.is_syncing = False
 
     def weight_init(self):
-        self.weight_a = [0] * 9
-        self.weight_table.table_clear()
+        self.weight_table.blockSignals(True)
+        for r in range(self.weight_table.rowCount()):
+            for c in range(self.weight_table.columnCount()):
+                item = QTableWidgetItem("0")
+                item.setTextAlignment(Qt.AlignCenter)
+                self.weight_table.setItem(r, c, item)
+        self.weight_table.blockSignals(False)
+
         self.current_filename = datetime.datetime.now().strftime("sensor_data_%Y-%m-%d-%H-%M.bin")
         self.weight_update_text()
 
@@ -559,6 +632,7 @@ class Experiment(QWidget):
                         continue
 
     def setup(self):
+        # 그래프 최대·최소 입력창 레이아웃
         graph_max_layout = QHBoxLayout()
         graph_max_layout.addWidget(self.graph_label_max)
         graph_max_layout.addWidget(self.graph_text_max)
@@ -567,24 +641,29 @@ class Experiment(QWidget):
         graph_min_layout.addWidget(self.graph_label_min)
         graph_min_layout.addWidget(self.graph_text_min)
 
+        # 센서 포트 설정 레이아웃
         setting_layout = QVBoxLayout()
         setting_layout.addLayout(graph_max_layout)
         setting_layout.addLayout(graph_min_layout)
         setting_layout.addLayout(self.port_label_layout)
 
+        # weight_table 옆에 들어갈 + / – 버튼 레이아웃
         weight_input_layout2 = QHBoxLayout()
         weight_input_layout2.addWidget(self.weight_btn_p)
         weight_input_layout2.addWidget(self.weight_btn_m)
 
+        # 버튼 그룹 레이아웃 (리셋, 시작)
         layout_btn2 = QVBoxLayout()
         layout_btn2.addLayout(weight_input_layout2)
         layout_btn2.addWidget(self.weight_btn_init)
         layout_btn2.addWidget(self.stop_btn)
 
+        # 센서 테이블 + 버튼 묶음 레이아웃
         layout1 = QHBoxLayout()
         layout1.addWidget(self.sensor_table)
         layout1.addLayout(layout_btn2)
 
+        # 무게 합계/위치 표시 레이아웃
         weight_layout = QHBoxLayout()
         weight_layout.addWidget(self.all_weight_text)
         weight_layout.addWidget(self.all_weight_output)
@@ -595,11 +674,12 @@ class Experiment(QWidget):
         weight_layout1.addWidget(self.weight_position_output)
 
         weight_layout_a = QVBoxLayout()
-        weight_layout_a.addLayout(self.weight_table)
+        weight_layout_a.addWidget(self.weight_table)
         weight_layout_a.addLayout(weight_layout)
         weight_layout_a.addLayout(weight_layout1)
         weight_layout_a.addWidget(self.groupbox)
 
+        # 전체 왼쪽(설정+weight) + 오른쪽(graph) 레이아웃
         table_layout = QHBoxLayout()
         table_layout.addLayout(setting_layout)
         table_layout.addLayout(weight_layout_a)
@@ -608,6 +688,7 @@ class Experiment(QWidget):
         graph_layout.addWidget(self.graph_change)
         graph_layout.addWidget(self.graph_value)
 
+        # 메인 레이아웃 구성
         layout2 = QVBoxLayout()
         layout2.addLayout(table_layout)
         layout2.addLayout(layout1)
