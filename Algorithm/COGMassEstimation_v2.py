@@ -6,7 +6,8 @@ import time
 import numpy as np
 from typing import Dict, List, Any, Optional
 
-from datainfo import SensorFrame, SENSORLOCATION
+from Algorithm.algorithmtype import ALGORITHM_TYPE
+from datainfo import SensorFrame, SENSORLOCATION, AlgorithmData
 
 # 상위 디렉토리의 모듈을 import 하기 위한 경로 설정
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -167,8 +168,8 @@ class COGMassEstimation(AlgorithmBase):
             return self.constants[location].index(closest)
         return None
 
-    def runAlgo(self) -> Dict[str, Any]:
-        print('in process')
+    def runAlgo(self) -> AlgorithmData:
+        #print('in process')
         if self.input_data is None:
             raise Exception('input data is None')
 
@@ -180,16 +181,21 @@ class COGMassEstimation(AlgorithmBase):
         current_values = inputdata.get('laser_values', [0, 0, 0, 0])
         recent_deltas = [changes[-1] if changes else 0 for changes in self.laser_changes.values()]
 
-        return {
-            'position': location,
-            'weight': estimated_weight,
-            'init_values' : initial_values,
-            'current_values' : current_values,
-            'delta_values': recent_deltas
-        }
+        return AlgorithmData(algo_type=ALGORITHM_TYPE.COGMassEstimation,
+                             predicted_weight=estimated_weight,
+                             error=0,
+                             position=location)
+        # return {
+        #     'position': location,
+        #     'weight': estimated_weight,
+        #     'init_values' : initial_values,
+        #     'current_values' : current_values,
+        #     'delta_values': recent_deltas
+        # }
 
     def initAlgorithm(self):
-        print('init Algorithm -> ', self.name)
+        pass
+        #print('init Algorithm -> ', self.name)
 
 
 if __name__ == "__main__":

@@ -55,11 +55,6 @@ class processImpl(metaclass=ABCMeta):
         # self.join()
         self.__done()
 
-    def runResimul(self):
-        self._initialize_buffers()
-        self.doProcResimul()
-        self.__done()
-
     def __done(self):
         self._print('Finished Process')
 
