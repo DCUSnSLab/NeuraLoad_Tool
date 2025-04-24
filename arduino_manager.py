@@ -76,7 +76,7 @@ class Sensor(QThread):
             self.sensorInitted = True
 
         #set sensor reference value
-        self.refValue = data.value
+        self.refValue = data.distance
 
     def _setSensorLoc(self, data: 'SensorData'):
         if data is not None:
@@ -316,7 +316,7 @@ class SerialManager(QObject):
 
             if (max_time - min_time).total_seconds() <= self.slop:
                 frame = SensorFrame(
-                    timestamp=int(max_time.timestamp()),  # 동기화 기준 시간
+                    timestamp=max_time,  # 동기화 기준 시간
                     sensors=candidate_list.copy()
                 )
                 self.candidate_window = candidate_list.copy()

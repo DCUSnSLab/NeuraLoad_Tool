@@ -5,6 +5,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 
+from file_manager import AlgorithmFileManager
 from procsManager import ProcsManager
 
 class AlgorithmMultiProc(QWidget):
@@ -12,6 +13,7 @@ class AlgorithmMultiProc(QWidget):
         super().__init__()
         self.procmanager = ProcsManager(serial_manager)
         self.serial_manager = serial_manager
+        self.algofile = AlgorithmFileManager()
 
         self.files = dict() #Algorithm File List
         self.algorithm_checkbox = []
@@ -151,14 +153,9 @@ class AlgorithmMultiProc(QWidget):
             # layout 안에 또 다른 layout이 있을 수 있으므로 재귀적으로 처리
             elif item.layout() is not None:
                 self.clear_layout(item.layout())
-
-    def loadAlgorithmFromFile(self):
-        folder = os.path.join(os.getcwd(), 'Algorithm')
-        py_files = [f for f in os.listdir(folder) if f.endswith('.py')]
-
-        for file_name in py_files:
-            full_path = os.path.join(folder, file_name)
-            self.files[file_name] = full_path
+    def loadAlgorithmCbx(self):
+        self.files = self.algofile.loadAlgorithmFromFile()
+        for file_name in self.files:
             checkbox = QCheckBox(file_name)
             self.algorithm_checkbox.append(checkbox)
 
