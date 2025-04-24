@@ -5,7 +5,7 @@ class ALGORITHM_TYPE(Enum):
     COGMassEstimation = 0
     MLPPredictor = 1
     RandomForestPredictor = 2
-
+    COGPositionMassEstimation = 3
     @staticmethod
     def get_algorithmTypebyValue(value: int) -> 'ALGORITHM_TYPE':
         return ALGORITHM_TYPE(value)

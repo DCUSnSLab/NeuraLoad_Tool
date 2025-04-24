@@ -1,20 +1,21 @@
-import numpy as np
 import os
-import time
-import datetime
-from typing import Dict, List, Any, Optional
 import sys
+import json
+from scipy.stats import mode
+import time
+import numpy as np
+from typing import Dict, List, Any, Optional
 
-from datainfo import SensorFrame, SENSORLOCATION
+from Algorithm.algorithmtype import ALGORITHM_TYPE
+from datainfo import SensorFrame, SENSORLOCATION, AlgorithmData
 
+# 상위 디렉토리의 모듈을 import 하기 위한 경로 설정
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
+import datetime
+from AlgorithmInterface import AlgorithmBase  # 상속용 추상 클래스
 
-from AlgorithmInterface import AlgorithmBase
-
-
-``
 class COGPositionMassEstimation(AlgorithmBase):
     def __init__(self, name: str):
         super().__init__(
@@ -37,11 +38,10 @@ class COGPositionMassEstimation(AlgorithmBase):
         self.locations = np.arange(1, 10)
         self.xCenters = np.array([792.7, 813.5, 834.3, 793.7, 814.3, 834.8, 794.9, 815.1, 835.3])
         self.yCenters = np.array([1417.5, 1430.5, 1443.5, 1456.5, 1469.5, 1482.5, 1495.6, 1508.6, 1521.6])
-
     def initAlgorithm(self):
         print('init Algorithm ->', self.name)
 
-    def runAlgo(self) -> Dict[str, Any]:
+    def runAlgo(self) -> AlgorithmData:
         if self.input_data is None:
             raise Exception("Input data is None")
 
@@ -53,15 +53,18 @@ class COGPositionMassEstimation(AlgorithmBase):
         roll, pitch = self.calculate_roll_pitch(deltas)
         xCenter, yCenter = self.calculate_cog(roll, pitch)
         location, weight = self.estimate_location_weight(xCenter, yCenter)
-
-        return {
-            "roll": roll,
-            "pitch": pitch,
-            "xCenter": xCenter,
-            "yCenter": yCenter,
-            "location": location,
-            "weight": weight
-        }
+        return AlgorithmData(algo_type=ALGORITHM_TYPE.COGPositionMassEstimation,
+                             predicted_weight=weight,
+                             error=0,
+                             position=location)
+        # return {
+        #     "roll": roll,
+        #     "pitch": pitch,
+        #     "xCenter": xCenter,
+        #     "yCenter": yCenter,
+        #     "location": location,
+        #     "weight": weight
+        # }
 
     def compute_deltas(self, current_values: List[float]) -> List[float]:
         if self.initial_laser_values is None:
@@ -125,4 +128,5 @@ class COGPositionMassEstimation(AlgorithmBase):
             return 5, 0.0  # 중심 위치에 가까운 경우 default
 
         location, weight, _ = min(results, key=lambda x: x[2])
-        return location, weight
+
+        return location, int(weight)
