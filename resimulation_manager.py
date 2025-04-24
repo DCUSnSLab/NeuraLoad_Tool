@@ -21,7 +21,6 @@ class ResimulationManager(ProcsManager):
         self.sm = sm
         self.procs = dict()
         self.file = None
-        self.resbuffer = None
         self.algo_buffers = dict()
 
     def startThread(self, callback=None):  # callback은 스레드가 작업을 끝내고 실행하는 함수(버튼 활성화)
@@ -42,35 +41,21 @@ class ResimulationManager(ProcsManager):
 
             readySig.wait()  # 큐 준비 완료 신호를 보낼때 까지 기다림
             dataque = databufQue.get()
-            self.addDataQue(n, dataque)  # 데이터 큐
-            self.resbuf[val.name] = databufQue.get()  # 결과 큐
+            self.addDataBuffer(val.name, dataque)  # 데이터 큐
+            self.addResBuffer(val.name, databufQue.get())  # 결과 큐
             self.sendSensorData()
 
-    def terminate(self, name):
-        if name in self.procs:
-            print(name, "terminated")
-            self._print(name, self.procs[name].getPID())
-            self.procs[name].terminate()
-            self.removeDataQue(name)
-            del self.procs[name]
-            if name in self.resbuf:
-                del self.resbuf[name]
+    def finishResimulProc(self, name):
+        self.terminate(name)
+        self.removeDataBuffer(name)
 
     def terminateAll(self):
         for val in self.procs.values():
-            print(val,"terminated")
             self._print(val.name, val.getPID())
             val.terminate()
         self.procs.clear()
         self.algo_buffers.clear()
-
-    def addDataQue(self, name, dataque):
-        if name not in self.algo_buffers:
-            self.algo_buffers[name] = dataque
-
-    def removeDataQue(self, name):
-        if name in self.algo_buffers:
-            del self.algo_buffers[name]
+        self.resbuf.clear()
 
     def getDataFile(self, filepath):
         self.file = filepath
