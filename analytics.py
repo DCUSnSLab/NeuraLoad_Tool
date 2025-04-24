@@ -125,7 +125,7 @@ class Analytics(QWidget):
         1 = 데이터 값
 
         self.file_data = 업로드한 파일 경로
-        self.loc =
+        self.loc = 무게 위치 입력 저장
         '''
 
         x = self.x_cb.currentIndex()

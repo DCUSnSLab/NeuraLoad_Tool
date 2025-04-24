@@ -3,12 +3,12 @@ from PyQt5.QtWidgets import QWidget
 
 
 class AnalyticsDataGraph(QWidget):
-    def __init__(self, x, y, file_name, value):
+    def __init__(self, x, y, file_name, loc):
         super().__init__()
         self.x_value = x
         self.y_value = y
         self.file_name = file_name
-        self.loc = value
+        self.loc = loc
 
         self.data_load()
 
