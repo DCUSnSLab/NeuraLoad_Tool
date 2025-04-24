@@ -1,12 +1,9 @@
-import os
-
-from PyQt5.QtCore import QTimer, QSize, pyqtSignal
+from PyQt5.QtCore import QSize
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 
-from Algorithm.algorithmtype import ALGORITHM_TYPE
-from file_manager import AlgorithmFileManager
 from resimulation_manager import ResimulationManager
+from weight_action import AlgorithmRunBox
 
 
 class AlgorithmResimulation(QWidget):
@@ -14,20 +11,18 @@ class AlgorithmResimulation(QWidget):
         super().__init__()
         self.resimulManager = ResimulationManager(sm=serial_manager)
         self.serial_manager = serial_manager
-        self.algoFile = AlgorithmFileManager()
 
         self.files = dict() #Algorithm File List
         self.algorithm_checkbox = []
         self.outputLabels = dict()
         self.filepath = None
 
-        self.loadAlgorithmCbx()
+        self.algoLayout = AlgorithmRunBox()
         self.initUI()
 
     def initUI(self):
-        self.algorithm_list = QWidget(self)
-
-        self.toggleBtn = QPushButton("Step By Step OFF")
+        # 상단 토글 버튼 (Step by Step)
+        self.toggleBtn = QPushButton("Step by Step OFF")
         self.toggleBtn.setCheckable(True)
         self.toggleBtn.setChecked(False)  # toggle 초기 상태
         self.toggleBtn.toggled.connect(self.changeToggle)
@@ -36,6 +31,8 @@ class AlgorithmResimulation(QWidget):
         font.setBold(True)
         font.setPointSize(10)
         self.toggleBtn.setFont(font)
+
+        # 리시뮬레이션을 위한 파일 로드 버튼
         self.fileBtn = QPushButton("Data File Load")
         self.fileBtn.clicked.connect(self.loadDataFile)
         self.fileBtn.setMinimumSize(QSize(120, 50))
@@ -43,26 +40,12 @@ class AlgorithmResimulation(QWidget):
         self.filenameLabel = QLabel("")
         self.filenameLabel.setMaximumHeight(50)
 
-        self.checkbox_layout = QVBoxLayout()
-        self.algorithm_list.setLayout(self.checkbox_layout)
-        for cbx in self.algorithm_checkbox:
-            self.checkbox_layout.addWidget(cbx)
-
-        self.start_btn = QPushButton('Run the selected algorithm', self)
-        self.start_btn.clicked.connect(self.run)
-
-        self.all_btn = QPushButton('Run all', self)
-        self.all_btn.clicked.connect(self.run_all)
-
-        self.stop_btn = QPushButton('Stop and Reset', self)
-        self.stop_btn.clicked.connect(self.finishAllAlgorithms)
-        self.stop_btn.setEnabled(False)  # 알고리즘 프로세스가 시작해야 활성화됨
-
-        layout = QVBoxLayout()
-        layout.addWidget(self.algorithm_list)
-
-        groupbox = QGroupBox('Currently available algorithms')
-        groupbox.setLayout(layout)
+        # 알고리즘 목록과 관련 버튼
+        self.algoLayout.loadAlgorithmFileList()
+        self.algoLayout.start_btn.clicked.connect(self.run)
+        self.algoLayout.all_btn.clicked.connect(self.run_all)
+        self.algoLayout.stop_btn.clicked.connect(self.finishAllAlgorithms)
+        self.files, self.algorithm_checkbox = self.algoLayout.getFileandCbx()
 
         self.weight_layout = QVBoxLayout()
 
@@ -78,15 +61,9 @@ class AlgorithmResimulation(QWidget):
         top_layout.addWidget(self.filenameLabel)
         top_layout.addStretch()  # 버튼 오른쪽 공간 채우기
 
-        btn_layout = QVBoxLayout()
-        btn_layout.addWidget(self.start_btn)
-        btn_layout.addWidget(self.all_btn)
-        btn_layout.addWidget(self.stop_btn)
-
         layout1 = QVBoxLayout()
         layout1.addLayout(top_layout)
-        layout1.addWidget(groupbox)
-        layout1.addLayout(btn_layout)
+        layout1.addLayout(self.algoLayout)
 
         layout2 = QHBoxLayout()
         layout2.addLayout(layout1)
@@ -116,12 +93,6 @@ class AlgorithmResimulation(QWidget):
                 data = val.get()
                 print(bname, data)
 
-    def loadAlgorithmCbx(self):
-        for algo_name in ALGORITHM_TYPE.list_all():
-            self.files[algo_name.name] = algo_name
-            checkbox = QCheckBox(algo_name.name)
-            self.algorithm_checkbox.append(checkbox)
-
     def run(self):
         if not any(cbx.isChecked() for cbx in self.algorithm_checkbox):
             print('No checkbox selected')
@@ -142,8 +113,15 @@ class AlgorithmResimulation(QWidget):
                     print('select algorithm file -> ',cbx.text(), self.files[cbx.text()])
                     self.resimulManager.addProcess(self.files[cbx.text()])
 
-        self.resimulManager.startThread(callback=lambda: self.stop_btn.setEnabled(True))
+        self.resimulManager.startThread(callback=self.setBtnforRunAlgorithm)
+
+    def setBtnforRunAlgorithm(self):
+        self.algoLayout.stop_btn.setEnabled(True)
+        self.algoLayout.start_btn.setEnabled(False)
+        self.algoLayout.all_btn.setEnabled(False)
 
     def finishAllAlgorithms(self):
-        self.resimulManager.terminate()
-        self.stop_btn.setEnabled(False)
+        self.resimulManager.terminateAll()
+        self.algoLayout.stop_btn.setEnabled(False)
+        self.algoLayout.start_btn.setEnabled(True)
+        self.algoLayout.all_btn.setEnabled(True)

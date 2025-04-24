@@ -5,7 +5,6 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 
-from file_manager import AlgorithmFileManager
 from procsManager import ProcsManager
 
 class AlgorithmMultiProc(QWidget):
@@ -13,7 +12,6 @@ class AlgorithmMultiProc(QWidget):
         super().__init__()
         self.procmanager = ProcsManager(serial_manager)
         self.serial_manager = serial_manager
-        self.algofile = AlgorithmFileManager()
 
         self.files = dict() #Algorithm File List
         self.algorithm_checkbox = []

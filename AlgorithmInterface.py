@@ -118,9 +118,9 @@ class AlgorithmBase(processImpl):
                 else:
                     results = None
                 # 출력 데이터 설정
-                self.output_data['input'] = self.input_data
+                self.output_data['input'] = input_data
                 self.output_data['output'] = results
-
+                
                 self.execution_time = time.time() - start_time
 
                 # 실행 이력 업데이트
