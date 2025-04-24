@@ -73,7 +73,7 @@ class ProcsManager:
     def getResultBufs(self):
         return self.resbuf
 
-    def terminate(self):
+    def terminateAll(self):
         for val in self.procs.values():
             print(val,"terminated")
             self._print(val.name, val.getPID())

@@ -8,7 +8,7 @@ from PyQt5.QtWidgets import *
 from Algorithm.algorithmtype import ALGORITHM_TYPE
 from datainfo import SCENARIO_TYPE_MAP, SensorFrame, ExperimentData, AlgorithmData, AlgorithmFileHandler
 from procsManager import ProcsManager
-from weight_action import WeightTable
+from weight_action import WeightTable, AlgorithmRunBox
 
 
 class AlgorithmMultiProcV2(QWidget):
@@ -29,35 +29,16 @@ class AlgorithmMultiProcV2(QWidget):
         self.measure_metaData: SensorFrame = None
         self.filehandler: dict = {}
 
-        self.loadAlgorithmFromFile()
+        self.algoLayout = AlgorithmRunBox()
         self.initUI()
         self.initTimer()
 
     def initUI(self):
-        self.algorithm_list = QWidget(self)
-        self.checkbox_layout = QVBoxLayout()
-        self.algorithm_list.setLayout(self.checkbox_layout)
-        for cbx in self.algorithm_checkbox:
-            self.checkbox_layout.addWidget(cbx)
-
-        self.start_btn = QPushButton('Run the selected algorithm', self)
-        self.start_btn.clicked.connect(self.run)
-
-        # self.reset_btn = QPushButton('Reset', self)
-        # self.reset_btn.clicked.connect(self.reset)
-
-        self.all_btn = QPushButton('Run all', self)
-        self.all_btn.clicked.connect(self.run_all)
-
-        self.stop_btn = QPushButton('Stop and Reset', self)
-        self.stop_btn.clicked.connect(self.finishAllAlgorithms)
-        self.stop_btn.setEnabled(False)  # 알고리즘 프로세스가 시작해야 활성화됨
-
-        layout = QVBoxLayout()
-        layout.addWidget(self.algorithm_list)
-
-        groupbox = QGroupBox('Currently available algorithms')
-        groupbox.setLayout(layout)
+        self.algoLayout.loadAlgorithmFileList()
+        self.algoLayout.start_btn.clicked.connect(self.run)
+        self.algoLayout.all_btn.clicked.connect(self.run_all)
+        self.algoLayout.stop_btn.clicked.connect(self.finishAllAlgorithms)
+        self.files, self.algorithm_checkbox = self.algoLayout.getFileandCbx()
 
         #weight Presentation layout
         self.weight_layout = QVBoxLayout()
@@ -116,22 +97,14 @@ class AlgorithmMultiProcV2(QWidget):
         weightControllerLayout.addWidget(self.startMeasureBtn)
         weightControllerLayout.addWidget(self.finishMeasureBtn)
 
-        # Button
-        btn_layout = QVBoxLayout()
-        btn_layout.addWidget(self.start_btn)
-        btn_layout.addWidget(self.all_btn)
-        btn_layout.addWidget(self.stop_btn)
-
-        leftMenu = QVBoxLayout()
-        leftMenu.addWidget(groupbox)
-        leftMenu.addLayout(btn_layout)
         leftMenuWidget = QWidget()
-        leftMenuWidget.setLayout(leftMenu)
+        leftMenuWidget.setLayout(self.algoLayout)
         leftMenuWidget.setFixedWidth(400)  # 원하는 너비로 설정
 
         layout2 = QHBoxLayout()
         layout2.addWidget(leftMenuWidget, alignment=Qt.AlignLeft)
         layout2.addLayout(weightControllerLayout)
+        self.weightWidget.setFixedWidth(800)
         layout2.addWidget(self.weightWidget)
 
         self.setLayout(layout2)
@@ -373,15 +346,22 @@ class AlgorithmMultiProcV2(QWidget):
                     print('select algorithm file -> ',cbx.text(), self.files[cbx.text()])
                     self.procmanager.addProcess(self.files[cbx.text()])
 
-        self.procmanager.startThread(callback=lambda: self.stop_btn.setEnabled(True))
+        self.procmanager.startThread(callback=self.setBtnforRunAlgorithm)
         # self.stop_btn.setEnabled(True)
 
-    def finishAllAlgorithms(self):
-        self.procmanager.terminate()
-        for weight in self.outputLabels:
-                label = self.outputLabels[weight]
-                label.setText('-')
+    def setBtnforRunAlgorithm(self):
+        self.algoLayout.stop_btn.setEnabled(True)
+        self.algoLayout.start_btn.setEnabled(False)
+        self.algoLayout.all_btn.setEnabled(False)
 
-        self.stop_btn.setEnabled(False)
+    def finishAllAlgorithms(self):
+        self.procmanager.terminateAll()
+        for weight in self.outputLabels:
+            label = self.outputLabels[weight]
+            label.setText('-')
+
+        self.algoLayout.stop_btn.setEnabled(False)
+        self.algoLayout.start_btn.setEnabled(True)
+        self.algoLayout.all_btn.setEnabled(True)
         self.on_finish_measure()
         self.toggleExperimentMenu(False)

@@ -22,7 +22,7 @@ class ResimulationManager(ProcsManager):
         self.procs = dict()
         self.file = None
         self.resbuffer = None
-        self.algo_buffers = []
+        self.algo_buffers = dict()
 
     def startThread(self, callback=None):  # callback은 스레드가 작업을 끝내고 실행하는 함수(버튼 활성화)
         self.thread = ResimulThread(self)
@@ -41,27 +41,43 @@ class ResimulationManager(ProcsManager):
             val.start(p)
 
             readySig.wait()  # 큐 준비 완료 신호를 보낼때 까지 기다림
-            self.addDataQue(databufQue.get())  # 데이터 큐
+            dataque = databufQue.get()
+            self.addDataQue(n, dataque)  # 데이터 큐
             self.resbuf[val.name] = databufQue.get()  # 결과 큐
             self.sendSensorData()
 
-    def terminate(self):
+    def terminate(self, name):
+        if name in self.procs:
+            print(name, "terminated")
+            self._print(name, self.procs[name].getPID())
+            self.procs[name].terminate()
+            self.removeDataQue(name)
+            del self.procs[name]
+            if name in self.resbuf:
+                del self.resbuf[name]
+
+    def terminateAll(self):
         for val in self.procs.values():
             print(val,"terminated")
             self._print(val.name, val.getPID())
             val.terminate()
         self.procs.clear()
-        self.removeDataQue()
+        self.algo_buffers.clear()
+
+    def addDataQue(self, name, dataque):
+        if name not in self.algo_buffers:
+            self.algo_buffers[name] = dataque
+
+    def removeDataQue(self, name):
+        if name in self.algo_buffers:
+            del self.algo_buffers[name]
 
     def getDataFile(self, filepath):
         self.file = filepath
 
-    def addDataQue(self, dataque):
-        if dataque not in self.algo_buffers:
-            self.algo_buffers.append(dataque)
-
-    def removeDataQue(self):
-        self.algo_buffers.clear()
+    def load_File(self):
+        loadData = SensorBinaryFileHandler(self.file).load_frames()
+        return loadData
 
     def sendSensorData(self):
         """
@@ -69,12 +85,8 @@ class ResimulationManager(ProcsManager):
         """
         records = self.load_File()
         for data in records:
-            for algo_buf in self.algo_buffers:
+            for name, algo_buf in self.algo_buffers.items():
                 algo_buf.put(data)
 
-        for algo_buf in self.algo_buffers:
+        for name, algo_buf in self.algo_buffers.items():
             algo_buf.put(SensorFrame(timestamp=None, sensors=None, isEoF=True))
-
-    def load_File(self):
-        loadData = SensorBinaryFileHandler(self.file).load_frames()
-        return loadData
