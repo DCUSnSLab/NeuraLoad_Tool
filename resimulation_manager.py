@@ -21,8 +21,7 @@ class ResimulationManager(ProcsManager):
         self.sm = sm
         self.procs = dict()
         self.file = None
-        self.resbuffer = None
-        self.algo_buffers = []
+        self.algo_buffers = dict()
 
     def startThread(self, callback=None):  # callback은 스레드가 작업을 끝내고 실행하는 함수(버튼 활성화)
         self.thread = ResimulThread(self)
@@ -41,27 +40,29 @@ class ResimulationManager(ProcsManager):
             val.start(p)
 
             readySig.wait()  # 큐 준비 완료 신호를 보낼때 까지 기다림
-            self.addDataQue(databufQue.get())  # 데이터 큐
-            self.resbuf[val.name] = databufQue.get()  # 결과 큐
+            dataque = databufQue.get()
+            self.addDataBuffer(val.name, dataque)  # 데이터 큐
+            self.addResBuffer(val.name, databufQue.get())  # 결과 큐
             self.sendSensorData()
 
-    def terminate(self):
+    def finishResimulProc(self, name):
+        self.terminate(name)
+        self.removeDataBuffer(name)
+
+    def terminateAll(self):
         for val in self.procs.values():
-            print(val,"terminated")
             self._print(val.name, val.getPID())
             val.terminate()
         self.procs.clear()
-        self.removeDataQue()
+        self.algo_buffers.clear()
+        self.resbuf.clear()
 
     def getDataFile(self, filepath):
         self.file = filepath
 
-    def addDataQue(self, dataque):
-        if dataque not in self.algo_buffers:
-            self.algo_buffers.append(dataque)
-
-    def removeDataQue(self):
-        self.algo_buffers.clear()
+    def load_File(self):
+        loadData = SensorBinaryFileHandler(self.file).load_frames()
+        return loadData
 
     def sendSensorData(self):
         """
@@ -69,12 +70,8 @@ class ResimulationManager(ProcsManager):
         """
         records = self.load_File()
         for data in records:
-            for algo_buf in self.algo_buffers:
+            for name, algo_buf in self.algo_buffers.items():
                 algo_buf.put(data)
 
-        for algo_buf in self.algo_buffers:
+        for name, algo_buf in self.algo_buffers.items():
             algo_buf.put(SensorFrame(timestamp=None, sensors=None, isEoF=True))
-
-    def load_File(self):
-        loadData = SensorBinaryFileHandler(self.file).load_frames()
-        return loadData

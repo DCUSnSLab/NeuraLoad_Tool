@@ -1,5 +1,8 @@
-from PyQt5.QtWidgets import QTableWidgetItem, QTabWidget, QWidget, QTableWidget, QLayout, QVBoxLayout, QLabel
+from PyQt5.QtWidgets import QTableWidgetItem, QWidget, QTableWidget, QVBoxLayout, QLabel, QCheckBox, QPushButton, QGroupBox
 from PyQt5.QtCore import Qt
+
+from Algorithm.algorithmtype import ALGORITHM_TYPE
+
 
 class WeightTable(QVBoxLayout):
     def __init__(self):
@@ -69,3 +72,50 @@ class WeightTable(QVBoxLayout):
 
     def getWeights(self):
         return self.weights
+
+class AlgorithmRunBox(QVBoxLayout):
+    """
+    알고리즘을 실행하기 위한 버튼과 체크 박스 UI
+    실시간 알고리즘 테스트와 리시뮬레이션 기능이 동일한 UI를 가지기때문에 만듦
+    """
+    def __init__(self):
+        super().__init__()
+        self.files = dict()  # Algorithm File List
+        self.algorithm_checkbox = []
+        self.groupbox = None
+
+        self.setAlgoLayout()
+
+    def setAlgoLayout(self):
+        self.algorithm_list = QWidget()
+        self.checkbox_layout = QVBoxLayout()
+        self.algorithm_list.setLayout(self.checkbox_layout)
+
+        self.start_btn = QPushButton('Run the selected algorithm')
+        self.all_btn = QPushButton('Run all')
+        self.stop_btn = QPushButton('Stop and Reset')
+        self.stop_btn.setEnabled(False)  # 알고리즘 프로세스가 시작해야 활성화됨
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.algorithm_list)
+        self.groupbox = QGroupBox('Currently available algorithms')
+        self.groupbox.setLayout(layout)
+
+        # Button
+        btn_layout = QVBoxLayout()
+        btn_layout.addWidget(self.start_btn)
+        btn_layout.addWidget(self.all_btn)
+        btn_layout.addWidget(self.stop_btn)
+
+        self.addWidget(self.groupbox)
+        self.addLayout(btn_layout)
+
+    def loadAlgorithmFileList(self):
+        for algo_name in ALGORITHM_TYPE.list_all():
+            self.files[algo_name.name] = algo_name
+            checkbox = QCheckBox(algo_name.name)
+            self.algorithm_checkbox.append(checkbox)
+            self.checkbox_layout.addWidget(checkbox)
+
+    def getFileandCbx(self):
+        return self.files, self.algorithm_checkbox
