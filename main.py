@@ -63,6 +63,11 @@ class Main(QWidget):
     def showErrorMassage(self, msg):
         QMessageBox.critical(self, "시리얼 오류", msg)
 
+    def closeEvent(self, event):
+        self.tab2.procmanager.terminateAll()
+        self.tab3.resimulManager.terminateAll()
+        event.accept()
+
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     ex = Main()
