@@ -12,11 +12,13 @@ from weight_action import WeightTable
 
 
 class AlgorithmMultiProcV2(QWidget):
-    def __init__(self, serial_manager, wt):
+    def __init__(self, parent, serial_manager, wt):
         super().__init__()
         self.procmanager = ProcsManager(serial_manager)
         self.procmanager.on_ready(self.isAlgorithmReady)
         self.serial_manager = serial_manager
+
+        parent.on_AppExit(self.AppExithandle)
 
         self.files = dict() #Algorithm File List
         self.algorithm_checkbox = []
@@ -385,3 +387,6 @@ class AlgorithmMultiProcV2(QWidget):
         self.stop_btn.setEnabled(False)
         self.on_finish_measure()
         self.toggleExperimentMenu(False)
+
+    def AppExithandle(self):
+        self.finishAllAlgorithms()
