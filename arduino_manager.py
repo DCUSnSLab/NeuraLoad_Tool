@@ -316,7 +316,7 @@ class SerialManager(QObject):
 
             if (max_time - min_time).total_seconds() <= self.slop:
                 frame = SensorFrame(
-                    timestamp=max_time.timestamp(),  # 동기화 기준 시간
+                    timestamp=max_time,  # 동기화 기준 시간
                     sensors=candidate_list.copy()
                 )
                 self.candidate_window = candidate_list.copy()

@@ -1,23 +1,27 @@
 import os
 
-from PyQt5.QtCore import QTimer, QSize
+from PyQt5.QtCore import QTimer, QSize, pyqtSignal
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 
-from procsManager import ProcsManager
+from Algorithm.algorithmtype import ALGORITHM_TYPE
+from file_manager import AlgorithmFileManager
+from resimulation_manager import ResimulationManager
 
 
 class AlgorithmResimulation(QWidget):
     def __init__(self, serial_manager):
         super().__init__()
-        self.procmanager = ProcsManager(serial_manager)
+        self.resimulManager = ResimulationManager(sm=serial_manager)
         self.serial_manager = serial_manager
+        self.algoFile = AlgorithmFileManager()
 
         self.files = dict() #Algorithm File List
         self.algorithm_checkbox = []
         self.outputLabels = dict()
+        self.filepath = None
 
-        self.loadAlgorithmFromFile()
+        self.loadAlgorithmCbx()
         self.initUI()
 
     def initUI(self):
@@ -27,11 +31,17 @@ class AlgorithmResimulation(QWidget):
         self.toggleBtn.setCheckable(True)
         self.toggleBtn.setChecked(False)  # toggle 초기 상태
         self.toggleBtn.toggled.connect(self.changeToggle)
-        self.toggleBtn.setMinimumSize(QSize(200, 50))
+        self.toggleBtn.setMinimumSize(QSize(150, 50))
         font = QFont()
         font.setBold(True)
-        font.setPointSize(15)
+        font.setPointSize(10)
         self.toggleBtn.setFont(font)
+        self.fileBtn = QPushButton("Data File Load")
+        self.fileBtn.clicked.connect(self.loadDataFile)
+        self.fileBtn.setMinimumSize(QSize(120, 50))
+        self.fileBtn.setFont(font)
+        self.filenameLabel = QLabel("")
+        self.filenameLabel.setMaximumHeight(50)
 
         self.checkbox_layout = QVBoxLayout()
         self.algorithm_list.setLayout(self.checkbox_layout)
@@ -62,9 +72,11 @@ class AlgorithmResimulation(QWidget):
         layout = QVBoxLayout()
         layout.addLayout(self.weight_layout)
 
-        toggle_layout = QHBoxLayout()  # 알고리즘, 버튼 박스와 분리를 위한 레이아웃
-        toggle_layout.addWidget(self.toggleBtn)
-        toggle_layout.addStretch()  # 버튼 오른쪽 공간 채우기
+        top_layout = QHBoxLayout()  # 알고리즘, 버튼 박스와 분리를 위한 레이아웃
+        top_layout.addWidget(self.toggleBtn)
+        top_layout.addWidget(self.fileBtn)
+        top_layout.addWidget(self.filenameLabel)
+        top_layout.addStretch()  # 버튼 오른쪽 공간 채우기
 
         btn_layout = QVBoxLayout()
         btn_layout.addWidget(self.start_btn)
@@ -72,7 +84,7 @@ class AlgorithmResimulation(QWidget):
         btn_layout.addWidget(self.stop_btn)
 
         layout1 = QVBoxLayout()
-        layout1.addLayout(toggle_layout)
+        layout1.addLayout(top_layout)
         layout1.addWidget(groupbox)
         layout1.addLayout(btn_layout)
 
@@ -85,8 +97,17 @@ class AlgorithmResimulation(QWidget):
     def changeToggle(self, status):
         if status:
             self.toggleBtn.setText("Step By Step ON")
+            self.all_btn.setEnabled(False)
         else:
             self.toggleBtn.setText("Step By Step OFF")
+            self.all_btn.setEnabled(True)
+
+    def loadDataFile(self):
+        fname = QFileDialog.getOpenFileName(self)
+        if not fname[0]:
+            return
+        self.filepath = fname[0]
+        self.filenameLabel.setText(fname[0])
 
     def updateLabel(self):
         resbuf = self.procmanager.getResultBufs()
@@ -95,14 +116,10 @@ class AlgorithmResimulation(QWidget):
                 data = val.get()
                 print(bname, data)
 
-    def loadAlgorithmFromFile(self):
-        folder = os.path.join(os.getcwd(), 'Algorithm')
-        py_files = [f for f in os.listdir(folder) if f.endswith('.py')]
-
-        for file_name in py_files:
-            full_path = os.path.join(folder, file_name)
-            self.files[file_name] = full_path
-            checkbox = QCheckBox(file_name)
+    def loadAlgorithmCbx(self):
+        for algo_name in ALGORITHM_TYPE.list_all():
+            self.files[algo_name.name] = algo_name
+            checkbox = QCheckBox(algo_name.name)
             self.algorithm_checkbox.append(checkbox)
 
     def run(self):
@@ -117,15 +134,16 @@ class AlgorithmResimulation(QWidget):
         self.runAlgorithm()
 
     def runAlgorithm(self):
+        self.resimulManager.getDataFile(self.filepath)
         for cbx in self.algorithm_checkbox:
             if cbx.isChecked():
                 print('run - ', cbx.text())
                 if cbx.text() in self.files:
                     print('select algorithm file -> ',cbx.text(), self.files[cbx.text()])
-                    self.procmanager.addProcess(cbx.text())
+                    self.resimulManager.addProcess(self.files[cbx.text()])
 
-        self.procmanager.startThread(callback=lambda: self.stop_btn.setEnabled(True))
+        self.resimulManager.startThread(callback=lambda: self.stop_btn.setEnabled(True))
 
     def finishAllAlgorithms(self):
-        self.procmanager.terminate()
+        self.resimulManager.terminate()
         self.stop_btn.setEnabled(False)
