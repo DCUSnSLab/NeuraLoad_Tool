@@ -93,20 +93,36 @@ class AlgorithmData():
     predicted_weight: int
     error: int
     position: int
+    referenceValue: List[int]
 
-    STRUCT_FORMAT_ALGO = '<B H H H'
+    def __init__(self,
+                 algo_type: 'ALGORITHM_TYPE' = None,
+                 predicted_weight: int = 0,
+                 error: int = 0,
+                 position: int = -1,
+                 refVal: List[int] = None):
+        self.algo_type = algo_type
+        self.predicted_weight = predicted_weight
+        self.error = error
+        self.position = position
+        self.referenceValue = refVal
+
+    STRUCT_FORMAT_ALGO = '<B H H H 9H'
 
     def pack(self) -> bytes:
-        return struct.pack(self.STRUCT_FORMAT_ALGO, self.algo_type.value, self.predicted_weight, self.error, self.position)
+        return struct.pack(self.STRUCT_FORMAT_ALGO, self.algo_type.value, self.predicted_weight, self.error, self.position, *self.referenceValue)
 
     @classmethod
     def unpack(cls, data: bytes) -> 'AlgorithmData':
-        algotype, pred_weight, error, position = struct.unpack(cls.STRUCT_FORMAT_ALGO, data)
+        unpacked = struct.unpack(cls.STRUCT_FORMAT_ALGO, data)
+        algotype, pred_weight, error, position = unpacked[:4]
+        refVal = list(unpacked[4:])
         return cls(
             algo_type=ALGORITHM_TYPE.get_algorithmTypebyValue(algotype),
             predicted_weight=pred_weight,
             error=error,
-            position=position
+            position=position,
+            refVal=refVal
         )
 
     @classmethod
@@ -301,7 +317,8 @@ class SensorBinaryFileHandler:
                 'timestamp', 'scenario', 'numofexperiments', 'started', 'measured',
                 'sensor0_distance', 'sensor1_distance', 'sensor2_distance', 'sensor3_distance',
                 'expW1','expW2','expW3','expW4','expW5','expW6','expW7','expW8','expW9',
-                'algo_type', 'pred_weight', 'error','position'
+                'algo_type', 'pred_weight', 'error','position','refV1','refV2','refV3','refV4',
+                'refV5','refV6','refV7','refV8','refV9'
                 # 필요시 더 추가 가능
             ])
 
@@ -317,6 +334,7 @@ class SensorBinaryFileHandler:
                 row.extend(frame.experiment.weights)
                 algo = frame.algorithms
                 row.extend([algo.algo_type.name, algo.predicted_weight, algo.error, algo.position])
+                row.extend(algo.referenceValue)
                 writer.writerow(row)
 
 class AlgorithmFileHandler(SensorBinaryFileHandler):
@@ -360,10 +378,10 @@ if __name__ == '__main__':
     # # 파일에 저장
     # handler = SensorBinaryFileHandler('sensor_log.bin')
     # handler.save_frames(frames)
-    handler = AlgorithmFileHandler('COGMassEstimation_vertical_center_20250424.bin')
+    handler = AlgorithmFileHandler('COGMassEstimation_asymmetric_left_right_20250424.bin')
     # 파일에서 불러오기
     loaded_frames = handler.load_frames()
-    handler.export_to_csv('COGMassEstimation_center_concentrated_20250423.csv')
+    handler.export_to_csv('test.csv')
     # 출력
     for idx, f in enumerate(loaded_frames):
         print(f"\n[Frame {idx}] timestamp={f.timestamp}, expStarted={f.started}, isMeasured={f.measured}, scenario={f.get_scenario_name()}, experiment={f.experiment}, algorithms={f.algorithms}")

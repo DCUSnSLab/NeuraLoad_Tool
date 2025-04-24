@@ -12,11 +12,13 @@ from weight_action import WeightTable, AlgorithmRunBox
 
 
 class AlgorithmMultiProcV2(QWidget):
-    def __init__(self, serial_manager, wt):
+    def __init__(self, parent, serial_manager, wt):
         super().__init__()
         self.procmanager = ProcsManager(serial_manager)
         self.procmanager.on_ready(self.isAlgorithmReady)
         self.serial_manager = serial_manager
+
+        parent.on_AppExit(self.AppExithandle)
 
         self.files = dict() #Algorithm File List
         self.algorithm_checkbox = []
@@ -28,6 +30,7 @@ class AlgorithmMultiProcV2(QWidget):
         self.experiment_count = 0
         self.measure_metaData: SensorFrame = None
         self.filehandler: dict = {}
+        self.predictionBuffer = {}
 
         self.algoLayout = AlgorithmRunBox()
         self.initUI()
@@ -161,11 +164,16 @@ class AlgorithmMultiProcV2(QWidget):
         if self.isExperimentStarted and len(self.filehandler) > 0:
             algotype = ALGORITHM_TYPE.from_name(algo_name)
             frame: SensorFrame = data['input']
-            output = data['output']
+            output: AlgorithmData = data['output']
             frame.algorithms = output
             #print('file handler : ',self.filehandler, 'algoname : ',algo_name)
             fh:AlgorithmFileHandler = self.filehandler[algo_name]
             fh.add_frame(frame)
+
+            if frame.measured:
+                if algo_name not in self.predictionBuffer:
+                    self.predictionBuffer[algo_name] = []
+                self.predictionBuffer[algo_name].append(output)
             # print('output -> ',output)
             # print('input -> ',frame)
 
@@ -199,7 +207,7 @@ class AlgorithmMultiProcV2(QWidget):
         label = self.exFileLabel.text().strip()
         scenario_name = self.cbx_scenario.currentText().split(":")[1].split("(")[0].strip()
         scenario_index = self.cbx_scenario.currentData()
-        weights = self.weight_table.getWeights()
+        weights = self.weight_table.getWeights().copy()
         item_text = f"실험 {self.experiment_count} 회차 : {label}_{self.cbx_scenario.currentText()}_{weights}"
         self.experimentList.addItem(item_text)
 
@@ -259,6 +267,34 @@ class AlgorithmMultiProcV2(QWidget):
             self.startMeasureBtn.setEnabled(True)
             self.startMeasureBtn.setText("Start Measure")
             self.stopExperiment()
+
+            # 마지막 항목 수정
+            last_idx = self.experimentList.count() - 1
+            last_item = self.experimentList.item(last_idx)
+            original_text = last_item.text()
+
+            # 실측 무게
+            measured_weight = sum(self.weight_table.getWeights())
+            update_text = f"{original_text}\n--------------------------"
+            update_text += f"\n실측무게 : {measured_weight:.2f}"
+
+            # 알고리즘별 평균 결과 출력
+            for algo_name, data_list in self.predictionBuffer.items():
+                if not data_list:
+                    continue
+                avg_weight = sum(d.predicted_weight for d in data_list) / len(data_list)
+                avg_position = sum(d.position for d in data_list) / len(data_list)
+                avg_error = sum(d.error for d in data_list) / len(data_list)
+                if measured_weight != 0:
+                    error_rate = abs(avg_weight - measured_weight) / measured_weight * 100
+                else:
+                    error_rate = 0.0
+                update_text += f"\n[{algo_name}] 평균예측무게: {avg_weight:.2f} (오차율: {error_rate:.2f}%), 위치: {avg_position:.2f}, 오차: {avg_error:.2f}"
+            update_text += f"\n-----------------------------------------------------------------------------------------\n"
+
+            last_item.setText(update_text)
+            self.experimentList.scrollToBottom()
+            self.predictionBuffer.clear()
 
     #실험을 완전 종료하고 새로운 실험을 시작(파일을 새로 만들고 싶을 때) 실행
     def on_finish_measure(self):
@@ -365,3 +401,6 @@ class AlgorithmMultiProcV2(QWidget):
         self.algoLayout.all_btn.setEnabled(True)
         self.on_finish_measure()
         self.toggleExperimentMenu(False)
+
+    def AppExithandle(self):
+        self.finishAllAlgorithms()
