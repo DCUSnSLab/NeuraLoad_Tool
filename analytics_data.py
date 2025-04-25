@@ -7,6 +7,9 @@ from analytics_data_graph import AnalyticsDataGraph
 class AnalyticsData(QWidget):
     def __init__(self):
         super().__init__()
+        # 경로 설정
+        self.path = './log'
+
         self.file_data = {}
         self.loc = []
 
@@ -83,18 +86,16 @@ class AnalyticsData(QWidget):
 
     # 파일 불러오기
     def load_file(self):
-        # 경로 입력
-        path = r'\\203.250.32.43\SnSlab\자료실\데이터셋\화물 과적 적재 실험 데이터\최신 데이터셋'
-
         self.save_file_log.clear()
 
-        if not os.path.isdir(path):
+        if not os.path.isdir(self.path):
             self.save_file_log.addItem('유효하지 않은 경로')
             return
 
-        for name in os.listdir(path):
-            file_path = os.path.join(name)
-            self.save_file_log.addItem(file_path)
+        for name in os.listdir(self.path):
+            if name.endswith('.bin'):
+                file_path = os.path.join(name)
+                self.save_file_log.addItem(file_path)
 
     def select_file(self):
         self.file_data.clear()
@@ -124,4 +125,4 @@ class AnalyticsData(QWidget):
         if len(self.loc) == 0:
             QMessageBox.warning(self, 'Warning', '확인할 무게 위치를 선택해주세요.')
         else:
-            AnalyticsDataGraph(x, y, self.file_data, self.loc)
+            AnalyticsDataGraph(self.path, x, y, self.file_data, self.loc)

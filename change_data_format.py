@@ -6,6 +6,7 @@ import struct
 
 class ChangeDataFormat:
     def __init__(self):
+        # 경로 설정
         self.path = r"\\203.250.32.43\SnSlab\자료실\데이터셋\화물 과적 적재 실험 데이터\분류된 백업 데이터\1st_experiment_data.yaml"
         self.save_path = r"\\203.250.32.43\SnSlab\자료실\데이터셋\화물 과적 적재 실험 데이터\데이터 형식 변경"
 
