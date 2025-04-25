@@ -8,7 +8,7 @@ from typing import Dict, List, Any, Optional
 
 from Algorithm.algorithmtype import ALGORITHM_TYPE
 from datainfo import SensorFrame, SENSORLOCATION, AlgorithmData
-
+from Algorithm.RefValueGenerator_COG import COGRefValGenerator
 # 상위 디렉토리의 모듈을 import 하기 위한 경로 설정
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -52,58 +52,21 @@ class COGPositionMassEstimation_v2(AlgorithmBase):
     def initAlgorithm(self):
         print('init Algorithm ->', self.name)
 
-    def runAlgo(self) -> AlgorithmData:
-        if self.input_data is None:
-            raise Exception("Input data is None")
-
-        processed = self.preprocess_data(self.input_data)
-        if 'error' in processed:
-            return processed
-
-        deltas = processed['delta_values']
+    def runAlgo(self, algo_data:AlgorithmData) -> AlgorithmData:
+        print("inprocess")
+        deltas = self.preprocess_data(algo_data.referenceValue)
         xCenter, yCenter, zCenter = self.calculate_cog(deltas)
         location, weight = self.estimate_location_weight(xCenter, yCenter, zCenter)
 
-        return AlgorithmData(
-            algo_type=ALGORITHM_TYPE.COGPositionMassEstimation_v2,
-            predicted_weight=weight,
-            error=0,
-            position=location
-        )
+        algo_data.algo_type=ALGORITHM_TYPE.COGPositionMassEstimation_v2
+        algo_data.position = location
+        algo_data.predicted_weight=weight
+        algo_data.error=0
+        return algo_data
 
-    def compute_deltas(self, current_values: List[float]) -> List[float]:
-        if self.initial_laser_values is None:
-            # 유효한 초기값 조건 확인 (-1이나 0이 아닌 경우만)
-            if all(v not in [-1, 0] for v in current_values):
-                self.initial_laser_values = current_values
-                return [0.0] * len(current_values)
-            else:
-                return [0.0] * len(current_values)  # 유효하지 않은 경우 delta 없음
-
-        deltas = [init - curr for curr, init in zip(current_values, self.initial_laser_values)]
-        return deltas
-
-    def preprocess_data(self, frame: SensorFrame) -> Dict[str, Any]:
-        try:
-            laser_values = [
-                frame.get_sensor_data(SENSORLOCATION.TOP_LEFT).distance,
-                frame.get_sensor_data(SENSORLOCATION.BOTTOM_LEFT).distance,
-                frame.get_sensor_data(SENSORLOCATION.TOP_RIGHT).distance,
-                frame.get_sensor_data(SENSORLOCATION.BOTTOM_RIGHT).distance,
-            ]
-        except Exception as e:
-            return {'error': f'센서 데이터 추출 오류: {str(e)}'}
-
-        deltas = self.compute_deltas(laser_values)
-        weighted_deltas = np.array(deltas) * self.sensorWeights
-
-        return {
-            'laser_values': laser_values,
-            'delta_values': weighted_deltas,
-            'timestamp': frame.timestamp,
-            'scenario': frame.get_scenario_name(),
-            'measured': frame.measured
-        }
+    def preprocess_data(self, input_data):
+        weighted_deltas = input_data * self.sensorWeights
+        return weighted_deltas
 
     def calculate_cog(self, deltas: np.ndarray) -> (float, float, float):
         roll = ((deltas[0] + deltas[1]) - (deltas[2] + deltas[3])) / 2860

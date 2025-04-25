@@ -7,6 +7,8 @@ import numpy as np
 from typing import Dict, List, Any, Optional
 
 from Algorithm.algorithmtype import ALGORITHM_TYPE
+from Algorithm.RefValueGenerator import RefValueGenerator
+from Algorithm.RefValueGenerator_COG import COGRefValGenerator
 from datainfo import SensorFrame, SENSORLOCATION, AlgorithmData
 
 # 상위 디렉토리의 모듈을 import 하기 위한 경로 설정
@@ -16,11 +18,13 @@ sys.path.append(parent_dir)
 import datetime
 from AlgorithmInterface import AlgorithmBase  # 상속용 추상 클래스
 
+
 class COGPositionMassEstimation(AlgorithmBase):
     def __init__(self, name: str):
         super().__init__(
             name=name,
-            description="레이저 센서 변화량 기반 roll, pitch로 추정한 COG 좌표로 적재위치 및 무게 추정 알고리즘"
+            description="레이저 센서 변화량 기반 roll, pitch로 추정한 COG 좌표로 적재위치 및 무게 추정 알고리즘",
+            refValGen = COGRefValGenerator()
         )
         self.initCenter = np.array([815, 1430])  # 초기 중심 좌표
         self.loadingBoxWidth = 1630
@@ -41,60 +45,20 @@ class COGPositionMassEstimation(AlgorithmBase):
     def initAlgorithm(self):
         print('init Algorithm ->', self.name)
 
-    def runAlgo(self) -> AlgorithmData:
-        if self.input_data is None:
-            raise Exception("Input data is None")
-
-        processed = self.preprocess_data(self.input_data)
-        if 'error' in processed:
-            return processed
-
-        deltas = processed['delta_values']
+    def runAlgo(self, algo_data:AlgorithmData) -> AlgorithmData:
+        deltas = self.preprocess_data(algo_data.referenceValue)
         roll, pitch = self.calculate_roll_pitch(deltas)
         xCenter, yCenter = self.calculate_cog(roll, pitch)
         location, weight = self.estimate_location_weight(xCenter, yCenter)
-        return AlgorithmData(algo_type=ALGORITHM_TYPE.COGPositionMassEstimation,
-                             predicted_weight=weight,
-                             error=0,
-                             position=location)
-        # return {
-        #     "roll": roll,
-        #     "pitch": pitch,
-        #     "xCenter": xCenter,
-        #     "yCenter": yCenter,
-        #     "location": location,
-        #     "weight": weight
-        # }
+        algo_data.algo_type=ALGORITHM_TYPE.COGPositionMassEstimation
+        algo_data.position = location
+        algo_data.predicted_weight=weight
+        algo_data.error=0
+        return algo_data
 
-    def compute_deltas(self, current_values: List[float]) -> List[float]:
-        if self.initial_laser_values is None:
-            if all(v not in [-1, 0] for v in current_values):
-                self.initial_laser_values = current_values
-            return [0.0] * len(current_values)
-
-        return [init - curr for init, curr in zip(self.initial_laser_values, current_values)]
-
-    def preprocess_data(self, frame: SensorFrame) -> Dict[str, Any]:
-        try:
-            laser_values = [
-                frame.get_sensor_data(SENSORLOCATION.TOP_LEFT).distance,
-                frame.get_sensor_data(SENSORLOCATION.BOTTOM_LEFT).distance,
-                frame.get_sensor_data(SENSORLOCATION.TOP_RIGHT).distance,
-                frame.get_sensor_data(SENSORLOCATION.BOTTOM_RIGHT).distance,
-            ]
-        except Exception as e:
-            return {'error': f'센서 데이터 추출 오류: {str(e)}'}
-
-        deltas = self.compute_deltas(laser_values)
-        weighted_deltas = np.array(deltas) * self.sensorWeights
-
-        return {
-            'laser_values': laser_values,
-            'delta_values': weighted_deltas,
-            'timestamp': frame.timestamp,
-            'scenario': frame.get_scenario_name(),
-            'measured': frame.measured
-        }
+    def preprocess_data(self, input_data):
+        weighted_deltas = input_data * self.sensorWeights
+        return weighted_deltas
 
     def calculate_roll_pitch(self, deltas: np.ndarray) -> (float, float):
         roll = ((deltas[0] + deltas[1]) - (deltas[2] + deltas[3])) / 2860

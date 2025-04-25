@@ -45,6 +45,8 @@ class ProcsManager:
             algo = RandomForestPredictor(algoName.name)
         elif algoName == ALGORITHM_TYPE.COGPositionMassEstimation:
             algo = COGPositionMassEstimation(algoName.name)
+        elif algoName == ALGORITHM_TYPE.COGPositionMassEstimation_v2:
+            algo = COGPositionMassEstimation(algoName.name)
         else:
             return
 

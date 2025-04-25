@@ -39,11 +39,8 @@ class COGMassEstimation(AlgorithmBase):
         self.laser_changes = {i: [] for i in range(4)}
 
     def preprocess_data_new(self, input_data):
-        print("in process")
         vcog, hcog = self.calculate_cog_ratios(input_data)
-        print("v: ", vcog, hcog)
         location = self.determine_loading_position(vcog, hcog)
-        print("location: ", location)
         estimatedWeight = self.calculate_weight_estimation(location, input_data)
         return location, estimatedWeight
 
