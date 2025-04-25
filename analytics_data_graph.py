@@ -1,7 +1,6 @@
 import pyqtgraph as pg
 from PyQt5.QtWidgets import QWidget
 
-
 class AnalyticsDataGraph(QWidget):
     def __init__(self, x, y, file_name, loc):
         super().__init__()

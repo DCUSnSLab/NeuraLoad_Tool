@@ -4,25 +4,20 @@ import os
 
 from analytics_data_graph import AnalyticsDataGraph
 
-class Analytics(QWidget):
+class AnalyticsData(QWidget):
     def __init__(self):
         super().__init__()
         self.file_data = {}
         self.loc = []
 
         self.setupUI()
+        self.load_file()
 
     def setupUI(self):
-        # 파일 업로드 버튼
-        self.upload_btn = QPushButton('Data load', self)
-        self.upload_btn.clicked.connect(self.data_load)
-
         # 로드한 파일 확인 테이블
-        self.save_file_log = QTableWidget()
-        self.save_file_log.setColumnCount(1)
-        self.save_file_log.setHorizontalHeaderLabels(['Saved files'])
-        self.save_file_log.horizontalHeader().setStretchLastSection(True)
-        self.save_file_log.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.save_file_log = QListWidget()
+        self.save_file_log.setSelectionMode(QAbstractItemView.MultiSelection)
+        self.save_file_log.itemSelectionChanged.connect(self.select_file)
 
         # x축 부분 라벨과 콤보 박스
         self.x_text = QLabel('x: ')
@@ -34,14 +29,17 @@ class Analytics(QWidget):
         # y축 부분 라벨과 콤보 박스
         self.y_text = QLabel('y: ')
         self.y_cb = QComboBox()
-        self.y_cb.addItems(['데이터 변화량', '데이터 값'])
+        self.y_cb.addItems(['거리 변화량', '거리값'])
         self.y_cb.adjustSize()
         self.y_cb.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
 
-        # 확인할 무게 위치 설정을 위한 라벨과 입력창
-        self.location_text = QLabel('Location: ')
-        self.location = QLineEdit()
-        self.location.textEdited.connect(self.location_save)
+        self.checkbox = []
+        layout_checkboxtcb = QHBoxLayout()
+        for i in range(1,10):
+            checkbox = QCheckBox(str(i), self)
+            checkbox.stateChanged.connect(self.loc_cb)
+            layout_checkboxtcb.addWidget(checkbox)
+            self.checkbox.append(checkbox)
 
         # 그래프 시작 버튼
         self.start_btn = QPushButton('Start', self)
@@ -49,70 +47,62 @@ class Analytics(QWidget):
 
         # 그래프 공간 임의 제작
         self.graph_space = QLabel()
+        self.graph_space.setMinimumHeight(500)
 
         # gui 배치
-        layout_x = QHBoxLayout()
-        layout_x.addWidget(self.x_text)
-        layout_x.addWidget(self.x_cb)
+        layout_xy = QHBoxLayout()
+        layout_xy.addWidget(self.x_text)
+        layout_xy.addWidget(self.x_cb)
+        layout_xy.addWidget(self.y_text)
+        layout_xy.addWidget(self.y_cb)
 
-        layout_y = QHBoxLayout()
-        layout_y.addWidget(self.y_text)
-        layout_y.addWidget(self.y_cb)
+        layout_group = QGroupBox('무게의 위치 선택')
+        layout_group.setLayout(layout_checkboxtcb)
 
-        layout_loc = QHBoxLayout()
-        layout_loc.addWidget(self.location_text)
-        layout_loc.addWidget(self.location)
+        layout_setting = QVBoxLayout()
+        layout_setting.addLayout(layout_xy)
+        layout_setting.addWidget(layout_group)
+        layout_setting.addWidget(self.start_btn)
 
-        layout1 = QVBoxLayout()
-        layout1.addWidget(self.upload_btn)
+        layout1 = QHBoxLayout()
         layout1.addWidget(self.save_file_log)
-        layout1.addLayout(layout_x)
-        layout1.addLayout(layout_y)
-        layout1.addLayout(layout_loc)
-        layout1.addWidget(self.start_btn)
+        layout1.addSpacing(20)
+        layout1.addLayout(layout_setting)
 
         layout_widget = QWidget()
         layout_widget.setLayout(layout1)
-        layout_widget.setFixedWidth(500)
 
-        layout2 = QHBoxLayout()
-        layout2.addWidget(layout_widget, alignment=Qt.AlignLeft)
-        layout2.addWidget(self.graph_space)
+        splitter = QSplitter(Qt.Vertical)
+        splitter.addWidget(layout_widget)
+        splitter.addWidget(self.graph_space)
+
+        layout2 = QVBoxLayout()
+        layout2.addWidget(splitter)
 
         self.setLayout(layout2)
 
-    # 데이터 업로드
-    def data_load(self):
+    # 파일 불러오기
+    def load_file(self):
+        # 경로 입력
+        path = r'\\203.250.32.43\SnSlab\자료실\데이터셋\화물 과적 적재 실험 데이터\최신 데이터셋'
+
+        self.save_file_log.clear()
+
+        if not os.path.isdir(path):
+            self.save_file_log.addItem('유효하지 않은 경로')
+            return
+
+        for name in os.listdir(path):
+            file_path = os.path.join(name)
+            self.save_file_log.addItem(file_path)
+
+    def select_file(self):
         self.file_data.clear()
+        self.file_data = [item.text() for item in self.save_file_log.selectedItems()]
 
-        options = QFileDialog.Options()
-        files, _ = QFileDialog.getOpenFileNames(self, "Select Files", "", "All Files (*)", options=options)
-
-        if files:
-            for file in files:
-                if file not in self.file_data:
-                    self.file_data[file] = None
-                    self.add_file_log(file)
-
-    # 파일 로그 업로드
-    def add_file_log(self, file):
-        filename = os.path.basename(file)
-
-        row = self.save_file_log.rowCount()
-        self.save_file_log.insertRow(row)
-        self.save_file_log.setItem(row, 0, QTableWidgetItem(filename))
-
-    # 그래프 구현을 위한 무게 위치 선정
-    def location_save(self):
+    def loc_cb(self):
         self.loc.clear()
-        raw_text = self.location.text().strip()
-        texts = [text.strip() for text in raw_text.split(",") if text.strip()]
-
-        for text in texts:
-            if 0 < int(text) < 10:
-                self.loc.append(text)
-            else:
-                QMessageBox.warning(self, 'Warning', '1에서 9까지의 숫자를 입력해주세요.')
+        self.loc = [i for i, cb in enumerate(self.checkbox) if cb.isChecked()]
 
     # 시작 버튼
     def start(self):
@@ -124,14 +114,14 @@ class Analytics(QWidget):
         0 = 데이터 변화량
         1 = 데이터 값
 
-        self.file_data = 업로드한 파일 경로
+        self.file_data = 선택한 파일 경로
         self.loc = 무게 위치 입력 저장
         '''
 
         x = self.x_cb.currentIndex()
         y = self.y_cb.currentIndex()
 
-        if len(self.loc) > 0:
-            AnalyticsDataGraph(x, y, self.file_data, self.loc)
+        if len(self.loc) == 0:
+            QMessageBox.warning(self, 'Warning', '확인할 무게 위치를 선택해주세요.')
         else:
-            QMessageBox.warning(self, 'Warning', '확인할 무게 위치를 입력해주세요.')
+            AnalyticsDataGraph(x, y, self.file_data, self.loc)
