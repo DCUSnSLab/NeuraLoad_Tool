@@ -24,10 +24,10 @@ class ProcsManager:
     def __init__(self, sm):
         self.procs = dict()
         self.sm = sm
-        self.databuf = None
         self.resbuf = dict()
         self.thread = None
         self._ready_handlers = []
+        self.algo_buffers = dict()
 
     def on_ready(self, handler):
         self._ready_handlers.append(handler)
@@ -67,22 +67,55 @@ class ProcsManager:
             val.start(p)
 
             readySig.wait()  # 큐 준비 완료 신호를 보낼때 까지 기다림
-            self.databuf = databufQue.get()
-            self.sm.add_buffer(self.databuf)  # 데이터 큐
-            self.resbuf[val.name] = databufQue.get()  # 결과 큐
+            dataque = databufQue.get()
+            self.addDataBuffer(val.name, dataque)
+            self.sm.add_buffer(dataque)  # 데이터 큐
+            self.addResBuffer(val.name, databufQue.get())  # 결과 큐
 
         self._AlgorithmReady()
+
+    def addDataBuffer(self, name, dataque):
+        if name not in self.algo_buffers:
+            self.algo_buffers[name] = dataque
+
+    def addResBuffer(self, name, dataque):
+        if name not in self.resbuf:
+            self.resbuf[name] = dataque
+
+    def removeDataBuffer(self, name):
+        if name in self.algo_buffers:
+            del self.algo_buffers[name]
+
+    def removeResBuffer(self, name):
+        if name in self.resbuf:
+            del self.resbuf[name]
+
+    def removeSerialManagerBuffer(self, buf):
+        self.sm.remove_buffer(buf)
 
     def getResultBufs(self):
         return self.resbuf
 
-    def terminate(self):
+    def terminate(self, name):
+        if name in self.procs:
+            print(name, "terminated")
+            self._print(name, self.procs[name].getPID())
+            self.procs[name].terminate()
+            del self.procs[name]
+            if name in self.algo_buffers:
+                self.removeDataBuffer(name)
+            if name in self.resbuf:
+                self.removeResBuffer(name)
+
+    def terminateAll(self):
         for val in self.procs.values():
-            print(val,"terminated")
             self._print(val.name, val.getPID())
             val.terminate()
+        for algo_buf in self.algo_buffers.values():
+            self.removeSerialManagerBuffer(algo_buf)
         self.procs.clear()
-        self.sm.remove_buffer(self.databuf)
+        self.resbuf.clear()
+        self.algo_buffers.clear()
 
     def join(self):
         pass
