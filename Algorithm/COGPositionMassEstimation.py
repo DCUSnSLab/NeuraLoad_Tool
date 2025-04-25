@@ -31,13 +31,13 @@ class COGPositionMassEstimation(AlgorithmBase):
             [1499, 365.25],    # TR (Top Right)
             [1241, 2660.75]    # BR (Bottom Right)
         ])
-        self.sensorWeights = np.array([1.0, 0.6, 1.0, 0.6])  # 전방 센서 1.0, 후방 센서 0.6
+        self.sensorWeights = np.array([1.0, 0.45, 1.0, 0.45])  # 전방 센서 1.0, 후방 센서 0.6
         self.initial_laser_values = None
 
         # 위치별 기준 무게중심 좌표
         self.locations = np.arange(1, 10)
-        self.xCenters = np.array([792.7, 813.5, 834.3, 793.7, 814.3, 834.8, 794.9, 815.1, 835.3])
-        self.yCenters = np.array([1417.5, 1430.5, 1443.5, 1456.5, 1469.5, 1482.5, 1495.6, 1508.6, 1521.6])
+        self.xCenters = np.array([792.7024652, 813.5115018, 834.3205383, 793.7948494, 814.3125579, 834.8302664, 794.8872336, 815.1136141, 835.3399946])
+        self.yCenters = np.array([1417.484871, 1416.827084, 1416.169297, 1432.426886, 1432.150094, 1431.873302, 1447.3689, 1447.473104, 1447.577308])
     def initAlgorithm(self):
         print('init Algorithm ->', self.name)
 
@@ -125,8 +125,7 @@ class COGPositionMassEstimation(AlgorithmBase):
             results.append((location, weight, orth_dist))
 
         if not results:
-            return 5, 0.0  # 중심 위치에 가까운 경우 default
-
+            return 5, 0.0
         location, weight, _ = min(results, key=lambda x: x[2])
 
         return location, int(weight)
