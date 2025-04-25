@@ -115,7 +115,7 @@ class AlgorithmMultiProcV2(QWidget):
     def initTimer(self):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.updateData)
-        self.timer.start(50)
+        self.timer.start(1)
 
     def setOutputLabels(self):
         self.clear_layout(self.weight_layout)
