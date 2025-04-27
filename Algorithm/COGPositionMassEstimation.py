@@ -30,10 +30,10 @@ class COGPositionMassEstimation(AlgorithmBase):
         self.loadingBoxWidth = 1630
         self.loadingBoxLength = 2860
         self.sensorCoords = np.array([
-            [131, 440.95],     # TL (Top Left)
-            [389, 2660.75],    # BL (Bottom Left)
-            [1499, 365.25],    # TR (Top Right)
-            [1241, 2660.75]    # BR (Bottom Right)
+            [323.1, 1],  # TL (Top Left)
+            [201, 2516.9],  # BL (Bottom Left)
+            [1306.9, 1],  # TR (Top Right)
+            [1429, 2516.9]  # BR (Bottom Right)
         ])
         self.sensorWeights = np.array([1.0, 0.45, 1.0, 0.45])  # 전방 센서 1.0, 후방 센서 0.6
         self.initial_laser_values = None
@@ -61,8 +61,8 @@ class COGPositionMassEstimation(AlgorithmBase):
         return weighted_deltas
 
     def calculate_roll_pitch(self, deltas: np.ndarray) -> (float, float):
-        roll = ((deltas[0] + deltas[1]) - (deltas[2] + deltas[3])) / 2860
-        pitch = ((deltas[0] + deltas[2]) - (deltas[1] + deltas[3])) / 1630
+        roll = ((deltas[0] - deltas[2]) + (deltas[1] - deltas[3])) / (((self.sensorCoords[3, 0] - self.sensorCoords[1, 0]) + (self.sensorCoords[2, 0] - self.sensorCoords[0, 0])) / 2)
+        pitch = ((deltas[0] - deltas[1]) + (deltas[2] - deltas[3])) / (((self.sensorCoords[3, 1] - self.sensorCoords[2, 1]) + (self.sensorCoords[1, 1] - self.sensorCoords[0, 1])) / 2)
         return roll, pitch
 
     def calculate_cog(self, roll: float, pitch: float) -> (float, float):

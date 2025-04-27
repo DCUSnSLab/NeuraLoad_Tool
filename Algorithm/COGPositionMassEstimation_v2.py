@@ -26,20 +26,20 @@ class COGPositionMassEstimation_v2(AlgorithmBase):
         self.initCenter = np.array([815, 1430, 0])  # 초기 중심 좌표
         self.loadingBoxWidth = 1630
         self.loadingBoxLength = 2860
-        self.sensorCoords = np.array([  # 센서 좌표 정의
-            [131, 440.95],  # TL (Top Left)
-            [389, 2660.75],  # BL (Bottom Left)
-            [1499, 365.25],  # TR (Top Right)
-            [1241, 2660.75]  # BR (Bottom Right)
+        self.sensorCoords = np.array([
+            [323.1, 1],  # TL (Top Left)
+            [201, 2516.9],  # BL (Bottom Left)
+            [1306.9, 1],  # TR (Top Right)
+            [1429, 2516.9]  # BR (Bottom Right)
         ])
         self.sensorWeights = np.array([1.0, 0.45, 1.0, 0.45])  # 전방 센서 1.0, 후방 센서 0.45
         self.initial_laser_values = None
 
         self.locations = np.arange(1, 10)
         # 가중치 전방센서(1), 후방센서(0.45)
-        self.xCenters = np.array([792.7024652, 813.5115018, 834.3205383, 793.7948494, 814.3125579, 834.8302664, 794.8872336, 815.1136141, 835.3399946])
-        self.yCenters = np.array([1417.484871, 1416.827084, 1416.169297, 1432.426886, 1432.150094, 1431.873302, 1447.3689, 1447.473104, 1447.577308])
-        self.zCenters = np.array([13.7453125, 13.66432292, 13.58333333, 14.43411458, 14.38945313, 14.34479167, 15.12291667, 15.11458333, 15.10625])
+        self.xCenters = np.array([794.3329811, 813.9314133, 833.8338401, 791.8779953, 812.5496202, 830.3194796, 795.4399509, 814.2261959, 834.6214622])
+        self.yCenters = np.array([1416.042594, 1416.207189, 1415.538152, 1431.776203, 1429.261099, 1430.5897, 1447.795189, 1446.468957, 1447.492051])
+        self.zCenters = np.array([13.9859375, 15.51666667, 14.2640625, 16.65625, 16.3, 15.884375, 15.31041667, 17.61875, 15.29375])
         #
         # self.sensorWeights = np.array([1.0, 1.0, 1.0, 1.0])  # 전방 센서 1.0, 후방 센서 1.0
         # # 가중치 전방센서(1), 후방센서(1)
@@ -69,8 +69,8 @@ class COGPositionMassEstimation_v2(AlgorithmBase):
         return weighted_deltas
 
     def calculate_cog(self, deltas: np.ndarray) -> (float, float, float):
-        roll = ((deltas[0] + deltas[1]) - (deltas[2] + deltas[3])) / 2860
-        pitch = ((deltas[0] + deltas[2]) - (deltas[1] + deltas[3])) / 1630
+        roll = ((deltas[0] - deltas[2]) + (deltas[1] - deltas[3])) / (((self.sensorCoords[3, 0] - self.sensorCoords[1, 0]) + (self.sensorCoords[2, 0] - self.sensorCoords[0, 0])) / 2)
+        pitch = ((deltas[0] - deltas[1]) + (deltas[2] - deltas[3])) / (((self.sensorCoords[3, 1] - self.sensorCoords[2, 1]) + (self.sensorCoords[1, 1] - self.sensorCoords[0, 1])) / 2)
         x_center = (self.loadingBoxWidth / 2) - roll * (self.loadingBoxWidth / 2)
         y_center = (self.loadingBoxLength / 2) - pitch * (self.loadingBoxLength / 2)
         z_center = (deltas[0] + deltas[1] + deltas[2] + deltas[3]) / 4
