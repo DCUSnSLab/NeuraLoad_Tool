@@ -100,14 +100,14 @@ class AlgorithmData():
                  predicted_weight: int = 0,
                  error: int = 0,
                  position: int = -1,
-                 refVal: List[int] = None):
+                 refVal: List[int] = [0]*4):
         self.algo_type = algo_type
         self.predicted_weight = predicted_weight
         self.error = error
         self.position = position
         self.referenceValue = refVal
 
-    STRUCT_FORMAT_ALGO = '<B H H H 9H'
+    STRUCT_FORMAT_ALGO = '<B h h H 4h'
 
     def pack(self) -> bytes:
         return struct.pack(self.STRUCT_FORMAT_ALGO, self.algo_type.value, self.predicted_weight, self.error, self.position, *self.referenceValue)
