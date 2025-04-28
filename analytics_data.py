@@ -2,7 +2,9 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 import os
 
-from analytics_data_graph import AnalyticsDataGraph
+from analytics_data_organize import AnalyticsDataOrganize
+from analytics_graph import AnalyticsGraph
+
 
 class AnalyticsData(QWidget):
     def __init__(self):
@@ -49,7 +51,7 @@ class AnalyticsData(QWidget):
         self.start_btn.clicked.connect(self.start)
 
         # 그래프 공간 임의 제작
-        self.graph_space = QLabel()
+        self.graph_space = QWidget()
         self.graph_space.setMinimumHeight(500)
 
         # gui 배치
@@ -125,4 +127,9 @@ class AnalyticsData(QWidget):
         if len(self.loc) == 0:
             QMessageBox.warning(self, 'Warning', '확인할 무게 위치를 선택해주세요.')
         else:
-            AnalyticsDataGraph(self.path, x, y, self.file_data, self.loc)
+            organized_data = AnalyticsDataOrganize(self.path, x, y, self.file_data, self.loc)
+
+            graph = AnalyticsGraph(organized_data.total_common)
+
+            graph.setParent(self.graph_space)
+            graph.show()

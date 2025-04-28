@@ -7,7 +7,7 @@ import struct
 class ChangeDataFormat:
     def __init__(self):
         # 경로 설정
-        self.path = r"\\203.250.32.43\SnSlab\자료실\데이터셋\화물 과적 적재 실험 데이터\분류된 백업 데이터\1st_experiment_data.yaml"
+        self.path = r"\\203.250.32.43\SnSlab\자료실\데이터셋\화물 과적 적재 실험 데이터\분류된 백업 데이터\2nd_experiment_data.yaml"
         self.save_path = r"\\203.250.32.43\SnSlab\자료실\데이터셋\화물 과적 적재 실험 데이터\데이터 형식 변경"
 
         self.struct_format = '<d 9H 16s B H H H'
@@ -36,19 +36,23 @@ class ChangeDataFormat:
                 }
 
                 port = port_map.get(port_num)
+                if port is None:
+                    continue
+
                 values_str = port_match.group(2)
                 try:
                     data = int(values_str.split(',')[0])
-                except:
+                except ValueError as e:
+                    print(f"[Error] 변환 실패: {values_str.split(',')[0]} - {e}")
                     continue
 
-            load = re.search(r'load:\s*(\S+)', line)
-            if load:
-                load_value = load.group(1)
+                load = re.search(r'load:\s*(\S+)', line)
+                if load:
+                    load_value = load.group(1)
 
-                if "_" in load_value:
-                    loc, weight = load_value.split('_')
-                    self.data_organise(timestamp, port, data, loc, weight)
+                    if "_" in load_value:
+                        loc, weight = load_value.split('_')
+                        self.data_organise(timestamp, port, data, loc, weight)
 
     def data_organise(self, timestamp, port, data, loc, weight):
         dt = datetime.strptime(timestamp, "%Y-%m-%d %H:%M:%S.%f")
@@ -89,4 +93,3 @@ class ChangeDataFormat:
 
 if __name__ == "__main__":
     ChangeDataFormat()
-    print('저장 완료')
