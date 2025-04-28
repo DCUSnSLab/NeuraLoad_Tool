@@ -88,8 +88,6 @@ class AlgorithmBase(processImpl):
         while True:
             if not self.databuf.empty():
                 data:SensorFrame = self.databuf.get()#print('run algorithm->',self.name,' : ',self.databuf.get())
-                if data.isEoF:
-                    break
                 self.refValueGenerator.calRefValue(data)
                 res = self.execute(data)
                 self.resBuf.put(res)
