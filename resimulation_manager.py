@@ -96,6 +96,7 @@ class ResimulationManager(ProcsManager):
                 datas = self.refBuftoList(val, algo_name)
                 filename = self.filehandler[algo_name]
                 SensorBinaryFileHandler(filename).save_frames(datas)
+        print("End")
 
 
     def refBuftoList(self, val, algo_name):
