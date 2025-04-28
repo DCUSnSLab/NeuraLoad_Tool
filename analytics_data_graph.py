@@ -41,15 +41,16 @@ class AnalyticsDataGraph(QWidget):
 
     def data_select(self, unpacked):
         weight = unpacked[1:10]
-        weight_total = sum(unpacked[1:10])
-        data = [weight_total, unpacked[10], unpacked[13]]
 
         if sum(unpacked[1:10]) == 0:
-            data = [unpacked[10], unpacked[13]]
-            self.group_by_port(data)
+            weight_total = 0
 
         elif all(weight[i] != 0 for i in self.loc):
-            pass
+            weight_total = sum(unpacked[1:10])
+
+        data = [weight_total, unpacked[10], unpacked[13]]
+        self.group_by_port(data)
+
 
     def group_by_port(self, data):
         loc = data[0].decode('utf-8').rstrip('\x00')
