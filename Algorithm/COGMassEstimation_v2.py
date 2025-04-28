@@ -38,104 +38,34 @@ class COGMassEstimation(AlgorithmBase):
         }
         self.laser_changes = {i: [] for i in range(4)}
 
-    def compute_deltas(self, current_values: List[float]) -> List[float]:
-        if not hasattr(self, 'initial_laser_values'):
-            # 유효한 초기값 조건 확인 (-1이나 0이 아닌 경우만)
-            if all(v not in [-1, 0] for v in current_values):
-                self.initial_laser_values = current_values
-                return [0.0] * len(current_values)
-            else:
-                return [0.0] * len(current_values)  # 유효하지 않은 경우 delta 없음
+    def preprocess_data_new(self, input_data):
+        vcog, hcog = self.calculate_cog_ratios(input_data)
+        location = self.determine_loading_position(vcog, hcog)
+        estimatedWeight = self.calculate_weight_estimation(location, input_data)
+        return location, estimatedWeight
 
-        deltas = [
-            init - curr for curr, init in zip(current_values, self.initial_laser_values)
-        ]
-        return deltas
-
-    def preprocess_data_new(self, frame: SensorFrame) -> Dict[str, Any]:
-        # 1. 거리값 추출 (location 순서대로)
-        try:
-            laser_values = [
-                frame.get_sensor_data(SENSORLOCATION.TOP_LEFT).distance,
-                frame.get_sensor_data(SENSORLOCATION.BOTTOM_LEFT).distance,
-                frame.get_sensor_data(SENSORLOCATION.TOP_RIGHT).distance,
-                frame.get_sensor_data(SENSORLOCATION.BOTTOM_RIGHT).distance,
-            ]
-        except Exception as e:
-            return {'error': f'센서 데이터 추출 오류: {str(e)}'}
-
-        # 2. 변화량 계산
-        deltas = self.compute_deltas(laser_values)
-        for idx, change in enumerate(deltas):
-            self.laser_changes[idx] = [change]
-
-        # 3. 모든 포트의 변화량이 준비된 경우
-        if all(len(self.laser_changes[i]) >= 1 for i in range(4)):
-            return {
-                'processed': True,
-                'laser_values': laser_values,
-                'delta_values': deltas,
-                'timestamp': frame.timestamp,
-                'scenario': frame.get_scenario_name(),
-                'measured': frame.measured
-            }
-        else:
-            return {'error': '모든 센서 변화량이 충분하지 않습니다'}
-
-    def preprocess_data(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        if all(k in data for k in ['VCOM1', 'VCOM2', 'VCOM3', 'VCOM4']):
-            laser_values = [
-                data['VCOM1']['value'],
-                data['VCOM2']['value'],
-                data['VCOM3']['value'],
-                data['VCOM4']['value']
-            ]
-            data = {'laser_values': laser_values}
-
-        if 'laser_values' in data and len(data['laser_values']) == 4:
-            deltas = self.compute_deltas(data['laser_values'])
-            for port, change in enumerate(deltas):
-                self.laser_changes[port] = [change]
-
-            if all(len(self.laser_changes[i]) >= 1 for i in range(4)):
-                return {'processed': True, 'laser_values': data['laser_values'], 'delta_values': deltas}
-            else:
-                return {'error': '모든 포트의 변화량이 입력되지 않았습니다'}
-
-        elif 'sensor_values' in data:
-            processed_data = self.process_sensor_data(data['sensor_values'])
-            return processed_data
-
-        return {'error': '알 수 없는 데이터 형식입니다'}
-
-    def calculate_cog_ratios(self):
-        top_left = sum(self.laser_changes[0]) / len(self.laser_changes[0]) if self.laser_changes[0] else 0
-        top_right = sum(self.laser_changes[2]) / len(self.laser_changes[2]) if self.laser_changes[2] else 0
-        bottom_left = sum(self.laser_changes[1]) / len(self.laser_changes[1]) if self.laser_changes[1] else 0
-        bottom_right = sum(self.laser_changes[3]) / len(self.laser_changes[3]) if self.laser_changes[3] else 0
+    def calculate_cog_ratios(self, deltaValues):
+        top_left = deltaValues[0]
+        bottom_left = deltaValues[1]
+        top_right = deltaValues[2]
+        bottom_right = deltaValues[3]
 
         vcog = top_left / (top_left + bottom_left) if (top_left + bottom_left) != 0 else 0
         hcog = top_left / (top_left + top_right) if (top_left + top_right) != 0 else 0
-
         return vcog, hcog
-
-    def determine_loading_position(self):
-        vcog, hcog = self.calculate_cog_ratios()
-
+    def determine_loading_position(self, vcog, hcog):
         if vcog > 0.43:
             vertical = "front"
         elif 0.20 <= vcog <= 0.43:
             vertical = "center"
         else:
             vertical = "rear"
-
         if hcog > 0.65:
             horizontal = "Left"
         elif 0.35 <= hcog <= 0.65:
             horizontal = "Middle"
         else:
             horizontal = "Right"
-
         location_map = {
             "frontLeft": 1,
             "frontMiddle": 2,
@@ -147,42 +77,39 @@ class COGMassEstimation(AlgorithmBase):
             "rearMiddle": 8,
             "rearRight": 9
         }
-
         location_str = vertical + horizontal
         return location_map[location_str]
 
-    def calculate_weight_estimation(self, location):
+    def calculate_weight_estimation(self, location, deltaValues):
+        top_left = deltaValues[0]
+        bottom_left = deltaValues[1]
+        top_right = deltaValues[2]
+        bottom_right = deltaValues[3]
+
         mapping = {
-            1: self.laser_changes[0],  # frontLeft
-            2: [(sum(self.laser_changes[0]) + sum(self.laser_changes[2])) / 2],  # frontMiddle
-            3: self.laser_changes[2],  # frontRight
-            4: [(sum(self.laser_changes[0]) + sum(self.laser_changes[1])) / 2],  # centerLeft
-            5: [(sum(self.laser_changes[0]) + sum(self.laser_changes[1]) +
-                 sum(self.laser_changes[2]) + sum(self.laser_changes[3])) / 4],  # centerMiddle
-            6: [(sum(self.laser_changes[2]) + sum(self.laser_changes[3])) / 2],  # centerRight
-            7: self.laser_changes[1],  # rearLeft
-            8: [(sum(self.laser_changes[1]) + sum(self.laser_changes[3])) / 2],  # rearMiddle
-            9: self.laser_changes[3]  # rearRight
+            1: top_left,  # frontLeft
+            2: [(top_left + top_right) / 2],  # frontMiddle
+            3: top_right,  # frontRight
+            4: [(top_left + bottom_left) / 2],  # centerLeft
+            5: [(top_left + bottom_left + top_right + bottom_right) / 4],  # centerMiddle
+            6: [(top_right + bottom_right) / 2],  # centerRight
+            7: bottom_left,  # rearLeft
+            8: [(bottom_left + bottom_right) / 2],  # rearMiddle
+            9: bottom_right  # rearRight
         }
 
+        # location에 해당하는 mapping이 있을 때
         if location in self.constants and location in mapping:
-            avg = sum(mapping[location]) / len(mapping[location]) if mapping[location] else 0
+            # mapping[location]이 리스트일 경우, 그 리스트의 평균을 구함
+            avg = sum(mapping[location]) / len(mapping[location]) if isinstance(mapping[location], list) else mapping[
+                location]
             closest = min(self.constants[location], key=lambda x: abs(x - avg))
             return self.constants[location].index(closest)
+
         return None
 
     def runAlgo(self, algo_data:AlgorithmData) -> AlgorithmData:
-        #print('in process')
-        if self.input_data is None:
-            raise Exception('input data is None')
-
-        inputdata = self.preprocess_data_new(self.input_data)
-
-        location = self.determine_loading_position()
-        estimated_weight = self.calculate_weight_estimation(location)
-        initial_values = getattr(self, 'initial_laser_values', [0, 0, 0, 0])
-        current_values = inputdata.get('laser_values', [0, 0, 0, 0])
-        recent_deltas = [changes[-1] if changes else 0 for changes in self.laser_changes.values()]
+        location, estimated_weight = self.preprocess_data_new(algo_data.referenceValue)
 
         #insert Algorithm Data
         algo_data.algo_type = ALGORITHM_TYPE.COGMassEstimation
@@ -190,40 +117,7 @@ class COGMassEstimation(AlgorithmBase):
         algo_data.predicted_weight = estimated_weight
         algo_data.error = 0
         return algo_data
-        # return {
-        #     'position': location,
-        #     'weight': estimated_weight,
-        #     'init_values' : initial_values,
-        #     'current_values' : current_values,
-        #     'delta_values': recent_deltas
-        # }
 
     def initAlgorithm(self):
         pass
         #print('init Algorithm -> ', self.name)
-
-
-if __name__ == "__main__":
-    predictor = COGMassEstimation()
-
-    # 첫 번째 입력 → 초기값 세팅
-    new_test_data = {
-        'VCOM3': {'timestamp': '17_40_42_396', 'value': 422, 'sub1': 460, 'sub2': 464, 'Data_port_number': 'VCOM3', 'timestamp_dt': datetime.datetime(2025, 4, 6, 17, 40, 42, 396000)},
-        'VCOM4': {'timestamp': '17_40_42_397', 'value': 455, 'sub1': 455, 'sub2': 479, 'Data_port_number': 'VCOM4', 'timestamp_dt': datetime.datetime(2025, 4, 6, 17, 40, 42, 397000)},
-        'VCOM1': {'timestamp': '17_40_42_399', 'value': 406, 'sub1': 405, 'sub2': 409, 'Data_port_number': 'VCOM1', 'timestamp_dt': datetime.datetime(2025, 4, 6, 17, 40, 42, 399000)},
-        'VCOM2': {'timestamp': '17_40_42_400', 'value': 455, 'sub1': 443, 'sub2': 420, 'Data_port_number': 'VCOM2', 'timestamp_dt': datetime.datetime(2025, 4, 6, 17, 40, 42, 400000)}
-    }
-
-    predictor.execute(new_test_data)
-
-    # 두 번째 입력 → 변화량 생김
-    changed_data = {
-        'VCOM3': {'timestamp': '17_40_42_396', 'value': 390, 'sub1': 460, 'sub2': 464, 'Data_port_number': 'VCOM3', 'timestamp_dt': datetime.datetime(2025, 4, 6, 17, 40, 42, 396000)},
-        'VCOM4': {'timestamp': '17_40_42_397', 'value': 440, 'sub1': 455, 'sub2': 479, 'Data_port_number': 'VCOM4', 'timestamp_dt': datetime.datetime(2025, 4, 6, 17, 40, 42, 397000)},
-        'VCOM1': {'timestamp': '17_40_42_399', 'value': 400, 'sub1': 405, 'sub2': 409, 'Data_port_number': 'VCOM1', 'timestamp_dt': datetime.datetime(2025, 4, 6, 17, 40, 42, 399000)},
-        'VCOM2': {'timestamp': '17_40_42_400', 'value': 459, 'sub1': 443, 'sub2': 420, 'Data_port_number': 'VCOM2', 'timestamp_dt': datetime.datetime(2025, 4, 6, 17, 40, 42, 400000)}
-    }
-
-    result = predictor.execute(changed_data)
-
-    print(result)
