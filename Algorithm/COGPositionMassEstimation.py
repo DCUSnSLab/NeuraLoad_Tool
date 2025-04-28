@@ -1,0 +1,95 @@
+import os
+import sys
+import json
+from scipy.stats import mode
+import time
+import numpy as np
+from typing import Dict, List, Any, Optional
+
+from Algorithm.algorithmtype import ALGORITHM_TYPE
+from Algorithm.RefValueGenerator import RefValueGenerator
+from Algorithm.RefValueGenerator_COG import COGRefValGenerator
+from datainfo import SensorFrame, SENSORLOCATION, AlgorithmData
+
+# 상위 디렉토리의 모듈을 import 하기 위한 경로 설정
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sys.path.append(parent_dir)
+import datetime
+from AlgorithmInterface import AlgorithmBase  # 상속용 추상 클래스
+
+
+class COGPositionMassEstimation(AlgorithmBase):
+    def __init__(self, name: str):
+        super().__init__(
+            name=name,
+            description="레이저 센서 변화량 기반 roll, pitch로 추정한 COG 좌표로 적재위치 및 무게 추정 알고리즘",
+            refValGen = COGRefValGenerator()
+        )
+        self.initCenter = np.array([815, 1430])  # 초기 중심 좌표
+        self.loadingBoxWidth = 1630
+        self.loadingBoxLength = 2860
+        self.sensorCoords = np.array([
+            [323.1, 1],  # TL (Top Left)
+            [201, 2516.9],  # BL (Bottom Left)
+            [1306.9, 1],  # TR (Top Right)
+            [1429, 2516.9]  # BR (Bottom Right)
+        ])
+        self.sensorWeights = np.array([1.0, 0.45, 1.0, 0.45])  # 전방 센서 1.0, 후방 센서 0.6
+        self.initial_laser_values = None
+
+        # 위치별 기준 무게중심 좌표
+        self.locations = np.arange(1, 10)
+        self.xCenters = np.array([792.7024652, 813.5115018, 834.3205383, 793.7948494, 814.3125579, 834.8302664, 794.8872336, 815.1136141, 835.3399946])
+        self.yCenters = np.array([1417.484871, 1416.827084, 1416.169297, 1432.426886, 1432.150094, 1431.873302, 1447.3689, 1447.473104, 1447.577308])
+    def initAlgorithm(self):
+        print('init Algorithm ->', self.name)
+
+    def runAlgo(self, algo_data:AlgorithmData) -> AlgorithmData:
+        deltas = self.preprocess_data(algo_data.referenceValue)
+        roll, pitch = self.calculate_roll_pitch(deltas)
+        xCenter, yCenter = self.calculate_cog(roll, pitch)
+        location, weight = self.estimate_location_weight(xCenter, yCenter)
+        algo_data.algo_type=ALGORITHM_TYPE.COGPositionMassEstimation
+        algo_data.position = location
+        algo_data.predicted_weight=weight
+        algo_data.error=0
+        return algo_data
+
+    def preprocess_data(self, input_data):
+        weighted_deltas = input_data * self.sensorWeights
+        return weighted_deltas
+
+    def calculate_roll_pitch(self, deltas: np.ndarray) -> (float, float):
+        roll = ((deltas[0] - deltas[2]) + (deltas[1] - deltas[3])) / (((self.sensorCoords[3, 0] - self.sensorCoords[1, 0]) + (self.sensorCoords[2, 0] - self.sensorCoords[0, 0])) / 2)
+        pitch = ((deltas[0] - deltas[1]) + (deltas[2] - deltas[3])) / (((self.sensorCoords[3, 1] - self.sensorCoords[2, 1]) + (self.sensorCoords[1, 1] - self.sensorCoords[0, 1])) / 2)
+        return roll, pitch
+
+    def calculate_cog(self, roll: float, pitch: float) -> (float, float):
+        x = (self.loadingBoxWidth / 2) - roll * (self.loadingBoxWidth / 2)
+        y = (self.loadingBoxLength / 2) - pitch * (self.loadingBoxLength / 2)
+        return x, y
+
+    def estimate_location_weight(self, xCenter: float, yCenter: float) -> (int, float):
+        results = []
+        current = np.array([xCenter, yCenter])
+        for i, location in enumerate(self.locations):
+            base = np.array([self.xCenters[i], self.yCenters[i]])
+            direction = base - self.initCenter
+            if np.linalg.norm(direction) == 0:
+                continue
+            to_target = current - self.initCenter
+            projection = np.dot(to_target, direction) / np.linalg.norm(direction)
+            if projection <= 0:
+                continue
+            scale = projection / np.linalg.norm(direction)
+            weight = scale * 500
+            proj_vec = np.dot(to_target, direction / np.linalg.norm(direction)) * (direction / np.linalg.norm(direction))
+            orth_dist = np.linalg.norm(to_target - proj_vec)
+            results.append((location, weight, orth_dist))
+
+        if not results:
+            return 5, 0.0
+        location, weight, _ = min(results, key=lambda x: x[2])
+
+        return location, int(weight)
