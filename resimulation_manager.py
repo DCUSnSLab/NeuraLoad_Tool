@@ -10,6 +10,7 @@ import multiprocessing as mp
 class ResimulThread(QThread):
     finishSignal = pyqtSignal()
     datacallback = pyqtSignal(int, SensorFrame, AlgorithmData)
+    resimcompleteCallback = pyqtSignal(list)
     statuscallback = pyqtSignal(str)
 
     def __init__(self, manager):
@@ -17,6 +18,7 @@ class ResimulThread(QThread):
         self.manager = manager
         self.manager.on_DataProcessed(self.on_dataCallback)
         self.manager.on_Status(self.on_statuscallback)
+        self.manager.on_ResimComp(self.on_ResimCompleteCallback)
 
 
     def on_dataCallback(self, i, sf:SensorFrame, legacy_ad:AlgorithmData = None):
@@ -24,6 +26,9 @@ class ResimulThread(QThread):
 
     def on_statuscallback(self, str):
         self.statuscallback.emit(str)
+
+    def on_ResimCompleteCallback(self, data):
+        self.resimcompleteCallback.emit(data)
 
     def run(self):
         self.manager._start()
@@ -39,17 +44,21 @@ class ResimulationManager(ProcsManager):
         self.filehandler: dict = {}
         self.DataEventHandler = []
         self.statusHandler = []
+        self.ResimCompHandler = []
 
-    def startThread(self, callback=None, datacallback=None):  # callback은 스레드가 작업을 끝내고 실행하는 함수(버튼 활성화)
+    def startThread(self, callback=None, datacallback=None, statuscallback=None, resimcompcallback=None):  # callback은 스레드가 작업을 끝내고 실행하는 함수(버튼 활성화)
         self.thread = ResimulThread(self)
         if callback:
             self.thread.finishSignal.connect(callback)
             self.thread.datacallback.connect(datacallback)
+            self.thread.statuscallback.connect(statuscallback)
+            self.thread.resimcompleteCallback.connect(resimcompcallback)
         self.thread.on_statuscallback('Start Resimulation..')
         self.thread.start()
 
     def _start(self):
         for n, val in self.procs.items():
+            self.thread.on_statuscallback(f'Load Process {n} ...')
             readySig = mp.Event()
             databufQue = mp.Queue()
 
@@ -57,13 +66,17 @@ class ResimulationManager(ProcsManager):
 
             p = mp.Process(name=n, target=val.run)
             val.start(p)
+            self.thread.on_statuscallback(f'Start Process {n} ...')
 
             readySig.wait()  # 큐 준비 완료 신호를 보낼때 까지 기다림
             dataque = databufQue.get()
             self.addDataBuffer(val.name, dataque)  # 데이터 큐
             self.addResBuffer(val.name, databufQue.get())  # 결과 큐
             self.setFileHandler(val.name)
+
+            self.thread.on_statuscallback(f'{n}: Send Sensor Data to Algorithm...')
             datasize = self.sendSensorData()
+            self.thread.on_statuscallback(f'{n}: Save Algorithm Data {self.filehandler[val.name]} ...')
             self.saveDatainFile(datasize)
             self.terminate(val)
 
@@ -79,7 +92,7 @@ class ResimulationManager(ProcsManager):
         self.algo_buffers.clear()
         self.resbuf.clear()
 
-    def getDataFile(self, filepath):
+    def setDataFile(self, filepath):
         self.file = filepath
 
     def load_File(self):
@@ -110,6 +123,7 @@ class ResimulationManager(ProcsManager):
         for algo_name, val in self.resbuf.items():
             if not val.empty():
                 datas = self.refBuftoList(val, algo_name, datasize)
+                self._ResimComplete(datas)
                 filename = self.filehandler[algo_name]
                 SensorBinaryFileHandler(filename).save_frames(datas)
         print("End")
@@ -134,6 +148,13 @@ class ResimulationManager(ProcsManager):
             self._DataProcessed(int(per), sf, legacy_ad)
             i+=1
         return val_list
+
+    def on_ResimComp(self, handle):
+        self.ResimCompHandler.append(handle)
+
+    def _ResimComplete(self, data):
+        for handler in self.ResimCompHandler:
+            handler(data)
 
     def on_DataProcessed(self, handle):
         self.DataEventHandler.append(handle)
