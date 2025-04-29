@@ -110,7 +110,7 @@ class AlgorithmData():
     STRUCT_FORMAT_ALGO = '<B h h H 4h'
 
     def pack(self) -> bytes:
-        return struct.pack(self.STRUCT_FORMAT_ALGO, self.algo_type.value, self.predicted_weight, self.error, self.position, *self.referenceValue)
+        return struct.pack(self.STRUCT_FORMAT_ALGO, self.algo_type.value, int(self.predicted_weight), self.error, self.position, *self.referenceValue)
 
     @classmethod
     def unpack(cls, data: bytes) -> 'AlgorithmData':

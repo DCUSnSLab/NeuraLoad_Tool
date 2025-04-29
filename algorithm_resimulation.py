@@ -4,6 +4,7 @@ from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 
+from GUI_MAEGraph import BarGraphWidget
 from GUI_graph_NR import GraphWidget
 from GUI_progressbar import ProgressWidget
 from datainfo import SensorFrame, AlgorithmData, SensorBinaryFileHandler
@@ -75,6 +76,16 @@ class AlgorithmResimulation(QWidget):
 
         #Graph Widget
         self.graph_widget = GraphWidget(title="Algorithm Output Graph")
+        self.mae_graph_widget = BarGraphWidget(title="MAE Comparison")
+        #self.mse_graph_widget = BarGraphWidget(title="MSE Comparison")
+        self.rmse_graph_widget = BarGraphWidget(title="RMSE Comparison")
+        self.error_graph_widget = BarGraphWidget(title="Error Rate Comparison")
+
+        graph_layout = QHBoxLayout()
+        graph_layout.addWidget(self.graph_widget, stretch=7)  # 그래프 영역 7
+        graph_layout.addWidget(self.mae_graph_widget, stretch=1)  # MAE 그래프 영역 3
+        graph_layout.addWidget(self.rmse_graph_widget, stretch=1)  # RMSE 그래프 영역 3
+        graph_layout.addWidget(self.error_graph_widget, stretch=1)
 
         top_layout = QHBoxLayout()  # 알고리즘, 버튼 박스와 분리를 위한 레이아웃
         top_layout.addWidget(self.toggleBtn)
@@ -86,7 +97,7 @@ class AlgorithmResimulation(QWidget):
         layout1.addLayout(top_layout)
         layout1.addWidget(self.progress_widget)  # Run 버튼 위에 추가
         layout1.addWidget(self.view_only_measured_checkbox)
-        layout1.addWidget(self.graph_widget)
+        layout1.addLayout(graph_layout)
         layout1.addLayout(self.algoLayout)
 
         layout2 = QHBoxLayout()
@@ -127,6 +138,9 @@ class AlgorithmResimulation(QWidget):
                 del self.makedData['Resim Weight']
 
         self.graph_widget.set_data(self.makedData)
+        self.mae_graph_widget.set_data(self.makedData, mode='mae')
+        self.rmse_graph_widget.set_data(self.makedData, mode='rmse')
+        self.error_graph_widget.set_data(self.makedData, mode='error_rate')
 
     def makeResimDatatoGraph(self, data:List[SensorFrame], isMeasured=True):
         algoweight = []
@@ -180,6 +194,7 @@ class AlgorithmResimulation(QWidget):
                                         datacallback=self.setDataProcessed,
                                         statuscallback=self.setStatus,
                                         resimcompcallback=self.setResimComp)
+
 
     def setResimComp(self, data:List[SensorFrame]):
         self.ResimData = data
