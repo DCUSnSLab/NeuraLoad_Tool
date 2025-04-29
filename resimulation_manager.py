@@ -78,7 +78,8 @@ class ResimulationManager(ProcsManager):
             datasize = self.sendSensorData()
             self.thread.on_statuscallback(f'{n}: Save Algorithm Data {self.filehandler[val.name]} ...')
             self.saveDatainFile(datasize)
-            self.terminate(val)
+
+        self.terminateAll()
 
     def finishResimulProc(self, name):
         self.terminate(name)
@@ -86,6 +87,7 @@ class ResimulationManager(ProcsManager):
 
     def terminateAll(self):
         for val in self.procs.values():
+            print('terminated Proc:', end=' ')
             self._print(val.name, val.getPID())
             val.terminate()
         self.procs.clear()
