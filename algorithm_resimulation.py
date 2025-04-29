@@ -2,6 +2,8 @@ from PyQt5.QtCore import QSize
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 
+from GUI_progressbar import ProgressWidget
+from datainfo import SensorFrame, AlgorithmData
 from resimulation_manager import ResimulationManager
 from weight_action import AlgorithmRunBox
 
@@ -55,6 +57,10 @@ class AlgorithmResimulation(QWidget):
         layout = QVBoxLayout()
         layout.addLayout(self.weight_layout)
 
+        #프로그래스바
+        self.progress_widget = ProgressWidget(title="Algorithm Progress")
+        self.progress_widget.set_total(100)
+
         top_layout = QHBoxLayout()  # 알고리즘, 버튼 박스와 분리를 위한 레이아웃
         top_layout.addWidget(self.toggleBtn)
         top_layout.addWidget(self.fileBtn)
@@ -63,6 +69,7 @@ class AlgorithmResimulation(QWidget):
 
         layout1 = QVBoxLayout()
         layout1.addLayout(top_layout)
+        layout1.addWidget(self.progress_widget)  # Run 버튼 위에 추가
         layout1.addLayout(self.algoLayout)
 
         layout2 = QHBoxLayout()
@@ -113,7 +120,10 @@ class AlgorithmResimulation(QWidget):
                     print('select algorithm file -> ',cbx.text(), self.files[cbx.text()])
                     self.resimulManager.addProcess(self.files[cbx.text()])
 
-        self.resimulManager.startThread(callback=self.setBtnforRunAlgorithm)
+        self.resimulManager.startThread(callback=self.setBtnforRunAlgorithm, datacallback=self.setDataProcessed)
+
+    def setDataProcessed(self, progress, sf:SensorFrame, legacy_ad:AlgorithmData):
+        self.progress_widget.set_value(progress)
 
     def setBtnforRunAlgorithm(self):
         self.algoLayout.stop_btn.setEnabled(True)

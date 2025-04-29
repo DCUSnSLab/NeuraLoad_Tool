@@ -9,10 +9,21 @@ import multiprocessing as mp
 
 class ResimulThread(QThread):
     finishSignal = pyqtSignal()
+    datacallback = pyqtSignal(int, SensorFrame, AlgorithmData)
+    statuscallback = pyqtSignal(str)
 
     def __init__(self, manager):
         super().__init__()
         self.manager = manager
+        self.manager.on_DataProcessed(self.on_dataCallback)
+        self.manager.on_Status(self.on_statuscallback)
+
+
+    def on_dataCallback(self, i, sf:SensorFrame, legacy_ad:AlgorithmData = None):
+        self.datacallback.emit(i, sf, legacy_ad)
+
+    def on_statuscallback(self, str):
+        self.statuscallback.emit(str)
 
     def run(self):
         self.manager._start()
@@ -26,11 +37,15 @@ class ResimulationManager(ProcsManager):
         self.file = None
         self.algo_buffers = dict()
         self.filehandler: dict = {}
+        self.DataEventHandler = []
+        self.statusHandler = []
 
-    def startThread(self, callback=None):  # callback은 스레드가 작업을 끝내고 실행하는 함수(버튼 활성화)
+    def startThread(self, callback=None, datacallback=None):  # callback은 스레드가 작업을 끝내고 실행하는 함수(버튼 활성화)
         self.thread = ResimulThread(self)
         if callback:
             self.thread.finishSignal.connect(callback)
+            self.thread.datacallback.connect(datacallback)
+        self.thread.on_statuscallback('Start Resimulation..')
         self.thread.start()
 
     def _start(self):
@@ -48,8 +63,8 @@ class ResimulationManager(ProcsManager):
             self.addDataBuffer(val.name, dataque)  # 데이터 큐
             self.addResBuffer(val.name, databufQue.get())  # 결과 큐
             self.setFileHandler(val.name)
-            self.sendSensorData()
-            self.saveDatainFile()
+            datasize = self.sendSensorData()
+            self.saveDatainFile(datasize)
             self.terminate(val)
 
     def finishResimulProc(self, name):
@@ -89,25 +104,47 @@ class ResimulationManager(ProcsManager):
         for name, algo_buf in self.algo_buffers.items():
             algo_buf.put(SensorFrame(timestamp=None, sensors=None, isEoF=True))
 
+        return len(records)
 
-    def saveDatainFile(self):
+    def saveDatainFile(self, datasize):
         for algo_name, val in self.resbuf.items():
             if not val.empty():
-                datas = self.refBuftoList(val, algo_name)
+                datas = self.refBuftoList(val, algo_name, datasize)
                 filename = self.filehandler[algo_name]
                 SensorBinaryFileHandler(filename).save_frames(datas)
         print("End")
 
 
-    def refBuftoList(self, val, algo_name):
+    def refBuftoList(self, val, algo_name, datasize):
         val_list = []
+        i = 1
         while True:
             data =val.get()
             sf:SensorFrame = data['input']
             ad:AlgorithmData = data['output']
+            legacy_ad = sf.algorithms
             if sf.isEoF:
                 break
             ad.algo_type = ALGORITHM_TYPE.from_name(algo_name)
             sf.algorithms = ad
             val_list.append(sf)
+
+            #cal percentage
+            per = i/datasize*100
+            self._DataProcessed(int(per), sf, legacy_ad)
+            i+=1
         return val_list
+
+    def on_DataProcessed(self, handle):
+        self.DataEventHandler.append(handle)
+
+    def _DataProcessed(self, i, sf:SensorFrame, legacy_ad:AlgorithmData = None):
+        for handler in self.DataEventHandler:
+            handler(i, sf, legacy_ad)
+
+    def on_Status(self, handle):
+        self.statusHandler.append(handle)
+
+    def _StatusChanged(self, str):
+        for handler in self.DataEventHandler:
+            handler(str)
