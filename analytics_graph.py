@@ -4,9 +4,11 @@ import pyqtgraph as pg
 
 
 class AnalyticsGraph(QDockWidget):
-    def __init__(self, data):
-        super().__init__()
+    def __init__(self, data, parent=None):
+        super().__init__(parent)
         self.data = data
+        self.main_window = parent
+
         self.cb_list = []
         self.plot_items = {}
 
@@ -66,3 +68,8 @@ class AnalyticsGraph(QDockWidget):
                     self.plot_items[loc]['plot'].setPen(pg.mkPen(self.plot_items[loc]['color'], width=2))
                 else:
                     self.plot_items[loc]['plot'].setPen(pg.mkPen('black', width=2))
+
+    def close_event(self, event):
+        event.ignore()
+        self.main_window.addDockWidget(Qt.RightDockWidgetArea, self)
+        self.setFloating(False)

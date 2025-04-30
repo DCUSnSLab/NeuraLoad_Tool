@@ -46,6 +46,11 @@ class AnalyticsDataOrganize(QWidget):
                 location = sensor.location.name
                 distance = sensor.distance
 
+                if self.x == 0 and self.y == 0:
+                    # distance_change = previous_distance - distance
+                    pass
+
+
                 if sum(weight) == 0 or all(weight[i] != 0 for i in self.loc):
                     weight_total = sum(weight)
                     data_list = [weight_total, location, distance]

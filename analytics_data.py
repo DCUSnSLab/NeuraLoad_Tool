@@ -51,7 +51,7 @@ class AnalyticsData(QWidget):
         self.start_btn.clicked.connect(self.start)
 
         # 그래프 공간 임의 제작
-        self.graph_space = QWidget()
+        self.graph_space = QMdiArea()
         self.graph_space.setMinimumHeight(500)
 
         # gui 배치
@@ -131,5 +131,8 @@ class AnalyticsData(QWidget):
 
             graph = AnalyticsGraph(organized_data.total_common)
 
-            graph.setParent(self.graph_space)
-            graph.show()
+            subwindow = QMdiSubWindow()
+            subwindow.setWidget(graph)
+
+            self.graph_space.addSubWindow(subwindow)
+            subwindow.show()
