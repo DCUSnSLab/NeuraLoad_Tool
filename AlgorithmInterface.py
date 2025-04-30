@@ -3,6 +3,8 @@ import time
 from enum import Enum
 from typing import Dict, List, Any, Optional
 from time import sleep
+
+from Algorithm.RefValueGenerator import RefValueGenerator
 from datainfo import SensorFrame, AlgorithmData
 from procImpl import processImpl
 
@@ -15,7 +17,11 @@ class AlgorithmBase(processImpl):
     표준화된 인터페이스를 통해 다양한 입력/출력 데이터 처리
     """
 
-    def __init__(self, name: str, description: str = "", model_path: str = ""):
+    def __init__(self, name: str,
+                 description: str = "",
+                 model_path: str = "",
+                 refValGen: RefValueGenerator = RefValueGenerator(),
+                 isResimMode=False):
         super().__init__(name)
         """
         알고리즘 클래스 초기화
@@ -32,10 +38,13 @@ class AlgorithmBase(processImpl):
         self.execution_time = 0
         self.is_running = False
         self.isTerminated = False
+        self.ResimMode = isResimMode
         self.execution_history = []
 
+        self.refValueGenerator = refValGen
+
     @abstractmethod
-    def runAlgo(self) -> AlgorithmData:
+    def runAlgo(self, algo_data:AlgorithmData) -> AlgorithmData:
         """
         알고리즘 주요 처리 로직
 
@@ -81,8 +90,8 @@ class AlgorithmBase(processImpl):
         while True:
             if not self.databuf.empty():
                 data:SensorFrame = self.databuf.get()#print('run algorithm->',self.name,' : ',self.databuf.get())
-                if data.isEoF:
-                    break
+                if data.isEoF is not True:
+                    self.refValueGenerator.calRefValue(data)
                 res = self.execute(data)
                 self.resBuf.put(res)
                 #print('run algorithm->', self.name, ' : ', res)
@@ -104,13 +113,15 @@ class AlgorithmBase(processImpl):
 
                 # 알고리즘 처리
                 if input_data.isEoF is not True:
-                    results = self.runAlgo()
+                    refValue: List[int] = self.refValueGenerator.getRefValue()
+                    algo_data = AlgorithmData(refVal=refValue)
+                    results = self.runAlgo(algo_data)
                 else:
                     results = None
                 # 출력 데이터 설정
-                self.output_data['input'] = self.input_data
+                self.output_data['input'] = input_data
                 self.output_data['output'] = results
-
+                
                 self.execution_time = time.time() - start_time
 
                 # 실행 이력 업데이트
@@ -129,12 +140,8 @@ class AlgorithmBase(processImpl):
             finally:
                 self.is_running = False
 
-    def preprocessing(self):
-        self.refined_data = []
-
-        for key, value in self.data.items():
-            for val in self.input_data:
-                self.refined_data.append(value[str(val)])
+    def calReferenceValue(self, input:SensorFrame) -> List[int]:
+        return [0] * 9
 
     def clear_data(self) -> None:
         """입력 및 출력 데이터 초기화"""
@@ -143,3 +150,6 @@ class AlgorithmBase(processImpl):
 
     def isTerminated(self, isTerminated):
         self.isTerminated = isTerminated
+
+    def setResimMode(self, resimMode):
+        self.ResimMode = resimMode

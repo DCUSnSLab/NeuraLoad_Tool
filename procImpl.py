@@ -47,7 +47,10 @@ class processImpl(metaclass=ABCMeta):
         self.process.join()
 
     def terminate(self):
-        self.process.terminate()
+        if self.process and self.process.is_alive():
+            self.process.terminate()
+        else:
+            print('No Process found')
 
     def run(self):
         self._initialize_buffers()

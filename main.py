@@ -21,6 +21,7 @@ def sync_callback(group):
 class Main(QWidget):
     def __init__(self):
         super().__init__()
+        self._quick_handlers = []
         self.initUI()
 
     def initUI(self):
@@ -33,6 +34,8 @@ class Main(QWidget):
         self.serial_manager.errorSignal.connect(self.showErrorMassage)
         self.serial_manager.start_threads()
 
+        #submit exit handler
+
         wtEx = WeightTable()
         wtAlgo = WeightTable()
 
@@ -41,7 +44,7 @@ class Main(QWidget):
 
         self.tab0 = ExperimentTab(dataManager=self.serial_manager)
         self.tab1 = Experiment(serial_manager=self.serial_manager, wt=wtEx)
-        self.tab2 = AlgorithmMultiProcV2(serial_manager=self.serial_manager, wt=wtAlgo)
+        self.tab2 = AlgorithmMultiProcV2(parent=self, serial_manager=self.serial_manager, wt=wtAlgo)
         self.tab3 = AlgorithmResimulation(serial_manager=self.serial_manager)
         self.tab4 = AnalyticsData()
 
@@ -60,8 +63,36 @@ class Main(QWidget):
         self.resize(2000, 800)
         self.show()
 
+    def on_AppExit(self, handler):
+        self._quick_handlers.append(handler)
+
+    def _AppExit(self):
+        for handler in self._quick_handlers:
+            handler()
+
     def showErrorMassage(self, msg):
         QMessageBox.critical(self, "시리얼 오류", msg)
+
+    def closeEvent(self, event):
+        reply = QMessageBox.question(
+            self,
+            "종료 확인",
+            "프로그램을 종료하시겠습니까?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+
+        if reply == QMessageBox.Yes:
+            print("프로그램 종료 중: 시리얼 스레드 정리 등 정리 작업 수행")
+            #등록된 모든 핸들러에게 종료 시그널 전송
+            self._AppExit()
+            if self.serial_manager:
+                self.serial_manager.stop_threads()  # 필요한 정리 작업이 있다면 이처럼 호출
+
+
+            event.accept()
+        else:
+            event.ignore()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
