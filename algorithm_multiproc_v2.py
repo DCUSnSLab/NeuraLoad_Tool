@@ -115,7 +115,6 @@ class AlgorithmMultiProcV2(QWidget):
     def initTimer(self):
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.updateData)
-        self.timer.start(1)
 
     def setOutputLabels(self):
         self.clear_layout(self.weight_layout)
@@ -346,22 +345,6 @@ class AlgorithmMultiProcV2(QWidget):
             fh.setExperimentInfo(isExperimentStarted=False, isMeasureStarted=False)
         self.isExperimentStarted = False
 
-    def loadAlgorithmFromFile(self):
-        for algo_name in ALGORITHM_TYPE.list_all():
-            self.files[algo_name.name] = algo_name
-            checkbox = QCheckBox(algo_name.name)
-            self.algorithm_checkbox.append(checkbox)
-
-    def loadAlgorithmFromFile_legacy(self):
-        folder = os.path.join(os.getcwd(), 'Algorithm')
-        py_files = [f for f in os.listdir(folder) if f.endswith('.py')]
-
-        for file_name in py_files:
-            full_path = os.path.join(folder, file_name)
-            self.files[file_name] = full_path
-            checkbox = QCheckBox(file_name)
-            self.algorithm_checkbox.append(checkbox)
-
     def run(self):
         if not any(cbx.isChecked() for cbx in self.algorithm_checkbox):
             print('No checkbox selected')
@@ -375,6 +358,7 @@ class AlgorithmMultiProcV2(QWidget):
 
     def runAlgorithm(self):
         self.setOutputLabels()
+        self.timer.start(1)  # 알고리즘 돌릴 때만 타이머가 작동하도록 설정
         for cbx in self.algorithm_checkbox:
             if cbx.isChecked():
                 print('run - ', cbx.text())
@@ -395,6 +379,8 @@ class AlgorithmMultiProcV2(QWidget):
         for weight in self.outputLabels:
             label = self.outputLabels[weight]
             label.setText('-')
+
+        self.timer.stop()
 
         self.algoLayout.stop_btn.setEnabled(False)
         self.algoLayout.start_btn.setEnabled(True)
