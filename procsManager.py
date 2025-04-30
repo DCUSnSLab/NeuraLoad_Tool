@@ -36,7 +36,7 @@ class ProcsManager:
         for handler in self._ready_handlers:
             handler()
 
-    def addProcess(self, algoName):
+    def addProcess(self, algoName, resimMode=False):
         if algoName == ALGORITHM_TYPE.COGMassEstimation:
             algo = COGMassEstimation(algoName.name)
         elif algoName == ALGORITHM_TYPE.MLPPredictor:
@@ -50,6 +50,7 @@ class ProcsManager:
         else:
             return
 
+        algo.setResimMode(resimMode)
         self.procs[algoName.name] = algo
 
     def startThread(self, callback=None):  # callback은 스레드가 작업을 끝내고 실행하는 함수(버튼 활성화)
