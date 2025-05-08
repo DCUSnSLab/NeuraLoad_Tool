@@ -1,8 +1,8 @@
-from collections import defaultdict, Counter
-from PyQt5.QtWidgets import QWidget
+from PyQt5.QtWidgets import *
 from queue import Queue
 
-from analytics_graph import AnalyticsGraph
+from GUI_MAEGraph import BarGraphWidget
+from GUI_graph_NR import GraphWidget
 from datainfo import SensorBinaryFileHandler
 
 
@@ -12,56 +12,49 @@ class AnalyticsAlgoOrganize(QWidget):
         self.file_name = file_name
 
         self.buffer = {}
-        self.total_common = {}
 
         self.open_file()
 
     def open_file(self):
-        count  = 0
         for i in range(len(self.file_name)):
             self.buffer.clear()
             load_data = SensorBinaryFileHandler(self.file_name[i]).load_frames()
-            count += 1
-            self.data_select(load_data, count)
+            self.data_select(load_data)
 
-            self.find_mode()
+            self.graph_init()
 
-    def data_select(self, load_data, count):
+    def data_select(self, load_data):
+        self.buffer['real'] = Queue()
         for data in load_data:
-            for sensor in data.sensors:
-                weight = data.experiment.weights
-                location = sensor.location.name
-                distance = sensor.distance
+            weight = data.experiment.weights
+            weight_total = sum(weight)
 
-                weight_total = sum(weight)
-                data_list = [weight_total, location, distance]
-                self.group_by_port(data_list, count)
+            algo_name = data.algorithms.algo_type.name
+            predicted_weight = data.algorithms.predicted_weight
 
-    def group_by_port(self, data_list, count):
-        weight = data_list[0]
-        loc = data_list[1]
-        value = data_list[2]
+            buffer_name = algo_name
 
-        buffer_name = loc + "_" + str(count)
+            if buffer_name not in self.buffer:
+                self.buffer[buffer_name] = Queue()
 
-        if buffer_name not in self.buffer:
-            self.buffer[buffer_name] = Queue()
+            self.buffer['real'].put(weight_total)
+            self.buffer[buffer_name].put(predicted_weight)
 
-        self.buffer[buffer_name].put((weight, value))
+    def graph_init(self):
+        self.algo_map = {
+            'COGMassEstimation' : 'red',
+            'COGPositionMassEstimation_v2' : 'green'
+        }
 
-    def find_mode(self):
-        data = defaultdict(lambda: defaultdict(list))
+        self.graph_widget = GraphWidget(title="Algorithm Output Graph")
+        self.mae_graph_widget = BarGraphWidget(title="MAE Comparison")
+        self.rmse_graph_widget = BarGraphWidget(title="RMSE Comparison")
+        self.error_graph_widget = BarGraphWidget(title="Error Rate Comparison")
 
-        for loc, q in self.buffer.items():
-            while not q.empty():
-                weight, value = q.get()
-                data[loc][weight].append(value)
+        graph_layout = QHBoxLayout()
+        graph_layout.addWidget(self.graph_widget, stretch=7)
+        graph_layout.addWidget(self.mae_graph_widget, stretch=1)
+        graph_layout.addWidget(self.rmse_graph_widget, stretch=1)
+        graph_layout.addWidget(self.error_graph_widget, stretch=1)
 
-        for loc, weight_dict in data.items():
-            self.total_common[loc] = {}
-            for weight, values in weight_dict.items():
-                counter = Counter(values)
-                most_common_value = counter.most_common(1)[0][0]
-                self.total_common[loc][weight] = most_common_value
-
-        AnalyticsGraph(self.total_common)
+        self.setLayout(graph_layout)

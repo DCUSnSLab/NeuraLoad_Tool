@@ -3,8 +3,6 @@ from PyQt5.QtWidgets import *
 import os
 
 from analytics_algo_organize import AnalyticsAlgoOrganize
-from analytics_graph import AnalyticsGraph
-
 
 class Analytics(QWidget):
     def __init__(self):
@@ -97,10 +95,8 @@ class Analytics(QWidget):
         if self.file_data:
             organized_data = AnalyticsAlgoOrganize(self.file_data)
 
-            graph = AnalyticsGraph(organized_data.total_common)
-
             subwindow = QMdiSubWindow()
-            subwindow.setWidget(graph)
+            subwindow.setWidget(organized_data)
 
             self.graph_space.addSubWindow(subwindow)
             subwindow.show()
