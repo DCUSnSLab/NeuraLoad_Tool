@@ -378,7 +378,7 @@ if __name__ == '__main__':
     # # 파일에 저장
     # handler = SensorBinaryFileHandler('sensor_log.bin')
     # handler.save_frames(frames)
-    handler = AlgorithmFileHandler('COGMassEstimation_asymmetric_left_right_20250424.bin')
+    handler = AlgorithmFileHandler('COGMassEstimation_asymmetric_left_right_20250428.bin')
     # 파일에서 불러오기
     loaded_frames = handler.load_frames()
     handler.export_to_csv('test.csv')
