@@ -97,6 +97,7 @@ class Analytics(QWidget):
 
             subwindow = QMdiSubWindow()
             subwindow.setWidget(organized_data)
+            subwindow.setWindowTitle(str(self.file_data))
 
             self.graph_space.addSubWindow(subwindow)
             subwindow.show()
