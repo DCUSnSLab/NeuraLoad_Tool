@@ -42,7 +42,8 @@ class COGPositionMassEstimation_v2(AlgorithmBase):
         self.yCenters = np.array([1416.042594, 1416.207189, 1415.538152, 1431.776203, 1429.261099, 1430.5897, 1447.795189, 1446.468957, 1447.492051])
         self.zCenters = np.array([13.9859375, 15.51666667, 14.2640625, 16.65625, 16.3, 15.884375, 15.31041667, 17.61875, 15.29375])
         self.deltas = {i: [] for i in range(4)}
-
+        self.alpha = 0.2
+        self.previous_values = None
         #
         # self.sensorWeights = np.array([1.0, 1.0, 1.0, 1.0])  # 전방 센서 1.0, 후방 센서 1.0
         # # 가중치 전방센서(1), 후방센서(1)
@@ -65,6 +66,18 @@ class COGPositionMassEstimation_v2(AlgorithmBase):
         algo_data.error = 0
         return algo_data
 
+    def apply_lowpass_filter(self, current_values: List[float]) -> List[float]:
+        if self.previous_values is None:
+            self.previous_values = current_values
+            return current_values
+
+        filtered = [
+            self.alpha * current_value + (1 - self.alpha) * prev_value
+            for current_value, prev_value in zip(current_values, self.previous_values)
+        ]
+        self.previous_values = filtered
+        return filtered
+
     def compute_deltas(self, current_values: List[float], init_value: List[float]) -> List[float]:
         deltas = [
             init - curr for curr, init in zip(current_values, init_value)
@@ -84,13 +97,14 @@ class COGPositionMassEstimation_v2(AlgorithmBase):
 
         deltas = self.compute_deltas(laser_values, init_value)
         weighted_deltas = np.array(deltas) * self.sensorWeights
+        filtered_deltas = self.apply_lowpass_filter(weighted_deltas)
         for idx, change in enumerate(deltas):
             self.deltas[idx] = [change]
 
         return {
             'processed': True,
             'laser_values': laser_values,
-            'weighted_deltas': weighted_deltas.tolist(),
+            'weighted_deltas': filtered_deltas,
             'timestamp': frame.timestamp,
             'scenario': frame.get_scenario_name(),
             'measured': frame.measured
@@ -106,27 +120,71 @@ class COGPositionMassEstimation_v2(AlgorithmBase):
         return x_center, y_center, z_center
 
     def estimate_location_weight(self, xCenter: float, yCenter: float, zCenter: float) -> (int, float):
-        results = []
         current = np.array([xCenter, yCenter, zCenter])
+        distances = []
+
         for i, location in enumerate(self.locations):
             base = np.array([self.xCenters[i], self.yCenters[i], self.zCenters[i]])
-            direction = base - self.initCenter
-            if np.linalg.norm(direction) == 0:
-                continue
-            to_target = current - self.initCenter
-            projection_length = np.dot(to_target, direction) / np.linalg.norm(direction)
-            if projection_length <= 0:
-                continue
-            scale = projection_length / np.linalg.norm(direction)
-            weight = scale * 500  # max weight 기준
-            direction_unit = direction / np.linalg.norm(direction)
-            proj_vec = projection_length * direction_unit
-            orth_dist = np.linalg.norm(to_target - proj_vec)
-            results.append((location, weight, orth_dist))
+            dist = np.linalg.norm(current - base)
+            distances.append((i, dist))
 
-        if not results:
-            print(f"[WARNING] estimate_location_weight: No valid projections for ({xCenter:.2f}, {yCenter:.2f}, {zCenter:.2f})")
-            return -1, -1.0
+        closest_idx, _ = min(distances, key=lambda x: x[1])
+        closest_location = self.locations[closest_idx]
+        ref_z = self.zCenters[closest_idx]
 
-        location, weight, _ = min(results, key=lambda x: x[2])
-        return location, int(weight)
+        if ref_z == 0:
+            weight = 0.0
+        else:
+            # 선형 비례식 (z=0 기준)
+            ratio = (zCenter - 0) / (ref_z - 0)
+            weight = ratio * 500
+
+        return closest_location, int(round(weight))
+
+
+    # def estimate_location_weight(self, xCenter: float, yCenter: float, zCenter: float) -> (int, float):
+    #     current = np.array([xCenter, yCenter, zCenter])
+    #     distances = []
+    #
+    #     for i, location in enumerate(self.locations):
+    #         base = np.array([self.xCenters[i], self.yCenters[i], self.zCenters[i]])
+    #         dist = np.linalg.norm(current - base)
+    #         distances.append((i, dist))
+    #
+    #     closest_idx, _ = min(distances, key=lambda x: x[1])
+    #     closest_location = self.locations[closest_idx]
+    #     ref_z = self.zCenters[closest_idx]
+    #
+    #     if ref_z == 0:
+    #         weight = 0.0
+    #     else:
+    #         scale = zCenter / ref_z
+    #         weight = scale * 500
+    #
+    #     return closest_location, int(round(weight))
+
+    # def estimate_location_weight(self, xCenter: float, yCenter: float, zCenter: float) -> (int, float):
+    #     results = []
+    #     current = np.array([xCenter, yCenter, zCenter])
+    #     for i, location in enumerate(self.locations):
+    #         base = np.array([self.xCenters[i], self.yCenters[i], self.zCenters[i]])
+    #         direction = base - self.initCenter
+    #         if np.linalg.norm(direction) == 0:
+    #             continue
+    #         to_target = current - self.initCenter
+    #         projection_length = np.dot(to_target, direction) / np.linalg.norm(direction)
+    #         if projection_length <= 0:
+    #             continue
+    #         scale = projection_length / np.linalg.norm(direction)
+    #         weight = scale * 500  # max weight 기준
+    #         direction_unit = direction / np.linalg.norm(direction)
+    #         proj_vec = projection_length * direction_unit
+    #         orth_dist = np.linalg.norm(to_target - proj_vec)
+    #         results.append((location, weight, orth_dist))
+    #
+    #     if not results:
+    #         print(f"[WARNING] estimate_location_weight: No valid projections for ({xCenter:.2f}, {yCenter:.2f}, {zCenter:.2f})")
+    #         return location, 0
+    #
+    #     location, weight, _ = min(results, key=lambda x: x[2])
+    #     return location, int(weight)
