@@ -53,12 +53,11 @@ class COGPositionMassEstimation_v3(AlgorithmBase):
     def initAlgorithm(self):
         print('init Algorithm ->', self.name)
 
-    def runAlgo(self, algo_data:AlgorithmData) -> AlgorithmData:
+    def runAlgo(self, algo_data: AlgorithmData) -> AlgorithmData:
         deltas = self.preprocess_data(self.input_data, algo_data.referenceValue)
         xCenter, yCenter, zCenter = self.calculate_cog(deltas)
         location, weight = self.estimate_location_weight(xCenter, yCenter, zCenter)
-
-        algo_data.algo_type = ALGORITHM_TYPE.COGPositionMassEstimation_v2
+        algo_data.algo_type = ALGORITHM_TYPE.COGPositionMassEstimation_v3
         algo_data.position = location
         algo_data.predicted_weight = weight
         algo_data.error = 0
@@ -113,68 +112,109 @@ class COGPositionMassEstimation_v3(AlgorithmBase):
         deltas = deltas['deltas']
         roll = ((deltas[0] - deltas[2]) + (deltas[1] - deltas[3])) / (((self.sensorCoords[3, 0] - self.sensorCoords[1, 0]) + (self.sensorCoords[2, 0] - self.sensorCoords[0, 0])) / 2)
         pitch = ((deltas[0] - deltas[1]) + (deltas[2] - deltas[3])) / (((self.sensorCoords[3, 1] - self.sensorCoords[2, 1]) + (self.sensorCoords[1, 1] - self.sensorCoords[0, 1])) / 2)
-        print(f"roll: {roll}, pitch: {pitch}")
         x_center = (self.loadingBoxWidth / 2) - roll * (self.loadingBoxWidth / 2)
         y_center = (self.loadingBoxLength / 2) - pitch * (self.loadingBoxLength / 2)
         z_center = (deltas[0] + deltas[1] + deltas[2] + deltas[3]) / 4
         return x_center, y_center, z_center
 
-    def estimate_location_weight(self, xCenter: float, yCenter: float, zCenter: float) -> (int, float):
-        results = []
+    def estimate_location(self, xCenter: float, yCenter: float):
+        if xCenter == self.xCenters[4] and yCenter == self.yCenters[4]:  # 5번 위치일 경우
+            return [(0, 5, 4)]  # 5번 위치를 바로 반환
+
         distances = []
-
-        # zCenter만 사용해서 거리 계산 (z축 차이만 고려)
         for i, location in enumerate(self.locations):
-            base_z = self.zCenters[i]
-            dist = abs(zCenter - base_z)
+            if location == 5:  # 5번 위치는 제외
+                continue
+            x, y = self.xCenters[i], self.yCenters[i]
+            dist = ((x - xCenter) ** 2 + (y - yCenter) ** 2) ** 0.5
             distances.append((dist, location, i))
-
         distances.sort(key=lambda x: x[0])
-        locations = distances[:2]
+        return distances[:2]
 
-        total_distance = locations[0][0] + locations[1][0]
-        if total_distance == 0:
+    def estimate_weight(self, zCenter: float, i1: int, i2: int, ratio1: float, ratio2: float):
+        dz = zCenter - self.initCenter[2]
+        direction_z1 = self.zCenters[i1] - self.initCenter[2]
+        direction_z2 = self.zCenters[i2] - self.initCenter[2]
+        weights = []
+        if direction_z1 != 0:
+            scale1 = dz / direction_z1
+            if scale1 > 0:
+                weights.append(ratio2 * scale1 * 500)
+        if direction_z2 != 0:
+            scale2 = dz / direction_z2
+            if scale2 > 0:
+                weights.append(ratio1 * scale2 * 500)
+        print(f"zCenter: {zCenter}, zCenter-zMin: {dz} l1_zMax-zMin: {direction_z1}, l2_zMax-zMin: {direction_z2} ||| location1: {i1+1},scale1: {scale1}, ratio1: {ratio1}, scale1_w: {scale1*500} ||| location2: {i2+1}, scale2: {scale2}, scale2_w: {scale2*500}, ratio2: {ratio2} ||| weight: {weights}, total_weight: {sum(weights)}")
+        return sum(weights) if weights else 0
+
+    def estimate_location_weight(self, xCenter: float, yCenter: float, zCenter: float) -> (int, float):
+        locations = self.estimate_location(xCenter, yCenter)
+        (d1, loc1, i1), (d2, loc2, i2) = locations
+        total_dist = d1 + d2
+
+        if total_dist == 0:
             ratio1 = ratio2 = 0.5
         else:
-            ratio1 = locations[0][0] / total_distance
-            ratio2 = locations[1][0] / total_distance
+            ratio1 = d1 / total_dist
+            ratio2 = d2 / total_dist
 
-        location_candidates = []
-        for _, location, i in locations:
-            base_z = self.zCenters[i]
-            dz = zCenter - self.initCenter[2]
-            direction_z = base_z - self.initCenter[2]
+        weight = self.estimate_weight(zCenter, i1, i2, ratio1, ratio2)
+        return loc1, int(weight)
 
-            if direction_z == 0:
-                continue
-
-            scale = dz / direction_z
-            if scale <= 0:
-                continue
-
-            weight = scale * 500
-            location_candidates.append({
-                "location": location,
-                "weight": weight
-            })
-
-        if len(location_candidates) < 1:
-            print(f"[ERROR] No valid results to calculate weight.")
-            return locations[0][1], 0
-
-        if len(location_candidates) == 1:
-            total_weight = location_candidates[0]["weight"]
-        else:
-            weight1 = location_candidates[0]["weight"] * ratio2
-            weight2 = location_candidates[1]["weight"] * ratio1
-            print("valid_candidates[0]: ", location_candidates[0]["location"], "valid_candidates[1]: ",
-                  location_candidates[1]["location"])
-            total_weight = weight1 + weight2
-            print(f"weight1: {weight1}, weight2: {weight2}, total_weight: {total_weight}")
-
-        location = locations[0][1]
-        print("select_location: ", location)
-        return location, int(total_weight)
+    # def estimate_location_weight(self, xCenter: float, yCenter: float, zCenter: float) -> (int, float):
+    #     results = []
+    #     distances = []
+    #
+    #     # zCenter만 사용해서 거리 계산 (z축 차이만 고려)
+    #     for i, location in enumerate(self.locations):
+    #         base_z = self.zCenters[i]
+    #         dist = abs(zCenter - base_z)
+    #         distances.append((dist, location, i))
+    #
+    #     distances.sort(key=lambda x: x[0])
+    #     locations = distances[:2]
+    #
+    #     total_distance = locations[0][0] + locations[1][0]
+    #     if total_distance == 0:
+    #         ratio1 = ratio2 = 0.5
+    #     else:
+    #         ratio1 = locations[0][0] / total_distance
+    #         ratio2 = locations[1][0] / total_distance
+    #
+    #     location_candidates = []
+    #     for _, location, i in locations:
+    #         base_z = self.zCenters[i]
+    #         dz = zCenter - self.initCenter[2]
+    #         direction_z = base_z - self.initCenter[2]
+    #
+    #         if direction_z == 0:
+    #             continue
+    #
+    #         scale = dz / direction_z
+    #         if scale <= 0:
+    #             continue
+    #
+    #         weight = scale * 500
+    #         location_candidates.append({
+    #             "location": location,
+    #             "weight": weight
+    #         })
+    #
+    #     if len(location_candidates) < 1:
+    #         print(f"[ERROR] No valid results to calculate weight.")
+    #         return locations[0][1], 0
+    #
+    #     if len(location_candidates) == 1:
+    #         total_weight = location_candidates[0]["weight"]
+    #     else:
+    #         weight1 = location_candidates[0]["weight"] * ratio2
+    #         weight2 = location_candidates[1]["weight"] * ratio1
+    #         print("valid_candidates[0]: ", location_candidates[0]["location"], "valid_candidates[1]: ", location_candidates[1]["location"], "location_candidates[0].w: ", location_candidates[0]["weight"], "location_candidates[1].w: ", location_candidates[1]["weight"], "ratio1: ", ratio1, "ratio2 :", ratio2)
+    #         total_weight = weight1 + weight2
+    #         print(f"weight1: {weight1}, weight2: {weight2}, total_weight: {total_weight}")
+    #
+    #     location = locations[0][1]
+    #     return location, int(total_weight)
 
     # def estimate_location_weight(self, xCenter: float, yCenter: float, zCenter: float) -> (int, float):
     #     results = []
