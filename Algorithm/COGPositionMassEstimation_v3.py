@@ -83,12 +83,21 @@ class COGPositionMassEstimation_v3(AlgorithmBase):
 
     def preprocess_data(self, frame: SensorFrame, init_value: List[float]) -> Dict[str, Any]:
         try:
-            laser_values = [
-                frame.get_sensor_data(SENSORLOCATION.TOP_LEFT).distance,
-                frame.get_sensor_data(SENSORLOCATION.BOTTOM_LEFT).distance,
-                frame.get_sensor_data(SENSORLOCATION.TOP_RIGHT).distance,
-                frame.get_sensor_data(SENSORLOCATION.BOTTOM_RIGHT).distance,
-            ]
+            laser_values = [0,0,0,0]
+            for i in range(4):
+                laser_values[i] = frame.get_sensor_data(SENSORLOCATION.get_sensor_location(i)).distance
+            # laser_values = [
+            #     frame.get_sensor_data(SENSORLOCATION.TOP_LEFT).distance, # 2번
+            #     frame.get_sensor_data(SENSORLOCATION.BOTTOM_LEFT).distance, # 4번
+            #     frame.get_sensor_data(SENSORLOCATION.TOP_RIGHT).distance, # 3번
+            #     frame.get_sensor_data(SENSORLOCATION.BOTTOM_RIGHT).distance, # 1번
+            # ]
+            # print('------------------------------------------------------')
+            # print("laser_values:", laser_values)
+            # print(frame.get_sensor_data(SENSORLOCATION.TOP_LEFT))
+            # print(frame.get_sensor_data(SENSORLOCATION.BOTTOM_LEFT))
+            # print(frame.get_sensor_data(SENSORLOCATION.TOP_RIGHT))
+            # print(frame.get_sensor_data(SENSORLOCATION.BOTTOM_RIGHT))
         except Exception as e:
             return {'error': f'센서 데이터 추출 오류: {str(e)}'}
 
@@ -144,7 +153,7 @@ class COGPositionMassEstimation_v3(AlgorithmBase):
             scale2 = dz / direction_z2
             if scale2 > 0:
                 weights.append(ratio1 * scale2 * 500)
-        print(f"zCenter: {zCenter}, zCenter-zMin: {dz} l1_zMax-zMin: {direction_z1}, l2_zMax-zMin: {direction_z2} ||| location1: {i1+1},scale1: {scale1}, ratio1: {ratio1}, scale1_w: {scale1*500} ||| location2: {i2+1}, scale2: {scale2}, scale2_w: {scale2*500}, ratio2: {ratio2} ||| weight: {weights}, total_weight: {sum(weights)}")
+        # print(f"zCenter: {zCenter}, zCenter-zMin: {dz} l1_zMax-zMin: {direction_z1}, l2_zMax-zMin: {direction_z2} ||| location1: {i1+1},scale1: {scale1}, ratio1: {ratio1}, scale1_w: {scale1*500} ||| location2: {i2+1}, scale2: {scale2}, scale2_w: {scale2*500}, ratio2: {ratio2} ||| weight: {weights}, total_weight: {sum(weights)}")
         return sum(weights) if weights else 0
 
     def estimate_location_weight(self, xCenter: float, yCenter: float, zCenter: float) -> (int, float):
@@ -160,115 +169,3 @@ class COGPositionMassEstimation_v3(AlgorithmBase):
 
         weight = self.estimate_weight(zCenter, i1, i2, ratio1, ratio2)
         return loc1, int(weight)
-
-    # def estimate_location_weight(self, xCenter: float, yCenter: float, zCenter: float) -> (int, float):
-    #     results = []
-    #     distances = []
-    #
-    #     # zCenter만 사용해서 거리 계산 (z축 차이만 고려)
-    #     for i, location in enumerate(self.locations):
-    #         base_z = self.zCenters[i]
-    #         dist = abs(zCenter - base_z)
-    #         distances.append((dist, location, i))
-    #
-    #     distances.sort(key=lambda x: x[0])
-    #     locations = distances[:2]
-    #
-    #     total_distance = locations[0][0] + locations[1][0]
-    #     if total_distance == 0:
-    #         ratio1 = ratio2 = 0.5
-    #     else:
-    #         ratio1 = locations[0][0] / total_distance
-    #         ratio2 = locations[1][0] / total_distance
-    #
-    #     location_candidates = []
-    #     for _, location, i in locations:
-    #         base_z = self.zCenters[i]
-    #         dz = zCenter - self.initCenter[2]
-    #         direction_z = base_z - self.initCenter[2]
-    #
-    #         if direction_z == 0:
-    #             continue
-    #
-    #         scale = dz / direction_z
-    #         if scale <= 0:
-    #             continue
-    #
-    #         weight = scale * 500
-    #         location_candidates.append({
-    #             "location": location,
-    #             "weight": weight
-    #         })
-    #
-    #     if len(location_candidates) < 1:
-    #         print(f"[ERROR] No valid results to calculate weight.")
-    #         return locations[0][1], 0
-    #
-    #     if len(location_candidates) == 1:
-    #         total_weight = location_candidates[0]["weight"]
-    #     else:
-    #         weight1 = location_candidates[0]["weight"] * ratio2
-    #         weight2 = location_candidates[1]["weight"] * ratio1
-    #         print("valid_candidates[0]: ", location_candidates[0]["location"], "valid_candidates[1]: ", location_candidates[1]["location"], "location_candidates[0].w: ", location_candidates[0]["weight"], "location_candidates[1].w: ", location_candidates[1]["weight"], "ratio1: ", ratio1, "ratio2 :", ratio2)
-    #         total_weight = weight1 + weight2
-    #         print(f"weight1: {weight1}, weight2: {weight2}, total_weight: {total_weight}")
-    #
-    #     location = locations[0][1]
-    #     return location, int(total_weight)
-
-    # def estimate_location_weight(self, xCenter: float, yCenter: float, zCenter: float) -> (int, float):
-    #     results = []
-    #     current = np.array([xCenter, yCenter, zCenter])  # 3D 좌표
-    #     distances = []
-    #
-    #     # 각 위치에 대해 거리 계산
-    #     for i, location in enumerate(self.locations):
-    #         base = np.array([self.xCenters[i], self.yCenters[i], self.zCenters[i]])  # 3D 위치
-    #         dist = np.linalg.norm(current - base)  # 3D 거리 계산
-    #         distances.append((dist, location, i))
-    #
-    #     distances.sort(key=lambda x: x[0])
-    #     locations = distances[:2]
-    #
-    #     total_distance = locations[0][0] + locations[1][0]
-    #     ratio1 = locations[0][0] / total_distance
-    #     ratio2 = locations[1][0] / total_distance
-    #
-    #     location_candidates = []
-    #     for _, location, i in locations:
-    #         base = np.array([self.xCenters[i], self.yCenters[i], self.zCenters[i]])  # 3D 위치
-    #         direction = base - self.initCenter  # 3D 방향 벡터
-    #         if np.linalg.norm(direction) == 0:
-    #             continue
-    #         to_target = current - self.initCenter  # 3D 타겟 벡터
-    #         projection_length = np.dot(to_target, direction) / np.linalg.norm(direction)
-    #         if projection_length <= 0:
-    #             continue
-    #         scale = projection_length / np.linalg.norm(direction)
-    #         weight = scale * 500
-    #         direction_unit = direction / np.linalg.norm(direction)
-    #         proj_vec = projection_length * direction_unit
-    #         orth_dist = np.linalg.norm(to_target - proj_vec)
-    #
-    #         location_candidates.append({
-    #             "location": location,
-    #             "weight": weight,
-    #             "orth_dist": orth_dist
-    #         })
-    #
-    #     if len(location_candidates) < 1:
-    #         print(f"[ERROR] No valid results to calculate weight.")
-    #         return location, 0
-    #
-    #     # 비율을 곱한 후 weight 합산
-    #     if len(location_candidates) == 1:
-    #         total_weight = location_candidates[0]["weight"]
-    #     else:
-    #         weight1 = location_candidates[0]["weight"] * ratio2
-    #         weight2 = location_candidates[1]["weight"] * ratio1
-    #         print("valid_candidates[0]: ", location_candidates[0]["location"], "valid_candidates[1]: ", location_candidates[1]["location"])
-    #         total_weight = weight1 + weight2
-    #         print(f"weight1: {weight1}, weight2: {weight2}, total_weight: {total_weight}")
-    #     location = locations[0][1]
-    #     print("select_location: ", location)
-    #     return location, int(total_weight)

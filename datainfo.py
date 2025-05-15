@@ -148,12 +148,15 @@ SCENARIO_TYPE_MAP = {
         "description": "전방부터 순차 적재"
     },
     3: {
-        "name": "asymmetric_left_right",
-        "description": "좌우 비대칭 적재"
+        "name": "asymmetric_left",
+        "description": "좌측 비대칭 적재"
     },
     4: {
         "name": "symmetric_front",
         "description": "전방 대칭 적재"
+    },
+    5: {"name": "asymmetric_right",
+        "description": "우측 비대칭 적재"
     }
 }
 
@@ -378,10 +381,10 @@ if __name__ == '__main__':
     # # 파일에 저장
     # handler = SensorBinaryFileHandler('sensor_log.bin')
     # handler.save_frames(frames)
-    handler = AlgorithmFileHandler('COGMassEstimation_asymmetric_left_right_20250424.bin')
+    handler = AlgorithmFileHandler('COGPositionMassEstimation_v3_vertical_center_20250515.bin')
     # 파일에서 불러오기
     loaded_frames = handler.load_frames()
-    handler.export_to_csv('test.csv')
+    handler.export_to_csv('COGPositionMassEstimation_v3_vertical_center_20250515.csv')
     # 출력
     for idx, f in enumerate(loaded_frames):
         print(f"\n[Frame {idx}] timestamp={f.timestamp}, expStarted={f.started}, isMeasured={f.measured}, scenario={f.get_scenario_name()}, experiment={f.experiment}, algorithms={f.algorithms}")

@@ -131,6 +131,7 @@ class Sensor(QThread):
         timestamp = datetime.datetime.now()
 
         try:
+            #print('Sensor port : ',self.port, location)
             sensor_data = SensorData(
                 timestamp=timestamp,
                 serial_port=self.port,
@@ -139,6 +140,7 @@ class Sensor(QThread):
                 intensity=intensity,
                 temperature=temperature
             )
+            #print('-> sensor data : ', sensor_data)
             self.databuf.put(sensor_data)
             return sensor_data
         except Exception as e:
@@ -310,7 +312,12 @@ class SerialManager(QObject):
             if not all(self.buffers[port] for port in self.ports):
                 return
 
-            candidate_list = [self.buffers[port][0] for port in self.ports]
+            #candidate_list = [self.buffers[port][0] for port in self.ports]
+            candidate_list = [0,0,0,0]
+            for port in self.ports:
+                bdata: SensorData = self.buffers[port][0]
+                idx = bdata.location.value
+                candidate_list[idx] = bdata
             times = [obj.timestamp for obj in candidate_list]
             min_time, max_time = min(times), max(times)
 
