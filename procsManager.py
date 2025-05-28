@@ -4,6 +4,10 @@ from Algorithm.COGMassEstimation_v2 import COGMassEstimation
 from Algorithm.MLPPredictor import KerasMLPPredictor
 from Algorithm.RandomForestPredictor import RandomForestPredictor
 from Algorithm.COGPositionMassEstimation import COGPositionMassEstimation
+from Algorithm.COGPositionMassEstimation_v2 import COGPositionMassEstimation_v2
+from Algorithm.COGPositionMassEstimation_v3 import COGPositionMassEstimation_v3
+
+
 import multiprocessing as mp
 
 from Algorithm.algorithmtype import ALGORITHM_TYPE
@@ -46,7 +50,9 @@ class ProcsManager:
         elif algoName == ALGORITHM_TYPE.COGPositionMassEstimation:
             algo = COGPositionMassEstimation(algoName.name)
         elif algoName == ALGORITHM_TYPE.COGPositionMassEstimation_v2:
-            algo = COGPositionMassEstimation(algoName.name)
+            algo = COGPositionMassEstimation_v2(algoName.name)
+        elif algoName == ALGORITHM_TYPE.COGPositionMassEstimation_v3:
+            algo = COGPositionMassEstimation_v3(algoName.name)
         else:
             return
 
