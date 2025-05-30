@@ -1,4 +1,5 @@
 from PyQt5.QtWidgets import *
+from tensorboard.notebook import display
 
 from GUI_MAEGraph import BarGraphWidget
 from GUI_graph_NR import GraphWidget
@@ -6,19 +7,25 @@ from datainfo import SensorBinaryFileHandler
 
 
 class AnalyticsAlgoOrganize(QWidget):
-    def __init__(self, file_name):
+    def __init__(self, file_data):
         super().__init__()
-        self.file_name = file_name
+        self.file_name = file_data
         self.load_data = None
         self.ResimData = None
 
+        self.graph_init()
         self.open_file()
 
     def open_file(self):
-        for i in range(len(self.file_name)):
-            self.load_data = SensorBinaryFileHandler(self.file_name[i]).load_frames()
-            self.graph_init()
-            self.update_graph()
+        self.makedData = {}
+        self.load_data_map = {}
+
+        for file in self.file_name:
+            data = SensorBinaryFileHandler(file).load_frames()
+            file_label = file.split('/')[-1]
+            self.load_data_map[file_label] = data
+
+        self.update_graph()
 
     def data_select(self, load_data, isMeasured=True):
         mdata = dict()
@@ -55,18 +62,16 @@ class AnalyticsAlgoOrganize(QWidget):
 
         self.setLayout(layout1)
 
-    def onCheckboxToggled(self, state):
+    def onCheckboxToggled(self):
         self.update_graph()
 
     def update_graph(self):
-        self.makedData = self.data_select(self.load_data,
-                                                  isMeasured=self.view_only_measured_checkbox.isChecked())
-        if self.ResimData is not None:
-            self.makedData['Resim Weight'] = self.data_select(self.ResimData,
-                                                                       isMeasured=self.view_only_measured_checkbox.isChecked())
-        else:
-            if 'Resim Weight' in self.makedData.keys():
-                del self.makedData['Resim Weight']
+        is_measured = self.view_only_measured_checkbox.isChecked()
+        self.makedData.clear()
+
+        for file_label, data in self.load_data_map.items():
+            selected = self.data_select(data, isMeasured=is_measured)
+            self.makedData['Resim Weight'] = self.data_select(self.ResimData, selected)
 
         self.graph_widget.set_data(self.makedData)
         self.mae_graph_widget.set_data(self.makedData, mode='mae')
