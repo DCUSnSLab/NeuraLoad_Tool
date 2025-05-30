@@ -38,15 +38,15 @@ class COGPositionMassEstimation_v3(AlgorithmBase):
 
         self.locations = np.arange(1, 10)
         # 가중치 전방센서(1), 후방센서(0.45)
+        self.sensorWeights = np.array([1.0, 0.45, 1.0, 0.45])
         self.initCenter = np.array([815, 1430, 0])
-        # self.sensorWeights = np.array([1.0, 0.45, 1.0, 0.45])
-        # self.xCenters = np.array([794.3329811, 813.9314133, 833.8338401, 791.8779953, 812.5496202, 830.3194796, 795.4399509, 814.2261959, 834.6214622])
-        # self.yCenters = np.array([1416.042594, 1416.207189, 1415.538152, 1431.776203, 1429.261099, 1430.5897, 1447.795189, 1446.468957, 1447.492051])
-        # self.zCenters = np.array([13.9859375, 15.51666667, 14.2640625, 16.65625, 16.3, 15.884375, 15.31041667, 17.61875, 15.29375])
-        self.sensorWeights = np.array([1.0, 1.0, 1.0, 1.0])
-        self.xCenters = np.array([787.0877792,  814.8771739,  839.9643955,  782.7581608,  811.1309793,  837.1086898,  785.3743557,  812.6048919,  843.4710794])
-        self.yCenters = np.array([1426.94493,  1429.336884,  1426.518641,  1456.003617,  1451.456536,  1453.019595,  1479.942102,  1481.01256,  1479.430555])
-        self.zCenters = np.array([18.78125,  21.29166667,  19.09375,  27.3125,  26.0625,  25.75,  29.45,  32.8125,  29.34166667])
+        self.xCenters = np.array([794.3329811, 813.9314133, 833.8338401, 791.8779953, 812.5496202, 830.3194796, 795.4399509, 814.2261959, 834.6214622])
+        self.yCenters = np.array([1416.042594, 1416.207189, 1415.538152, 1431.776203, 1429.261099, 1430.5897, 1447.795189, 1446.468957, 1447.492051])
+        self.zCenters = np.array([13.9859375, 15.51666667, 14.2640625, 16.65625, 16.3, 15.884375, 15.31041667, 15.61875, 15.29375])
+        # self.sensorWeights = np.array([1.0, 1.0, 1.0, 1.0])
+        # self.xCenters = np.array([787.0877792,  814.8771739,  839.9643955,  782.7581608,  811.1309793,  837.1086898,  785.3743557,  812.6048919,  843.4710794])
+        # self.yCenters = np.array([1426.94493,  1429.336884,  1426.518641,  1456.003617,  1451.456536,  1453.019595,  1479.942102,  1481.01256,  1479.430555])
+        # self.zCenters = np.array([18.78125,  21.29166667,  19.09375,  27.3125,  26.0625,  25.75,  29.45,  32.8125,  29.34166667])
         self.deltas = {i: [] for i in range(4)}
         self.alpha = 0.2
         self.previous_values = None
@@ -86,18 +86,6 @@ class COGPositionMassEstimation_v3(AlgorithmBase):
             laser_values = [0,0,0,0]
             for i in range(4):
                 laser_values[i] = frame.get_sensor_data(SENSORLOCATION.get_sensor_location(i)).distance
-            # laser_values = [
-            #     frame.get_sensor_data(SENSORLOCATION.TOP_LEFT).distance, # 2번
-            #     frame.get_sensor_data(SENSORLOCATION.BOTTOM_LEFT).distance, # 4번
-            #     frame.get_sensor_data(SENSORLOCATION.TOP_RIGHT).distance, # 3번
-            #     frame.get_sensor_data(SENSORLOCATION.BOTTOM_RIGHT).distance, # 1번
-            # ]
-            # print('------------------------------------------------------')
-            # print("laser_values:", laser_values)
-            # print(frame.get_sensor_data(SENSORLOCATION.TOP_LEFT))
-            # print(frame.get_sensor_data(SENSORLOCATION.BOTTOM_LEFT))
-            # print(frame.get_sensor_data(SENSORLOCATION.TOP_RIGHT))
-            # print(frame.get_sensor_data(SENSORLOCATION.BOTTOM_RIGHT))
         except Exception as e:
             return {'error': f'센서 데이터 추출 오류: {str(e)}'}
 
@@ -127,18 +115,72 @@ class COGPositionMassEstimation_v3(AlgorithmBase):
         return x_center, y_center, z_center
 
     def estimate_location(self, xCenter: float, yCenter: float):
-        if xCenter == self.xCenters[4] and yCenter == self.yCenters[4]:  # 5번 위치일 경우
-            return [(0, 5, 4)]  # 5번 위치를 바로 반환
+        if xCenter == self.xCenters[4] and yCenter == self.yCenters[4]:  # 5번 위치
+            return [(0, 5, 4)]
 
-        distances = []
-        for i, location in enumerate(self.locations):
-            if location == 5:  # 5번 위치는 제외
-                continue
-            x, y = self.xCenters[i], self.yCenters[i]
-            dist = ((x - xCenter) ** 2 + (y - yCenter) ** 2) ** 0.5
-            distances.append((dist, location, i))
-        distances.sort(key=lambda x: x[0])
-        return distances[:2]
+        dx = xCenter - self.initCenter[0]
+        dy = yCenter - self.initCenter[1]
+
+        if dx >= 0 and dy < 0:
+            candidates = [2, 3, 6]
+            segments = {
+                2: (2, 3),
+                3: [(2, 3), (3, 6)],
+                6: (3, 6)
+            }
+        elif dx < 0 and dy < 0:
+            candidates = [1, 2, 4]
+            segments = {
+                1: [(1, 2), (1, 4)],
+                2: (1, 2),
+                4: (1, 4)
+            }
+        elif dx < 0 and dy >= 0:
+            candidates = [4, 7, 8]
+            segments = {
+                4: (4, 7),
+                7: [(4, 7), (7, 8)],
+                8: (7, 8)
+            }
+        else:
+            candidates = [6, 8, 9]
+            segments = {
+                6: (6, 9),
+                8: (8, 9),
+                9: [(6, 9), (8, 9)]
+            }
+
+        candidate_coords = [np.array([
+            self.xCenters[self.locations.tolist().index(loc)],
+            self.yCenters[self.locations.tolist().index(loc)]
+        ]) for loc in candidates]
+
+        point = np.array([xCenter, yCenter])
+        distances = [np.linalg.norm(point - c) for c in candidate_coords]
+        closest_idx = np.argmin(distances)
+        center_loc = candidates[closest_idx]
+
+        # 구간 결정
+        segment = segments[center_loc]
+        if isinstance(segment, list):  # 예: [ (2,3), (3,6) ]
+            # 두 구간의 중점과 입력 좌표 거리 비교
+            midpoints = []
+            for a, b in segment:
+                idx_a = self.locations.tolist().index(a)
+                idx_b = self.locations.tolist().index(b)
+                xa, ya = self.xCenters[idx_a], self.yCenters[idx_a]
+                xb, yb = self.xCenters[idx_b], self.yCenters[idx_b]
+                midpoint = np.array([(xa + xb) / 2, (ya + yb) / 2])
+                midpoints.append(np.linalg.norm(point - midpoint))
+            segment = segment[np.argmin(midpoints)]
+
+        # 각 위치의 index 추출
+        idx1 = self.locations.tolist().index(segment[0])
+        idx2 = self.locations.tolist().index(segment[1])
+        dist1 = np.linalg.norm(point - np.array([self.xCenters[idx1], self.yCenters[idx1]]))
+        dist2 = np.linalg.norm(point - np.array([self.xCenters[idx2], self.yCenters[idx2]]))
+
+        return [(dist1, segment[0], idx1), (dist2, segment[1], idx2)]
 
     def estimate_weight(self, zCenter: float, i1: int, i2: int, ratio1: float, ratio2: float):
         dz = zCenter - self.initCenter[2]
@@ -153,7 +195,7 @@ class COGPositionMassEstimation_v3(AlgorithmBase):
             scale2 = dz / direction_z2
             if scale2 > 0:
                 weights.append(ratio1 * scale2 * 500)
-        # print(f"zCenter: {zCenter}, zCenter-zMin: {dz} l1_zMax-zMin: {direction_z1}, l2_zMax-zMin: {direction_z2} ||| location1: {i1+1},scale1: {scale1}, ratio1: {ratio1}, scale1_w: {scale1*500} ||| location2: {i2+1}, scale2: {scale2}, scale2_w: {scale2*500}, ratio2: {ratio2} ||| weight: {weights}, total_weight: {sum(weights)}")
+        print(f"scale1: {scale1 * 500}, scale2: {scale2 * 500}, weight: {weights}, total_weight: {sum(weights)}")
         return sum(weights) if weights else 0
 
     def estimate_location_weight(self, xCenter: float, yCenter: float, zCenter: float) -> (int, float):
@@ -168,4 +210,4 @@ class COGPositionMassEstimation_v3(AlgorithmBase):
             ratio2 = d2 / total_dist
 
         weight = self.estimate_weight(zCenter, i1, i2, ratio1, ratio2)
-        return loc1, int(weight)
+        return int(str(loc1)+str(loc2)), int(weight)

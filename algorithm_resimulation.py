@@ -74,15 +74,26 @@ class AlgorithmResimulation(QWidget):
         self.view_only_measured_checkbox.setChecked(True)
         self.view_only_measured_checkbox.stateChanged.connect(self.onCheckboxToggled)
 
+        # 센서 데이터 타입 선택 콤보박스 추가
+        self.sensor_data_type_combo = QComboBox()
+        self.sensor_data_type_combo.addItem("Sensor Distance")
+        self.sensor_data_type_combo.addItem("Sensor diff (from reference Value)")
+        self.sensor_data_type_combo.currentIndexChanged.connect(self.onSensorDataTypeChanged)
+
         #Graph Widget
         self.graph_widget = GraphWidget(title="Algorithm Output Graph")
+        self.sensor_graph_widget = GraphWidget(title="Sensor Distance Graph")  # 새로 추가한 센서 그래프 위젯
         self.mae_graph_widget = BarGraphWidget(title="MAE Comparison")
         #self.mse_graph_widget = BarGraphWidget(title="MSE Comparison")
         self.rmse_graph_widget = BarGraphWidget(title="RMSE Comparison")
         self.error_graph_widget = BarGraphWidget(title="Error Rate Comparison")
 
+        main_graph_layout = QVBoxLayout()
+        main_graph_layout.addWidget(self.sensor_graph_widget)
+        main_graph_layout.addWidget(self.graph_widget)
+
         graph_layout = QHBoxLayout()
-        graph_layout.addWidget(self.graph_widget, stretch=7)  # 그래프 영역 7
+        graph_layout.addLayout(main_graph_layout, stretch=7)
         graph_layout.addWidget(self.mae_graph_widget, stretch=1)  # MAE 그래프 영역 3
         graph_layout.addWidget(self.rmse_graph_widget, stretch=1)  # RMSE 그래프 영역 3
         graph_layout.addWidget(self.error_graph_widget, stretch=1)
@@ -93,10 +104,17 @@ class AlgorithmResimulation(QWidget):
         top_layout.addWidget(self.filenameLabel)
         top_layout.addStretch()  # 버튼 오른쪽 공간 채우기
 
+        # 체크박스와 콤보박스를 포함하는 레이아웃
+        options_layout = QHBoxLayout()
+        options_layout.addWidget(self.view_only_measured_checkbox)
+        options_layout.addWidget(QLabel("Select Sensor Data Type:"))
+        options_layout.addWidget(self.sensor_data_type_combo)
+        options_layout.addStretch()
+
         layout1 = QVBoxLayout()
         layout1.addLayout(top_layout)
         layout1.addWidget(self.progress_widget)  # Run 버튼 위에 추가
-        layout1.addWidget(self.view_only_measured_checkbox)
+        layout1.addLayout(options_layout)  # 체크박스와 콤보박스를 포함하는 레이아웃 추가
         layout1.addLayout(graph_layout)
         layout1.addLayout(self.algoLayout)
 
@@ -115,6 +133,9 @@ class AlgorithmResimulation(QWidget):
             self.all_btn.setEnabled(True)
 
     def onCheckboxToggled(self, state):
+        self.updateGraph()
+
+    def onSensorDataTypeChanged(self, index):
         self.updateGraph()
 
     def On_loadDataFile(self):
@@ -142,6 +163,22 @@ class AlgorithmResimulation(QWidget):
         self.rmse_graph_widget.set_data(self.makedData, mode='rmse')
         self.error_graph_widget.set_data(self.makedData, mode='error_rate')
 
+        # 센서 데이터 그래프 업데이트
+        if self.loadedData is not None:
+            # 콤보박스 선택에 따라 적절한 센서 데이터 생성
+            is_diff_mode = self.sensor_data_type_combo.currentIndex() == 1
+
+            if is_diff_mode:
+                sensor_data = self.makeSensorDiffToGraph(self.loadedData,
+                                                         isMeasured=self.view_only_measured_checkbox.isChecked())
+                self.sensor_graph_widget.set_title("Sensor diff from Reference Value")
+            else:
+                sensor_data = self.makeSensorDataToGraph(self.loadedData,
+                                                         isMeasured=self.view_only_measured_checkbox.isChecked())
+                self.sensor_graph_widget.set_title("Sensor Distance Graph")
+
+            self.sensor_graph_widget.set_data(sensor_data)
+
     def makeResimDatatoGraph(self, data:List[SensorFrame], isMeasured=True):
         algoweight = []
         for frame in data:
@@ -162,6 +199,62 @@ class AlgorithmResimulation(QWidget):
         mdata['Actual Weights'] = wlist
         mdata['Algorithm Weights'] = algoweight
         return mdata
+
+    def makeSensorDataToGraph(self, data: List[SensorFrame], isMeasured=True):
+        # 센서 데이터를 저장할 딕셔너리 초기화
+        sensor_dict = {}
+
+        # 첫 번째 프레임의 센서 위치를 사용해 딕셔너리 키 생성
+        if data and len(data) > 0:
+            first_frame = data[0]
+            for sensor in first_frame.sensors:
+                location_name = sensor.location.name
+                sensor_dict[location_name] = []
+
+        # 각 프레임에서 센서 데이터 추출
+        for frame in data:
+            if isMeasured is False or (isMeasured is True and frame.measured):
+                # 각 센서 위치별로 distance 값 추출
+                for sensor in frame.sensors:
+                    location_name = sensor.location.name
+                    sensor_dict[location_name].append(sensor.distance)
+
+        return sensor_dict
+
+    def makeSensorDiffToGraph(self, data: List[SensorFrame], isMeasured=True):
+        # 센서 데이터를 저장할 딕셔너리 초기화
+        sensor_dict = {}
+
+        # 첫 번째 프레임의 센서 위치를 사용해 딕셔너리 키 생성
+        if data and len(data) > 0:
+            first_frame = data[0]
+            for sensor in first_frame.sensors:
+                location_name = sensor.location.name
+                sensor_dict[location_name] = []
+
+        # 각 프레임에서 센서 데이터 추출
+        for frame in data:
+            print('refvalue: ',frame.algorithms.referenceValue)
+            if isMeasured is False or (isMeasured is True and frame.measured):
+                # 각 센서 위치별로 distance 값 추출
+                for sensor in frame.sensors:
+                    location_name = sensor.location.name
+                    # 알고리즘 데이터에 있는 reference 값과 센서 값 차이 계산
+                    if frame.algorithms and frame.algorithms.referenceValue:
+                        # 각 센서 위치에 맞는 reference 값 인덱스 찾기
+                        ref_index = sensor.location.value
+                        if ref_index < len(frame.algorithms.referenceValue):
+                            ref_value = frame.algorithms.referenceValue[ref_index]
+                            diff = sensor.distance - ref_value
+                            sensor_dict[location_name].append(diff)
+                        else:
+                            # reference 값이 없는 경우 0으로 처리
+                            sensor_dict[location_name].append(0)
+                    else:
+                        # 알고리즘 데이터가 없는 경우 0으로 처리
+                        sensor_dict[location_name].append(0)
+
+        return sensor_dict
 
     def updateLabel(self):
         resbuf = self.procmanager.getResultBufs()
