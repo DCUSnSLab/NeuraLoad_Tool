@@ -1,5 +1,5 @@
 from typing import List
-
+from collections import deque
 from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
@@ -78,6 +78,8 @@ class AlgorithmResimulation(QWidget):
         self.sensor_data_type_combo = QComboBox()
         self.sensor_data_type_combo.addItem("Sensor Distance")
         self.sensor_data_type_combo.addItem("Sensor diff (from reference Value)")
+        self.sensor_data_type_combo.addItem("Filtered Sensor diff (from Low-Pass Filter)")
+        self.sensor_data_type_combo.addItem("Filtered Sensor diff (from Moving Average Filter)")
         self.sensor_data_type_combo.currentIndexChanged.connect(self.onSensorDataTypeChanged)
 
         #Graph Widget
@@ -166,12 +168,17 @@ class AlgorithmResimulation(QWidget):
         # 센서 데이터 그래프 업데이트
         if self.loadedData is not None:
             # 콤보박스 선택에 따라 적절한 센서 데이터 생성
-            is_diff_mode = self.sensor_data_type_combo.currentIndex() == 1
-
-            if is_diff_mode:
+            is_diff_mode = self.sensor_data_type_combo.currentIndex()
+            print("self.sensor_data_type_combo.currentIndex(): ", self.sensor_data_type_combo.currentIndex())
+            print("is_diff_mode : ", is_diff_mode)
+            if is_diff_mode == 1:
                 sensor_data = self.makeSensorDiffToGraph(self.loadedData,
                                                          isMeasured=self.view_only_measured_checkbox.isChecked())
                 self.sensor_graph_widget.set_title("Sensor diff from Reference Value")
+            elif is_diff_mode == 2 or is_diff_mode == 3:
+                sensor_data = self.makeSensorFilterToGraph(self.loadedData,
+                                                         isMeasured=self.view_only_measured_checkbox.isChecked())
+                self.sensor_graph_widget.set_title("Filtered sensor diff (from reference Value)")
             else:
                 sensor_data = self.makeSensorDataToGraph(self.loadedData,
                                                          isMeasured=self.view_only_measured_checkbox.isChecked())
@@ -234,7 +241,7 @@ class AlgorithmResimulation(QWidget):
 
         # 각 프레임에서 센서 데이터 추출
         for frame in data:
-            print('refvalue: ',frame.algorithms.referenceValue)
+            # print('refvalue: ',frame.algorithms.referenceValue)
             if isMeasured is False or (isMeasured is True and frame.measured):
                 # 각 센서 위치별로 distance 값 추출
                 for sensor in frame.sensors:
@@ -245,7 +252,9 @@ class AlgorithmResimulation(QWidget):
                         ref_index = sensor.location.value
                         if ref_index < len(frame.algorithms.referenceValue):
                             ref_value = frame.algorithms.referenceValue[ref_index]
-                            diff = sensor.distance - ref_value
+                            diff = ref_value - sensor.distance
+                            if ref_index in [1,3]:
+                                diff *= 0.45
                             sensor_dict[location_name].append(diff)
                         else:
                             # reference 값이 없는 경우 0으로 처리
@@ -255,6 +264,69 @@ class AlgorithmResimulation(QWidget):
                         sensor_dict[location_name].append(0)
 
         return sensor_dict
+
+    def makeSensorFilterToGraph(self, data: List[SensorFrame], isMeasured=True):
+        # 센서 데이터를 저장할 딕셔너리 초기화
+        sensor_dict = {}
+        alpha = 0.2
+        window_size = 30
+        # 첫 번째 프레임의 센서 위치를 사용해 딕셔너리 키 생성
+        if data and len(data) > 0:
+            first_frame = data[0]
+            for sensor in first_frame.sensors:
+                location_name = sensor.location.name
+                sensor_dict[location_name] = []
+
+        # 각 프레임에서 센서 데이터 추출
+        for frame in data:
+            # print('refvalue: ',frame.algorithms.referenceValue)
+            if isMeasured is False or (isMeasured is True and frame.measured):
+                # 각 센서 위치별로 distance 값 추출
+                for sensor in frame.sensors:
+                    location_name = sensor.location.name
+                    # 알고리즘 데이터에 있는 reference 값과 센서 값 차이 계산
+                    if frame.algorithms and frame.algorithms.referenceValue:
+                        # 각 센서 위치에 맞는 reference 값 인덱스 찾기
+                        ref_index = sensor.location.value
+                        if ref_index < len(frame.algorithms.referenceValue):
+                            ref_value = frame.algorithms.referenceValue[ref_index]
+                            diff = ref_value - sensor.distance
+                            if ref_index in [1,3]:
+                                diff *= 0.45
+                            sensor_dict[location_name].append(diff)
+                        else:
+                            # reference 값이 없는 경우 0으로 처리
+                            sensor_dict[location_name].append(0)
+                    else:
+                        # 알고리즘 데이터가 없는 경우 0으로 처리
+                        sensor_dict[location_name].append(0)
+
+        filter_mode = self.sensor_data_type_combo.currentIndex()  # 2: LPF, 3: MAF
+
+        for loc in sensor_dict:
+            values = sensor_dict[loc]
+            filtered = []
+
+            if filter_mode == 3:
+                buf = deque(maxlen=window_size)
+                for v in values:
+                    buf.append(v)
+                    filtered.append(sum(buf) / len(buf))
+
+            else:
+                prev = None
+                for v in values:
+                    if prev is None:
+                        filtered.append(v)
+                    else:
+                        v = alpha * v + (1 - alpha) * prev
+                        filtered.append(v)
+                    prev = v
+
+            sensor_dict[loc] = filtered
+
+        return sensor_dict
+
 
     def updateLabel(self):
         resbuf = self.procmanager.getResultBufs()
