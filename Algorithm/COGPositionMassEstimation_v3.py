@@ -53,9 +53,6 @@ class COGPositionMassEstimation_v3(AlgorithmBase):
         self.alpha = 0.2
         self.previous_values = None
 
-        self.window_size = 10
-        self.value_buffer = None
-
     def initAlgorithm(self):
         print('init Algorithm ->', self.name)
 
@@ -81,17 +78,6 @@ class COGPositionMassEstimation_v3(AlgorithmBase):
         self.previous_values = filtered
         return filtered
 
-    def apply_moving_average_filter(self, current_values: List[float]) -> List[float]:
-        if self.value_buffer is None:
-            self.value_buffer = [deque([v], maxlen=self.window_size) for v in current_values]
-            return current_values
-
-        for i, value in enumerate(current_values):
-            self.value_buffer[i].append(value)
-
-        filtered = [sum(buf) / len(buf) for buf in self.value_buffer]
-        return filtered
-
     def compute_deltas(self, current_values: List[float], init_value: List[float]) -> List[float]:
         deltas = [
             init - curr for curr, init in zip(current_values, init_value)
@@ -108,7 +94,7 @@ class COGPositionMassEstimation_v3(AlgorithmBase):
 
         deltas = self.compute_deltas(laser_values, init_value)
         weighted_deltas = np.array(deltas) * self.sensorWeights
-        filtered_deltas = self.apply_moving_average_filter(weighted_deltas)
+        filtered_deltas = self.apply_lowpass_filter(weighted_deltas)
 
         for idx, change in enumerate(filtered_deltas):
             self.deltas[idx] = [change]
@@ -212,7 +198,7 @@ class COGPositionMassEstimation_v3(AlgorithmBase):
             scale2 = dz / direction_z2
             if scale2 > 0:
                 weights.append(ratio1 * scale2 * 500)
-        print(f"scale1: {scale1 * 500}, scale2: {scale2 * 500}, weight: {weights}, total_weight: {sum(weights)}")
+        # print(f"scale1: {scale1 * 500}, scale2: {scale2 * 500}, weight: {weights}, total_weight: {sum(weights)}")
         return sum(weights) if weights else 0
 
     def estimate_location_weight(self, xCenter: float, yCenter: float, zCenter: float) -> (int, float):
