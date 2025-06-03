@@ -8,6 +8,7 @@ class ALGORITHM_TYPE(Enum):
     COGPositionMassEstimation = 3
     COGPositionMassEstimation_v2 = 4
     COGPositionMassEstimation_v3 = 5
+    COGPositionMassEstimation_v4 = 6
     @staticmethod
     def get_algorithmTypebyValue(value: int) -> 'ALGORITHM_TYPE':
         return ALGORITHM_TYPE(value)

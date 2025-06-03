@@ -6,7 +6,7 @@ from Algorithm.RandomForestPredictor import RandomForestPredictor
 from Algorithm.COGPositionMassEstimation import COGPositionMassEstimation
 from Algorithm.COGPositionMassEstimation_v2 import COGPositionMassEstimation_v2
 from Algorithm.COGPositionMassEstimation_v3 import COGPositionMassEstimation_v3
-
+from Algorithm.COGPositionMassEstimation_v4 import COGPositionMassEstimation_v4
 
 import multiprocessing as mp
 
@@ -53,6 +53,8 @@ class ProcsManager:
             algo = COGPositionMassEstimation_v2(algoName.name)
         elif algoName == ALGORITHM_TYPE.COGPositionMassEstimation_v3:
             algo = COGPositionMassEstimation_v3(algoName.name)
+        elif algoName == ALGORITHM_TYPE.COGPositionMassEstimation_v4:
+            algo = COGPositionMassEstimation_v4(algoName.name)
         else:
             return
 
