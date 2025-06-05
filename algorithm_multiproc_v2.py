@@ -5,10 +5,16 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 
+import experiment
 from Algorithm.algorithmtype import ALGORITHM_TYPE
-from datainfo import SCENARIO_TYPE_MAP, SensorFrame, ExperimentData, AlgorithmData, AlgorithmFileHandler
+from GUIController import GUIController
+from datainfo import SCENARIO_TYPE_MAP, SensorFrame, ExperimentData, AlgorithmData, AlgorithmFileHandler, SENSORLOCATION
 from procsManager import ProcsManager
 from weight_action import WeightTable, AlgorithmRunBox
+
+import pyqtgraph as pg
+import traceback
+from collections import deque
 
 
 class AlgorithmMultiProcV2(QWidget):
@@ -18,11 +24,41 @@ class AlgorithmMultiProcV2(QWidget):
         self.procmanager.on_ready(self.isAlgorithmReady)
         self.serial_manager = serial_manager
 
+        self.ports = [sensor.port for sensor in self.serial_manager.sensors]
+        self.port_colors = {
+            'TopLeft': 'b',
+            'BottomLeft': 'r',
+            'TopRight': 'g',
+            'BottomRight': 'orange',
+            'IMU': 'yellow',
+            'etc': 'purple',
+            '' : 'gray'
+        }
+        self.plot_curve = {}
+        self.plot_data = {}
+        self.plot_curve_change = {}
+        self.plot_change = {}
+        self.initial_sensor_values = {}
+        self.location = {}
+
+        self.port_location = {
+            'TopLeft': 0,
+            'BottomLeft': 1,
+            'TopRight': 2,
+            'BottomRight': 3,
+            'IMU': 4,
+            'etc': 5,
+        }
+
+        self.init_plot = {}
+
         parent.on_AppExit(self.AppExithandle)
 
         self.files = dict() #Algorithm File List
         self.algorithm_checkbox = []
         self.outputLabels = dict()
+        self.is_paused_global = True
+        self.initial_active = False
 
         self.weight_table: WeightTable = wt
 
@@ -53,7 +89,7 @@ class AlgorithmMultiProcV2(QWidget):
 
         # 실험 리스트뷰
         self.experimentList = QListWidget()
-        self.experimentList.setFont(QFont("Arial", 12))
+        self.experimentList.setFont(QFont("Arial", 10))
         self.experimentList.setFixedHeight(10 * 50)
         self.experimentList.setSelectionMode(QAbstractItemView.NoSelection)
 
@@ -89,6 +125,39 @@ class AlgorithmMultiProcV2(QWidget):
 
         self.toggleExperimentMenu(False)
 
+        self.graph_change = pg.PlotWidget()
+        self.graph_change.setTitle("Sensor Change")
+        self.graph_change.setLabel("left", "Change")
+        self.graph_change.setLabel("bottom", "Time")
+        self.graph_change.addLegend(offset=(30, 30))
+        self.graph_change.setMinimumWidth(500)
+
+        self.graph_value = pg.PlotWidget()
+        self.graph_value.setTitle("Sensor Value")
+        self.graph_value.setLabel("left", "Value")
+        self.graph_value.setLabel("bottom", "Time")
+        self.graph_value.addLegend(offset=(30, 30))
+        self.graph_value.setMinimumWidth(500)
+
+        headers = [
+            loc.name.title().replace('_', '')
+            for loc in SENSORLOCATION
+            if loc is not SENSORLOCATION.NONE
+        ]
+
+        self.sensor_table = QTableWidget(2, len(headers))
+        self.sensor_table.setHorizontalHeaderLabels(headers)
+        self.sensor_table.setVerticalHeaderLabels(['initial value', 'value'])
+        self.sensor_table.setMaximumHeight(200)
+        self.sensor_table.setMinimumHeight(150)
+        self.sensor_table.setMaximumWidth(1000)
+        self.sensor_table.setMinimumWidth(500)
+        self.sensor_table.itemChanged.connect(self.table_item_changed)
+
+        self.initial_sensor_btn = QPushButton('초기값', self)
+        self.initial_sensor_btn.setCheckable(True)
+        self.initial_sensor_btn.clicked.connect(self.inital_sensor_values_update)
+
         # weightControllerLayout 구성
         weightControllerLayout = QVBoxLayout()
         weightControllerLayout.addWidget(self.experimentList)
@@ -99,16 +168,23 @@ class AlgorithmMultiProcV2(QWidget):
         weightControllerLayout.addLayout(countLayout)
         weightControllerLayout.addWidget(self.startMeasureBtn)
         weightControllerLayout.addWidget(self.finishMeasureBtn)
+        weightControllerLayout.addWidget(self.initial_sensor_btn)
 
         leftMenuWidget = QWidget()
         leftMenuWidget.setLayout(self.algoLayout)
         leftMenuWidget.setFixedWidth(400)  # 원하는 너비로 설정
 
+        graph_layout = QVBoxLayout()
+        graph_layout.addWidget(self.graph_change)
+        graph_layout.addWidget(self.graph_value)
+        graph_layout.addWidget(self.sensor_table)
+
         layout2 = QHBoxLayout()
         layout2.addWidget(leftMenuWidget, alignment=Qt.AlignLeft)
         layout2.addLayout(weightControllerLayout)
-        self.weightWidget.setFixedWidth(800)
+        # self.weightWidget.setFixedWidth(800)
         layout2.addWidget(self.weightWidget)
+        layout2.addLayout(graph_layout)
 
         self.setLayout(layout2)
 
@@ -390,3 +466,140 @@ class AlgorithmMultiProcV2(QWidget):
 
     def AppExithandle(self):
         self.finishAllAlgorithms()
+
+    def receive_sensor_data(self, send_data: list):
+        try:
+            self.save_graph_min = send_data[0]
+            self.save_graph_max = send_data[1]
+            port = send_data[2]
+            location_name = send_data[3]
+            y_value = float(send_data[4])
+
+            if port not in self.location:
+                self.location[port] = location_name
+
+            self.graph_change.getPlotItem().setYRange(min=self.save_graph_min, max=self.save_graph_max)
+            self.graph_value.getPlotItem().setYRange(min=0, max=800)
+
+            if port not in self.plot_data:
+                self.plot_data[port] = deque(maxlen=300)
+                self.plot_change[port] = deque(maxlen=300)
+
+            if port not in self.plot_curve:
+                color = self.port_colors.get(location_name, 'gray')
+                self.plot_curve[port] = self.graph_value.plot(
+                    pen=pg.mkPen(color=color, width=2),
+                    name=location_name
+                )
+                self.plot_curve_change[port] = self.graph_change.plot(
+                    pen=pg.mkPen(color=color, width=2),
+                    name=location_name
+                )
+
+            self.plot_data[port].append(y_value)
+
+            if port in self.initial_sensor_values:
+                changed = y_value - self.initial_sensor_values[port]
+            else:
+                changed = 0.0
+
+            self.plot_change[port].append(changed)
+
+            x = list(range(len(self.plot_data[port])))
+            y = list(self.plot_data[port])
+            y_change = list(self.plot_change[port])
+
+            self.plot_curve[port].setData(x, y)
+            # self.plot_curve_change[port].setData(x, y_change)
+
+            col = self.port_location.get(location_name, 6)
+            if port not in self.initial_sensor_values:
+                self.initial_sensor_values[port] = y_value
+                self.sensor_table.setItem(0, col, QTableWidgetItem(str(y_value)))
+            self.sensor_table.setItem(1, col, QTableWidgetItem(str(y_value)))
+            self.plot_curve_change[port].setData(x, y_change)
+
+            if self.initial_active:
+                self.sensor_table.setItem(0, col, QTableWidgetItem(str(y[-1])))
+
+                if port not in self.init_plot:
+                    self.init_plot[port] = deque(maxlen=300)
+
+                self.init_plot[port].append(y_value)
+
+        except Exception as e:
+            print(f"receive_sensor_data 에러: {e}")
+
+    def inital_sensor_values_update(self):
+        if self.initial_sensor_btn.isChecked():
+            self.initial_active = True
+            self.is_paused_global = False
+            self.countdown_value = 5
+
+            self.initial_sensor_btn.setCheckable(False)
+            self.initial_sensor_btn.setEnabled(False)
+
+            def countdown():
+                if self.countdown_value > 0:
+                    self.initial_sensor_btn.setText(f"{self.countdown_value}초 남음")
+                    self.countdown_value -= 1
+                    QTimer.singleShot(1000, countdown)
+                else:
+                    # 5초 후: 실험 종료 상태로 변경
+                    self.initial_sensor_btn.setChecked(False)  # 버튼 체크 해제
+                    self.initial_active = False
+                    self.is_paused_global = True
+                    self.initial_sensor_btn.setText("초기값")
+                    self.initial_sensor_btn.setCheckable(True)
+                    self.initial_sensor_btn.setEnabled(True)
+                    for port, value in list(self.init_plot.items()):
+                        if len(value) > 0:
+                            avg = sum(value) / len(value)
+
+                            location_name = self.location[port]
+                            col = self.port_location.get(location_name, 6)
+
+                            self.sensor_table.setItem(0, col, QTableWidgetItem(str(avg)))
+                            self.initial_sensor_values[port] = avg
+                            self.inital_send_algorithm()
+
+            self.init_plot.clear()
+            countdown()  # 카운트다운 시작
+            QCoreApplication.processEvents()
+        else:
+            self.initial_active = False
+            self.is_paused_global = True
+            self.initial_sensor_btn.setText("초기값")
+
+    def inital_send_algorithm(self):
+        return self.initial_sensor_values
+
+    def table_item_changed(self, item: QTableWidgetItem):
+        row = item.row()
+        col = item.column()
+        value = item.text()
+
+        if row == 0:
+            try:
+                float_value = float(value)
+                location_name = list(self.port_location.keys())[list(self.port_location.values()).index(col)]
+                port = None
+                for p, loc in self.location.items():
+                    if loc == location_name:
+                        port = p
+                        break
+
+                self.initial_sensor_values[port] = float_value
+                self.inital_send_algorithm()
+            except ValueError:
+                QMessageBox.warning(self, "입력 오류", "숫자만 입력 가능합니다.")
+                # 잘못된 입력일 경우 기존 값으로 복원
+                location_name = list(self.port_location.keys())[list(self.port_location.values()).index(col)]
+                for p, loc in self.location.items():
+                    if loc == location_name:
+                        port = p
+                        break
+                prev_value = self.initial_sensor_values.get(port, "")
+                self.sensor_table.blockSignals(True)
+                self.sensor_table.setItem(0, col, QTableWidgetItem(str(prev_value)))
+                self.sensor_table.blockSignals(False)

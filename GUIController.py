@@ -3,6 +3,7 @@ from PyQt5.QtCore import QThread, pyqtSignal
 
 class GUIController(QThread):
     plot_updated = pyqtSignal()
+
     def __init__(self, GUI, serial_manager):
         super(GUIController, self).__init__()
         self.guiModule = GUI
@@ -20,7 +21,6 @@ class GUIController(QThread):
                 print("GUIController : ", e)
             # self.msleep(15)
 
-
     def dataUpdate(self, data):
         plot_data = self.guiModule.plot_data.get(data.serial_port)
         plot_change = self.guiModule.plot_change.get(data.serial_port)
@@ -30,4 +30,5 @@ class GUIController(QThread):
 
         plot_data.append(data)
         plot_change.append(data)
+
         # print(data.serialport, data.timestamp, data.value, data.port_index)

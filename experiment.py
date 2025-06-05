@@ -13,6 +13,7 @@ from weight_action import WeightTable
 
 
 class Experiment(QWidget):
+    send_data_signal = pyqtSignal(list)
     def __init__(self, serial_manager, wt):
         super().__init__()
         # weigt Table
@@ -418,6 +419,8 @@ class Experiment(QWidget):
                     except (ValueError, AttributeError):
                         y_values.append(0)
 
+                    send_data = [self.save_graph_min, self.save_graph_max, port, location_name, y_value]
+
                 # 변화량 데이터 계산
                 change_values = []
                 if len(self.plot_change[port]) > 0:
@@ -458,6 +461,9 @@ class Experiment(QWidget):
 
                         # 데이터 저장 처리
                         self.handle_serial_data(p, self.plot_data[p])
+
+                self.send_data_signal.emit(send_data)
+
         except Exception as e:
             print(f"그래프 업데이트 중 오류 발생: {e}")
             traceback.print_exc()
