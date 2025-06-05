@@ -27,7 +27,7 @@ class Main(QWidget):
     def initUI(self):
         self.tabs = QTabWidget()
 
-        self.DEBUG_MODE = False
+        self.DEBUG_MODE = True
 
         # self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE, callback=sync_callback)
         self.serial_manager = SerialManager(debug_mode=self.DEBUG_MODE)
@@ -47,6 +47,8 @@ class Main(QWidget):
         self.tab2 = AlgorithmMultiProcV2(parent=self, serial_manager=self.serial_manager, wt=wtAlgo)
         self.tab3 = AlgorithmResimulation(serial_manager=self.serial_manager)
         self.tab4 = Analytics()
+
+        self.tab1.send_data_signal.connect(self.tab2.receive_sensor_data)
 
         self.tabs.addTab(self.tab1, '실험 데이터 수집')
         self.tabs.addTab(self.tab2, '실시간 알고리즘 테스트')
