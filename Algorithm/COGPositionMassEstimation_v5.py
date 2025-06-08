@@ -9,7 +9,8 @@ from collections import deque
 from Algorithm.algorithmtype import ALGORITHM_TYPE
 from datainfo import SensorFrame, SENSORLOCATION, AlgorithmData
 from Algorithm.RefValueGenerator_COG import COGRefValGenerator
-from Algorithm.Location_data import LOCATION_CONSTANTS
+from Algorithm.Location_data import LOCATION_CONSTANTS, WEIGHT
+
 # 상위 디렉토리의 모듈을 import 하기 위한 경로 설정
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -23,7 +24,7 @@ class COGPositionMassEstimation_v5(AlgorithmBase):
         super().__init__(
             name=name,
             description="레이저 센서 변화량 기반 roll, pitch로 추정한 COG 좌표로 적재위치 및 무게 추정 알고리즘",
-            refValGen = COGRefValGenerator()
+            refValGen=COGRefValGenerator()
         )
 
         self.loadingBoxWidth = 1630
@@ -35,15 +36,19 @@ class COGPositionMassEstimation_v5(AlgorithmBase):
             [1429, 2516.9]  # BR (Bottom Right)
         ])
         self.constants = LOCATION_CONSTANTS
+        self.weight_bins = WEIGHT
         self.initial_laser_values = None
 
         self.locations = np.arange(1, 10)
         # 가중치 전방센서(1), 후방센서(0.45)
         self.sensorWeights = np.array([1.0, 0.45, 1.0, 0.45])
-        self.initCenter = np.array([815, 1430, 0])
-        self.xCenters = np.array([794.3329811, 813.9314133, 833.8338401, 791.8779953, 812.5496202, 830.3194796, 795.4399509, 814.2261959, 834.6214622])
-        self.yCenters = np.array([1416.042594, 1416.207189, 1415.538152, 1431.776203, 1429.261099, 1430.5897, 1447.795189, 1446.468957, 1447.492051])
-        self.zCenters = np.array([13.9859375, 15.51666667, 14.2640625, 16.65625, 16.3, 15.884375, 15.31041667, 15.61875, 15.29375])
+        self.initCenter = np.array([815, 1430])
+        self.xCenters = np.array(
+            [794.3329811, 813.9314133, 833.8338401, 791.8779953, 812.5496202, 830.3194796, 795.4399509, 814.2261959,
+             834.6214622])
+        self.yCenters = np.array(
+            [1416.042594, 1416.207189, 1415.538152, 1431.776203, 1429.261099, 1430.5897, 1447.795189, 1446.468957,
+             1447.492051])
 
         self.deltas = {i: [] for i in range(4)}
         self.window_size = 15
@@ -71,16 +76,14 @@ class COGPositionMassEstimation_v5(AlgorithmBase):
 
     def preprocess_data(self, frame: SensorFrame, init_value: List[float]) -> Dict[str, Any]:
         try:
-            laser_values = [0,0,0,0]
+            laser_values = [0, 0, 0, 0]
             for i in range(4):
                 laser_values[i] = frame.get_sensor_data(SENSORLOCATION.get_sensor_location(i)).distance
         except Exception as e:
             return {'error': f'센서 데이터 추출 오류: {str(e)}'}
 
         deltas = self.compute_deltas(laser_values, init_value)
-        weighted_deltas = np.array(deltas) * self.sensorWeights
-        filtered_deltas = self.apply_moving_average_filter(weighted_deltas)
-
+        filtered_deltas = self.apply_moving_average_filter(deltas)
         for idx, change in enumerate(filtered_deltas):
             self.deltas[idx] = [change]
 
@@ -95,12 +98,15 @@ class COGPositionMassEstimation_v5(AlgorithmBase):
 
     def calculate_cog(self, deltas: np.ndarray) -> (float, float, float):
         deltas = deltas['deltas']
-        roll = ((deltas[0] - deltas[2]) + (deltas[1] - deltas[3])) / (((self.sensorCoords[3, 0] - self.sensorCoords[1, 0]) + (self.sensorCoords[2, 0] - self.sensorCoords[0, 0])) / 2)
-        pitch = ((deltas[0] - deltas[1]) + (deltas[2] - deltas[3])) / (((self.sensorCoords[3, 1] - self.sensorCoords[2, 1]) + (self.sensorCoords[1, 1] - self.sensorCoords[0, 1])) / 2)
+        deltas = np.array(deltas) * self.sensorWeights
+        roll = ((deltas[0] - deltas[2]) + (deltas[1] - deltas[3])) / (((self.sensorCoords[3, 0] - self.sensorCoords[
+            1, 0]) + (self.sensorCoords[2, 0] - self.sensorCoords[0, 0])) / 2)
+        pitch = ((deltas[0] - deltas[1]) + (deltas[2] - deltas[3])) / (((self.sensorCoords[3, 1] - self.sensorCoords[
+            2, 1]) + (self.sensorCoords[1, 1] - self.sensorCoords[0, 1])) / 2)
         x_center = (self.loadingBoxWidth / 2) - roll * (self.loadingBoxWidth / 2)
         y_center = (self.loadingBoxLength / 2) - pitch * (self.loadingBoxLength / 2)
-        z_center = (deltas[0] + deltas[1] + deltas[2] + deltas[3]) / 4
-        return x_center, y_center, z_center
+        return x_center, y_center
+
     def estimate_location(self, xCenter: float, yCenter: float):
         point = np.array([xCenter, yCenter])
 
@@ -139,13 +145,23 @@ class COGPositionMassEstimation_v5(AlgorithmBase):
             candidate_segments.append((dist, adj, adj_idx))
 
         dist2, loc2, idx2 = min(candidate_segments, key=lambda x: x[0])
-        return [(closest_dist, closest_loc, closest_idx), (dist2, loc2, idx2)]
+        return [closest_loc, loc2]
+
+    def cal_distance_location(self, location, xCenter, yCenter):
+        # distance = abs(a*x1 + b*y1 + c)/(a^2+b^2)^(1/2)
+        a = (self.yCenters[location - 1] - self.initCenter[1]) / (self.xCenters[location - 1] - self.initCenter[0])
+        b = -1
+        c = (self.yCenters[location - 1] - self.initCenter[1]) / (self.xCenters[location - 1] - self.initCenter[0]) * \
+            self.initCenter[0] - self.initCenter[1]
+        distance = abs(a * xCenter + b * yCenter + c) / (a ** 2 + b ** 2) ** (1 / 2)
+        print("distance: ", distance)
+        return distance
 
     def calculate_weight_estimation(self, location, deltas):
-        top_left = deltas[0] if not isinstance(deltas[0], list) else deltas[0][0]
-        bottom_left = deltas[1] if not isinstance(deltas[1], list) else deltas[1][0]
-        top_right = deltas[2] if not isinstance(deltas[2], list) else deltas[2][0]
-        bottom_right = deltas[3] if not isinstance(deltas[3], list) else deltas[3][0]
+        top_left = deltas[0][0] if isinstance(deltas[0], list) else deltas[0]
+        bottom_left = deltas[1][0] if isinstance(deltas[1], list) else deltas[1]
+        top_right = deltas[2][0] if isinstance(deltas[2], list) else deltas[2]
+        bottom_right = deltas[3][0] if isinstance(deltas[3], list) else deltas[3]
 
         mapping = {
             1: top_left,
@@ -161,43 +177,52 @@ class COGPositionMassEstimation_v5(AlgorithmBase):
 
         if location in self.constants and location in mapping:
             avg = mapping[location]
-            closest = min(self.constants[location], key=lambda x: abs(x - avg))
-            return self.constants[location].index(closest)
+            coarse = self.constants[location]
+
+            for i in range(len(coarse) - 1):
+                if coarse[i] <= avg <= coarse[i + 1]:
+                    w1 = self.weight_bins[i]
+                    w2 = self.weight_bins[i + 1]
+                    fraction = (avg - coarse[i]) / (coarse[i + 1] - coarse[i])
+                    interpolated_weight = w1 + fraction * (w2 - w1)
+                    # print(f"{location} {avg:.4f} {coarse[i]} {coarse[i + 1]} {w1} {w2} {interpolated_weight:.2f}")
+                    return interpolated_weight
+
+            return self.weight_bins[0] if avg < coarse[0] else self.weight_bins[-1]
+
         return None
-    def estimate_location_weight(self, xCenter: float, yCenter: float, zCenter: float) -> (int, float):
+
+    def estimate_location_weight(self, xCenter: float, yCenter: float) -> (int, float):
         locations = self.estimate_location(xCenter, yCenter)
         if len(locations) < 2:
-            _, loc1, _ = locations[0]
+            loc1 = locations[0]
             weight_idx = self.calculate_weight_estimation(loc1, self.deltas)
             return int(str(loc1) + str(loc1)), weight_idx if weight_idx is not None else 0
 
-        (d1, loc1, _), (d2, loc2, _) = locations
-        total_dist = d1 + d2
+        loc1, loc2 = locations
+        distance1 = self.cal_distance_location(loc1, xCenter, yCenter)
+        distance2 = self.cal_distance_location(loc2, xCenter, yCenter)
+
+        total_dist = distance1 + distance2
+
         if total_dist == 0:
             ratio1 = ratio2 = 0.5
         else:
-            ratio1 = d2 / total_dist
-            ratio2 = d1 / total_dist
+            ratio1 = distance2 / total_dist
+            ratio2 = distance1 / total_dist
 
         w1 = self.calculate_weight_estimation(loc1, self.deltas)
         w2 = self.calculate_weight_estimation(loc2, self.deltas)
 
-        if w1 is None and w2 is None:
-            return int(str(loc1) + str(loc2)), 0
-        elif w1 is None:
-            return int(str(loc1) + str(loc2)), int(w2)
-        elif w2 is None:
-            return int(str(loc1) + str(loc2)), int(w1)
-
-        # 거리 기반 선형 보간
         estimated_weight = int(ratio1 * w1 + ratio2 * w2)
-        print("loc1: ", loc1, "loc2 : ", loc2, "weight1: ", w1, ", weight2 :", w2, "ratio1: ", ratio1, "ratio2: ", ratio2, ", estimation_weight : ", estimated_weight)
+        print("loc1: ", loc1, "loc2 : ", loc2, "weight1: ", w1, ", weight2 :", w2, "ratio1: ", ratio1, "ratio2: ",
+              ratio2, ", estimation_weight : ", estimated_weight)
         return int(str(loc1) + str(loc2)), estimated_weight
 
     def runAlgo(self, algo_data: AlgorithmData) -> AlgorithmData:
         deltas = self.preprocess_data(self.input_data, algo_data.referenceValue)
-        xCenter, yCenter, zCenter = self.calculate_cog(deltas)
-        location, weight = self.estimate_location_weight(xCenter, yCenter, zCenter)
+        xCenter, yCenter = self.calculate_cog(deltas)
+        location, weight = self.estimate_location_weight(xCenter, yCenter)
         algo_data.algo_type = ALGORITHM_TYPE.COGPositionMassEstimation_v3
         algo_data.position = location
         algo_data.predicted_weight = weight
