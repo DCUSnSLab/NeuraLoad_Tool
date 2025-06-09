@@ -26,7 +26,7 @@ class AlgorithmMultiProcV2(QWidget):
 
         self.ports = [sensor.port for sensor in self.serial_manager.sensors]
         self.port_colors = {
-            'TopLeft': 'b',
+            'TopLeft': 'w',
             'BottomLeft': 'r',
             'TopRight': 'g',
             'BottomRight': 'orange',

@@ -41,7 +41,7 @@ class GraphWidget(QWidget):
 
         # ✅ 미리 색상 목록 준비 (반복적으로 사용 가능)
         self.colors = [
-            'r', 'g', 'b', 'c', 'm', 'y', 'w', 'k',
+            'r', 'g', 'c', 'm', 'y', 'w', 'k',
             '#FF7F0E', '#1F77B4', '#2CA02C', '#D62728'
         ]
         self.color_index = 0
