@@ -515,12 +515,12 @@ class AlgorithmMultiProcV2(QWidget):
             col = self.port_location.get(location_name, 6)
             if port not in self.initial_sensor_values:
                 self.initial_sensor_values[port] = y_value
-                self.sensor_table.setItem(0, col, QTableWidgetItem(str(y_value)))
+                self.sensor_table.setItem(0, col, QTableWidgetItem(str(int(y_value))))
             self.sensor_table.setItem(1, col, QTableWidgetItem(str(y_value)))
             self.plot_curve_change[port].setData(x, y_change)
 
             if self.initial_active:
-                self.sensor_table.setItem(0, col, QTableWidgetItem(str(y[-1])))
+                self.sensor_table.setItem(0, col, QTableWidgetItem(str(int(y[-1]))))
 
                 if port not in self.init_plot:
                     self.init_plot[port] = deque(maxlen=300)
@@ -559,9 +559,9 @@ class AlgorithmMultiProcV2(QWidget):
                             location_name = self.location[port]
                             col = self.port_location.get(location_name, 6)
 
-                            self.sensor_table.setItem(0, col, QTableWidgetItem(str(avg)))
-                            self.initial_sensor_values[port] = avg
-                            self.inital_send_algorithm()
+                            self.sensor_table.setItem(0, col, QTableWidgetItem(str(int(avg))))
+                            self.initial_sensor_values[port] = int(avg)
+                    self.inital_send_algorithm()
 
             self.init_plot.clear()
             countdown()  # 카운트다운 시작
@@ -589,7 +589,7 @@ class AlgorithmMultiProcV2(QWidget):
                         port = p
                         break
 
-                self.initial_sensor_values[port] = float_value
+                self.initial_sensor_values[port] = int(float_value)
                 self.inital_send_algorithm()
             except ValueError:
                 QMessageBox.warning(self, "입력 오류", "숫자만 입력 가능합니다.")
@@ -601,5 +601,5 @@ class AlgorithmMultiProcV2(QWidget):
                         break
                 prev_value = self.initial_sensor_values.get(port, "")
                 self.sensor_table.blockSignals(True)
-                self.sensor_table.setItem(0, col, QTableWidgetItem(str(prev_value)))
+                self.sensor_table.setItem(0, col, QTableWidgetItem(str(int(prev_value))))
                 self.sensor_table.blockSignals(False)
