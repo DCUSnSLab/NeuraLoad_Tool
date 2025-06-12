@@ -53,7 +53,7 @@ class COGPositionMassEstimation_v4(AlgorithmBase):
         self.alpha = 0.2
         self.previous_values = None
 
-        self.window_size = 1
+        self.window_size = 30
         self.value_buffer = None
 
     def initAlgorithm(self):
@@ -132,71 +132,86 @@ class COGPositionMassEstimation_v4(AlgorithmBase):
         return x_center, y_center, z_center
 
     def estimate_location(self, xCenter: float, yCenter: float):
-        if xCenter == self.xCenters[4] and yCenter == self.yCenters[4]:  # 5번 위치
-            return [(0, 5, 4)]
-
-        dx = xCenter - self.initCenter[0]
-        dy = yCenter - self.initCenter[1]
-
-        if dx >= 0 and dy < 0:
-            candidates = [2, 3, 6]
-            segments = {
-                2: (2, 3),
-                3: [(2, 3), (3, 6)],
-                6: (3, 6)
-            }
-        elif dx < 0 and dy < 0:
-            candidates = [1, 2, 4]
-            segments = {
-                1: [(1, 2), (1, 4)],
-                2: (1, 2),
-                4: (1, 4)
-            }
-        elif dx < 0 and dy >= 0:
-            candidates = [4, 7, 8]
-            segments = {
-                4: (4, 7),
-                7: [(4, 7), (7, 8)],
-                8: (7, 8)
-            }
-        else:
-            candidates = [6, 8, 9]
-            segments = {
-                6: (6, 9),
-                8: (8, 9),
-                9: [(6, 9), (8, 9)]
-            }
-
-        candidate_coords = [np.array([
-            self.xCenters[self.locations.tolist().index(loc)],
-            self.yCenters[self.locations.tolist().index(loc)]
-        ]) for loc in candidates]
-
         point = np.array([xCenter, yCenter])
-        distances = [np.linalg.norm(point - c) for c in candidate_coords]
-        closest_idx = np.argmin(distances)
-        center_loc = candidates[closest_idx]
+        non_center_indices = [i for i, loc in enumerate(self.locations) if loc != 5]
 
-        # 구간 결정
-        segment = segments[center_loc]
-        if isinstance(segment, list):  # 예: [ (2,3), (3,6) ]
-            # 두 구간의 중점과 입력 좌표 거리 비교
-            midpoints = []
-            for a, b in segment:
-                idx_a = self.locations.tolist().index(a)
-                idx_b = self.locations.tolist().index(b)
-                xa, ya = self.xCenters[idx_a], self.yCenters[idx_a]
-                xb, yb = self.xCenters[idx_b], self.yCenters[idx_b]
-                midpoint = np.array([(xa + xb) / 2, (ya + yb) / 2])
-                midpoints.append(np.linalg.norm(point - midpoint))
-            segment = segment[np.argmin(midpoints)]
+        distances = [
+            (np.linalg.norm(point - np.array([self.xCenters[i], self.yCenters[i]])), i)
+            for i in non_center_indices
+        ]
+        closest_dist, closest_idx = min(distances, key=lambda x: x[0])
+        closest_loc = self.locations[closest_idx]
 
-        # 각 위치의 index 추출
-        idx1 = self.locations.tolist().index(segment[0])
-        idx2 = self.locations.tolist().index(segment[1])
-        dist1 = np.linalg.norm(point - np.array([self.xCenters[idx1], self.yCenters[idx1]]))
-        dist2 = np.linalg.norm(point - np.array([self.xCenters[idx2], self.yCenters[idx2]]))
-        return [(dist1, segment[0], idx1), (dist2, segment[1], idx2)]
+        neighbors = {
+            1: [2, 4],
+            2: [1, 3],
+            3: [2, 6],
+            4: [1, 7],
+            6: [3, 9],
+            7: [4, 8],
+            8: [7, 9],
+            9: [6, 8]
+        }
+
+        adjacents = neighbors.get(closest_loc, [])
+        if not adjacents:
+            return [closest_loc]
+
+        candidate_segments = []
+        for adj in adjacents:
+            adj_idx = self.locations.tolist().index(adj)
+            dist = np.linalg.norm(point - np.array([self.xCenters[adj_idx], self.yCenters[adj_idx]]))
+            candidate_segments.append((dist, adj, adj_idx))
+
+        dist2, loc2, idx2 = min(candidate_segments, key=lambda x: x[0])
+        return [closest_loc, loc2]
+
+    def cal_distance_location(self, location, xCenter, yCenter):
+        a = (self.yCenters[location - 1] - self.initCenter[1]) / (self.xCenters[location - 1] - self.initCenter[0])
+        b = -1
+        c = a * self.initCenter[0] - self.initCenter[1]
+        distance = abs(a * xCenter + b * yCenter + c) / (a ** 2 + b ** 2) ** 0.5
+        return distance
+
+    def estimate_location(self, xCenter: float, yCenter: float):
+        point = np.array([xCenter, yCenter])
+
+        # 5번을 제외한 인덱스 리스트
+        non_center_indices = [i for i, loc in enumerate(self.locations) if loc != 5]
+
+        # 모든 위치(5번 제외)와의 거리 계산
+        distances = [
+            (np.linalg.norm(point - np.array([self.xCenters[i], self.yCenters[i]])), i)
+            for i in non_center_indices
+        ]
+        closest_dist, closest_idx = min(distances, key=lambda x: x[0])
+        closest_loc = self.locations[closest_idx]
+
+        # 인접 위치 매핑
+        neighbors = {
+            1: [2, 4],
+            2: [1, 3],
+            3: [2, 6],
+            4: [1, 7],
+            6: [3, 9],
+            7: [4, 8],
+            8: [7, 9],
+            9: [6, 8]
+        }
+
+        adjacents = neighbors.get(closest_loc, [])
+        if not adjacents:
+            return [(0, closest_loc, closest_idx)]
+
+        # 인접 위치들 중에서 가장 가까운 것 찾기
+        candidate_segments = []
+        for adj in adjacents:
+            adj_idx = self.locations.tolist().index(adj)
+            dist = np.linalg.norm(point - np.array([self.xCenters[adj_idx], self.yCenters[adj_idx]]))
+            candidate_segments.append((dist, adj, adj_idx))
+
+        dist2, loc2, idx2 = min(candidate_segments, key=lambda x: x[0])
+        return [(closest_dist, closest_loc, closest_idx), (dist2, loc2, idx2)]
 
     def estimate_weight(self, zCenter: float, i1: int, i2: int, ratio1: float, ratio2: float):
         dz = zCenter - self.initCenter[2]
@@ -206,24 +221,59 @@ class COGPositionMassEstimation_v4(AlgorithmBase):
         if direction_z1 != 0:
             scale1 = dz / direction_z1
             if scale1 > 0:
-                weights.append(ratio2 * scale1 * 500)
+                threshold1 = direction_z1 / 5
+                threshold15 = threshold1 * 1.5
+                if dz <= threshold1:
+                    coeff1 = 1.4
+                elif threshold1 <= dz <= threshold15:
+                    coeff1 = 1.2
+                else:
+                    coeff1 = 1.0
+                weights.append(ratio2 * coeff1 * scale1 * 500)
+
         if direction_z2 != 0:
             scale2 = dz / direction_z2
             if scale2 > 0:
-                weights.append(ratio1 * scale2 * 500)
-        # print(f"scale1: {scale1 * 500}, scale2: {scale2 * 500}, weight: {weights}, total_weight: {sum(weights)}")
+                threshold2 = direction_z2 / 5
+                threshold25 = threshold2 * 2.5
+                if dz <= threshold2:
+                    coeff2 = 1.4
+                elif threshold2 <= dz <= threshold25:
+                    coeff2 = 1.2
+                else:
+                    coeff2 = 1.0
+                weights.append(ratio1 * coeff2 * scale2 * 500)
+
+        print(f"location1: {i1+1}, location2: {i2+1}, weight: {weights}, ratio1: {ratio1}, ratio2: {ratio2}, total_weight: {sum(weights)}")
         return sum(weights) if weights else 0
 
-    def estimate_location_weight(self, xCenter: float, yCenter: float, zCenter: float) -> (int, float):
-        locations = self.estimate_location(xCenter, yCenter)
-        (d1, loc1, i1), (d2, loc2, i2) = locations
-        total_dist = d1 + d2
-
-        if total_dist == 0:
-            ratio1 = ratio2 = 0.5
-        else:
-            ratio1 = d1 / total_dist
-            ratio2 = d2 / total_dist
-
-        weight = self.estimate_weight(zCenter, i1, i2, ratio1, ratio2)
-        return int(str(loc1)+str(loc2)), int(weight)
+    # # def estimate_weight(self, zCenter: float, i1: int, i2: int, ratio1: float, ratio2: float):
+    # #     dz = zCenter - self.initCenter[2]
+    # #     direction_z1 = self.zCenters[i1] - self.initCenter[2]
+    # #     direction_z2 = self.zCenters[i2] - self.initCenter[2]
+    # #
+    # #     weights = []
+    # #     if direction_z1 != 0:
+    # #         scale1 = dz / direction_z1
+    # #         if scale1 > 0:
+    # #             weights.append(ratio2 * scale1 * 500)
+    # #     if direction_z2 != 0:
+    # #         scale2 = dz / direction_z2
+    # #         if scale2 > 0:
+    # #             weights.append(ratio1 * scale2 * 500)
+    # #     print(f"scale1: {scale1 * 500}, scale2: {scale2 * 500}, weight: {weights}, total_weight: {sum(weights)}")
+    # #     return sum(weights) if weights else 0
+    #
+    # def estimate_location_weight(self, xCenter: float, yCenter: float, zCenter: float) -> (int, float):
+    #     locations = self.estimate_location(xCenter, yCenter)
+    #     (d1, loc1, i1), (d2, loc2, i2) = locations
+    #     total_dist = d1 + d2
+    #
+    #     if total_dist == 0:
+    #         ratio1 = ratio2 = 0.5
+    #     else:
+    #         ratio1 = d1 / total_dist
+    #         ratio2 = d2 / total_dist
+    #
+    #     weight = self.estimate_weight(zCenter, i1, i2, ratio1, ratio2)
+    #     return int(str(loc1)+str(loc2)), int(weight)
