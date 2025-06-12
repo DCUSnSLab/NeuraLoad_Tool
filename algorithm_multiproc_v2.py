@@ -149,9 +149,8 @@ class AlgorithmMultiProcV2(QWidget):
         self.sensor_table.setHorizontalHeaderLabels(headers)
         self.sensor_table.setVerticalHeaderLabels(['initial value', 'value'])
         self.sensor_table.setMaximumHeight(200)
-        self.sensor_table.setMinimumHeight(150)
-        self.sensor_table.setMaximumWidth(1000)
-        self.sensor_table.setMinimumWidth(500)
+        self.sensor_table.setMinimumHeight(130)
+        self.sensor_table.horizontalHeader().setDefaultSectionSize(100)
         self.sensor_table.itemChanged.connect(self.table_item_changed)
 
         self.initial_sensor_btn = QPushButton('초기값', self)
@@ -172,8 +171,8 @@ class AlgorithmMultiProcV2(QWidget):
 
         weightControllerWidget = QWidget()
         weightControllerWidget.setLayout(weightControllerLayout)
-        weightControllerWidget.setMinimumWidth(500)
-        weightControllerWidget.setMaximumWidth(500)
+        weightControllerWidget.setMinimumWidth(420)
+        weightControllerWidget.setMaximumWidth(450)
 
         leftMenuWidget = QWidget()
         leftMenuWidget.setLayout(self.algoLayout)
