@@ -90,7 +90,7 @@ class AlgorithmMultiProcV2(QWidget):
         # 실험 리스트뷰
         self.experimentList = QListWidget()
         self.experimentList.setFont(QFont("Arial", 10))
-        self.experimentList.setFixedHeight(10 * 40)
+        self.experimentList.setFixedHeight(10 * 80)
         self.experimentList.setSelectionMode(QAbstractItemView.NoSelection)
 
         # 파일명 출력용 (ReadOnly)
@@ -170,9 +170,16 @@ class AlgorithmMultiProcV2(QWidget):
         weightControllerLayout.addWidget(self.finishMeasureBtn)
         weightControllerLayout.addWidget(self.initial_sensor_btn)
 
+        weightControllerWidget = QWidget()
+        weightControllerWidget.setLayout(weightControllerLayout)
+        weightControllerWidget.setMinimumWidth(500)
+        weightControllerWidget.setMaximumWidth(500)
+
         leftMenuWidget = QWidget()
         leftMenuWidget.setLayout(self.algoLayout)
-        leftMenuWidget.setFixedWidth(310)  # 원하는 너비로 설정
+        # leftMenuWidget.setFixedWidth(310)  # 원하는 너비로 설정
+        leftMenuWidget.setMinimumWidth(310)
+        leftMenuWidget.setMaximumWidth(500)
 
         graph_layout = QVBoxLayout()
         graph_layout.addWidget(self.graph_change)
@@ -181,8 +188,9 @@ class AlgorithmMultiProcV2(QWidget):
 
         layout2 = QHBoxLayout()
         layout2.addWidget(leftMenuWidget, alignment=Qt.AlignLeft)
-        layout2.addLayout(weightControllerLayout)
-        self.weightWidget.setFixedWidth(550)
+        layout2.addWidget(weightControllerWidget)
+        self.weightWidget.setMinimumWidth(550)
+        self.weightWidget.setMaximumWidth(600)
         layout2.addWidget(self.weightWidget)
         layout2.addLayout(graph_layout)
 
