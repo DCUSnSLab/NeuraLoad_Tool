@@ -110,15 +110,27 @@ class Sensor(QThread):
             return None
 
         parts = data.split(',')
-        if len(parts) != 4:
+        if len(parts) != 11:  # 11개 데이터로 변경
             print(f"[경고] 잘못된 데이터 형식: {data}")
             return None
 
         try:
-            location = int(parts[0].strip())
-            distance = int(parts[1].strip())
-            intensity = int(parts[2].strip())
-            temperature = int(parts[3].strip())
+            # 아두이노 데이터: distance,strength,temperature,lux,gainMultiplier,integrationTime,cpl,visible,ch0,ch1,fullLuminosity
+            distance = int(float(parts[0].strip()))
+            strength = int(float(parts[1].strip()))
+            temperature = float(parts[2].strip())
+            lux = float(parts[3].strip())
+            gainMultiplier = float(parts[4].strip())
+            integrationTime = float(parts[5].strip())
+            cpl = float(parts[6].strip())
+            visible = int(float(parts[7].strip()))
+            ch0 = int(float(parts[8].strip()))
+            ch1 = int(float(parts[9].strip()))
+            fullLuminosity = int(float(parts[10].strip()))
+            
+            # 센서 위치는 포트 번호로 결정 (기존 로직 유지)
+            location = self._getLocationFromPort()
+            
         except ValueError as ve:
             print(f"[경고] 데이터 파싱 실패: {data} ({ve})")
             return None
@@ -136,14 +148,36 @@ class Sensor(QThread):
                 serial_port=self.port,
                 location=SENSORLOCATION.get_sensor_location(location),
                 distance=distance,
-                intensity=intensity,
-                temperature=temperature
+                intensity=strength,  # strength를 intensity로 매핑
+                temperature=int(temperature),  # 기존 코드에서 int로 처리
+                # 추가 데이터는 SensorData에 속성 추가 필요
+                lux=lux,
+                gainMultiplier=gainMultiplier,
+                integrationTime=integrationTime,
+                cpl=cpl,
+                visible=visible,
+                ch0=ch0,
+                ch1=ch1,
+                fullLuminosity=fullLuminosity
             )
             self.databuf.put(sensor_data)
             return sensor_data
         except Exception as e:
             print(f"[오류] SensorData 생성 실패: {e}")
             return None
+
+    def _getLocationFromPort(self):
+        """포트 번호로부터 센서 위치를 결정"""
+        try:
+            # COM3 -> 3, /dev/ttyUSB0 -> 0 등으로 변환
+            import re
+            numbers = re.findall(r'\d+', self.port)
+            if numbers:
+                return int(numbers[-1]) % 4  # 0-3 범위로 제한
+            else:
+                return 0
+        except:
+            return 0
 
     def pause(self):
         self.is_paused = True

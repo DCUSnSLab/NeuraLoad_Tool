@@ -31,7 +31,6 @@ void configureSensor() {
 }
 
 void loop() {
-    // 레이저 센서 데이터 계속 읽기 및 출력 (최우선 처리)
     if (Serial2.available() >= 9) {  // 9바이트 데이터 수신 확인
         // 패킷 시작 확인
         if (Serial2.read() == 0x59 && Serial2.read() == 0x59) {
