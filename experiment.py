@@ -28,8 +28,8 @@ class Experiment(QWidget):
         self.last_direction = '-'
         self.is_paused_global = True
         self.is_experiment_active = False
-        self.save_graph_max = 500
-        self.save_graph_min = 0
+        self.save_graph_max = 30
+        self.save_graph_min = -70
         self.port_actual_distances = {}
         self.is_syncing = False
         self.current_filename = datetime.datetime.now().strftime("sensor_data_%Y-%m-%d-%H-%M.bin")
