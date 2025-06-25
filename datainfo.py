@@ -339,6 +339,126 @@ class SensorBinaryFileHandler:
                 row.extend([algo.algo_type.name, algo.predicted_weight, algo.error, algo.position])
                 row.extend(algo.referenceValue)
                 writer.writerow(row)
+    #
+    # def import_from_csv(self, csv_filename: str) -> List[SensorFrame]:
+    #     frames = []
+    #     with open(csv_filename, newline='') as csvfile:
+    #         reader = csv.DictReader(csvfile)
+    #         for row in reader:
+    #             timestamp_str = row['timestamp']
+    #             # 문자열을 datetime 객체로 변환 (예: "2025-05-15 13:20:00")
+    #             timestamp = datetime.datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S.%f')
+    #
+    #             scenario = int(row['scenario'])
+    #             NofExperiments = int(row['numofexperiments'])
+    #             started = row['started'].lower() == 'true'
+    #             measured = row['measured'].lower() == 'true'
+    #
+    #             sensors = []
+    #             for i in range(4):
+    #                 dist = float(row[f'sensor{i}_distance'])
+    #                 # SensorData 생성법에 맞게 수정 필요
+    #                 sensors.append(SensorData(distance=dist))
+    #
+    #             weights = [float(row[f'expW{i}']) for i in range(1, 10)]
+    #
+    #             algo_type_name = row['algo_type']
+    #             # ALGORITHM_TYPE 변환 필요하면 여기서 처리
+    #             predicted_weight = float(row['pred_weight'])
+    #             error = float(row['error'])
+    #             position = int(row['position'])
+    #             ref_vals = [float(row[f'refV{i}']) for i in range(1, 10)]
+    #
+    #             algorithms = AlgorithmData(
+    #                 algo_type=algo_type_name,
+    #                 predicted_weight=predicted_weight,
+    #                 error=error,
+    #                 position=position,
+    #                 refVal=ref_vals
+    #             )
+    #
+    #             experiment = ExperimentData(weights=weights)
+    #
+    #             frame = SensorFrame(
+    #                 timestamp=timestamp,
+    #                 sensors=sensors,
+    #                 scenario=scenario,
+    #                 NofExperiments=NofExperiments,
+    #                 started=started,
+    #                 measured=measured,
+    #                 experiment=experiment,
+    #                 algorithms=algorithms,
+    #                 serial_port='',  # CSV에 없으면 빈 문자열이나 기본값
+    #                 location='',
+    #                 distance=dist,
+    #                 intensity=0,
+    #                 temperature=0
+    #             )
+    #             frames.append(frame)
+    #     return frames
+
+    def import_from_csv(self, csv_filename: str, bin_filename: str):
+        frames = []
+        with open(csv_filename, 'r', newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                time_str = row['timestamp']  # 예: '2025-05-16 0'
+
+                try:
+                    # 날짜+시간 형식으로 파싱 (예: '2025-05-16 0' 또는 '2025-05-16 00:26:09')
+                    timestamp = datetime.datetime.strptime(time_str, '%Y-%m-%d %H')
+                except ValueError:
+                    # 예외 발생 시 다른 형식 시도하거나 기본값 처리
+                    timestamp = datetime.datetime.now()  # 임시로 현재 시간 지정
+
+                scenario = int(row['scenario'])
+                NofExperiments = int(row['numofexperiments'])
+                started = row['started'].lower() == 'true'
+                measured = row['measured'].lower() == 'true'
+
+                sensors = []
+                for i in range(4):
+                    distance = int(row[f'sensor{i}_distance'])
+                    sensors.append(SensorData(
+                        timestamp=timestamp,
+                        serial_port='',
+                        location=SENSORLOCATION(i),
+                        distance=distance,
+                        intensity=0,
+                        temperature=0
+                    ))
+
+                weights = [int(row[f'expW{i}']) for i in range(1, 10)]
+                experiment = ExperimentData(weights=weights)
+
+                algo_type = ALGORITHM_TYPE[row['algo_type']]
+                predicted_weight = int(row['pred_weight'])
+                error = int(row['error'])
+                position = int(row['position'])
+                refVal = [int(row[f'refV{i}']) for i in range(1, 5)]
+                algorithms = AlgorithmData(
+                    algo_type=algo_type,
+                    predicted_weight=predicted_weight,
+                    error=error,
+                    position=position,
+                    refVal=refVal
+                )
+
+                frame = SensorFrame(
+                    timestamp=timestamp,
+                    sensors=sensors,
+                    scenario=scenario,
+                    NofExperiments=NofExperiments,
+                    started=started,
+                    measured=measured,
+                    experiment=experiment,
+                    algorithms=algorithms,
+                    isEoF=False
+                )
+                frames.append(frame)
+
+        handler = SensorBinaryFileHandler(bin_filename)
+        handler.save_frames(frames)
 
 class AlgorithmFileHandler(SensorBinaryFileHandler):
     def __init__(self, filename: str):
@@ -381,12 +501,33 @@ if __name__ == '__main__':
     # # 파일에 저장
     # handler = SensorBinaryFileHandler('sensor_log.bin')
     # handler.save_frames(frames)
-    handler = AlgorithmFileHandler('COGPositionMassEstimation_v3_vertical_center_20250515.bin')
+    #
+    # # handler = AlgorithmFileHandler('re_sequential_front_20250515.bin')
+    # handler = AlgorithmFileHandler('re_COGPositionMassEstimation_v3_center_concentrated_20250428.bin')
+    # # 파일에서 불러오기
+    # loaded_frames = handler.load_frames()
+    # handler.export_to_csv('re_COGPositionMassEstimation_v3_center_concentrated_20250428.csv')
+    # # 출력
+    # for idx, f in enumerate(loaded_frames):
+    #     print(f"\n[Frame {idx}] timestamp={f.timestamp}, expStarted={f.started}, isMeasured={f.measured}, scenario={f.get_scenario_name()}, experiment={f.experiment}, algorithms={f.algorithms}")
+    #     for s in f.sensors:
+    #         print(f"  - {type(s).__name__} @ {s.timestamp} @ {s.serial_port} @ {s.location.name}")
+    # #
+    # # handler = AlgorithmFileHandler('re_sequential_front_20250515.bin')  # 저장할 파일명 지정
+    # #     # frames = handler.import_from_csv('re_COGPositionMassEstimation_v3_v3_sequential_front_20250515.csv')
+    # #     # handler.save_frames(frames)  # 파일 이름 없이 frames만 넘김
+    #
+    #
+    #
+
+    handler = AlgorithmFileHandler('re_COGPositionMassEstimation_v5_COGPositionMassEstimation_v4_COGPositionMassEstimation_v4_v2_center_concentrated_20250531.bin')
     # 파일에서 불러오기
     loaded_frames = handler.load_frames()
-    handler.export_to_csv('COGPositionMassEstimation_v3_vertical_center_20250515.csv')
+    handler.export_to_csv('re_COGPositionMassEstimation_v5_COGPositionMassEstimation_v4_COGPositionMassEstimation_v4_v2_center_concentrated_20250531.csv')
     # 출력
     for idx, f in enumerate(loaded_frames):
         print(f"\n[Frame {idx}] timestamp={f.timestamp}, expStarted={f.started}, isMeasured={f.measured}, scenario={f.get_scenario_name()}, experiment={f.experiment}, algorithms={f.algorithms}")
         for s in f.sensors:
             print(f"  - {type(s).__name__} @ {s.timestamp} @ {s.serial_port} @ {s.location.name}")
+
+    # handler.import_from_csv('COGPositionMassEstimation_v3_symmetric_front_20250531.csv', 'COGPositionMassEstimation_v3_symmetric_front_20250531_1.bin')

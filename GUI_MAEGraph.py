@@ -43,15 +43,30 @@ class BarGraphWidget(QWidget):
 
             # 에러 계산
             if mode == 'mae':
-                error = sum(abs(a - p) for a, p in zip(actual, predicted)) / len(actual)
+                if actual != 0:
+                    error = sum(abs(a - p) for a, p in zip(actual, predicted)) / len(actual)
+                else:
+                    error = 0
             elif mode == 'mse':
-                error = sum((a - p) ** 2 for a, p in zip(actual, predicted)) / len(actual)
+                if actual != 0:
+                    error = sum((a - p) ** 2 for a, p in zip(actual, predicted)) / len(actual)
+                else:
+                    error = 0
             elif mode == 'rmse':
-                mse = sum((a - p) ** 2 for a, p in zip(actual, predicted)) / len(actual)
-                error = mse ** 0.5
+                if actual != 0:
+                    mse = sum((a - p) ** 2 for a, p in zip(actual, predicted)) / len(actual)
+                    error = mse ** 0.5
+                else:
+                    error = 0
             elif mode == 'error_rate':
-                mae = sum(abs(a - p) for a, p in zip(actual, predicted)) / len(actual)
-                error = (mae / avg_actual) * 100
+                if actual != 0:
+                    mae = sum(abs(a - p) for a, p in zip(actual, predicted)) / len(actual)
+                    if avg_actual != 0:
+                        error = (mae / avg_actual) * 100
+                    else:
+                        error = 0
+                else:
+                    error = 0
             else:
                 error = 0
 

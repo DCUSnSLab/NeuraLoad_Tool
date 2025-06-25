@@ -5,7 +5,7 @@ from scipy.stats import mode
 import time
 import numpy as np
 from typing import Dict, List, Any, Optional
-
+from collections import deque
 from Algorithm.algorithmtype import ALGORITHM_TYPE
 from datainfo import SensorFrame, SENSORLOCATION, AlgorithmData
 from Algorithm.RefValueGenerator_COG import COGRefValGenerator
@@ -28,9 +28,9 @@ class COGPositionMassEstimation_v3(AlgorithmBase):
         self.loadingBoxWidth = 1630
         self.loadingBoxLength = 2860
         self.sensorCoords = np.array([
-            [323.1, 1],  # TL (Top Left)
+            [373.1, 1],  # TL (Top Left)
             [201, 2516.9],  # BL (Bottom Left)
-            [1306.9, 1],  # TR (Top Right)
+            [1256.9, 1],  # TR (Top Right)
             [1429, 2516.9]  # BR (Bottom Right)
         ])
 
@@ -47,9 +47,12 @@ class COGPositionMassEstimation_v3(AlgorithmBase):
         # self.xCenters = np.array([787.0877792,  814.8771739,  839.9643955,  782.7581608,  811.1309793,  837.1086898,  785.3743557,  812.6048919,  843.4710794])
         # self.yCenters = np.array([1426.94493,  1429.336884,  1426.518641,  1456.003617,  1451.456536,  1453.019595,  1479.942102,  1481.01256,  1479.430555])
         # self.zCenters = np.array([18.78125,  21.29166667,  19.09375,  27.3125,  26.0625,  25.75,  29.45,  32.8125,  29.34166667])
+
         self.deltas = {i: [] for i in range(4)}
+
         self.alpha = 0.2
         self.previous_values = None
+
     def initAlgorithm(self):
         print('init Algorithm ->', self.name)
 
@@ -195,7 +198,7 @@ class COGPositionMassEstimation_v3(AlgorithmBase):
             scale2 = dz / direction_z2
             if scale2 > 0:
                 weights.append(ratio1 * scale2 * 500)
-        print(f"scale1: {scale1 * 500}, scale2: {scale2 * 500}, weight: {weights}, total_weight: {sum(weights)}")
+        # print(f"scale1: {scale1 * 500}, scale2: {scale2 * 500}, weight: {weights}, total_weight: {sum(weights)}")
         return sum(weights) if weights else 0
 
     def estimate_location_weight(self, xCenter: float, yCenter: float, zCenter: float) -> (int, float):
