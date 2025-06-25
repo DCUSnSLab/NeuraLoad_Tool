@@ -31,8 +31,18 @@ class SensorData:
     distance: int
     intensity: int
     temperature: int
+    
+    #조도센서관련데이터터
+    lux: float = 0.0
+    gainMultiplier: float = 0.0
+    integrationTime: float = 0.0
+    cpl: float = 0.0
+    visible: int = 0
+    ch0: int = 0
+    ch1: int = 0
+    fullLuminosity: int = 0
 
-    STRUCT_FORMAT = '<d 16s B H H H'  # timestamp, serial_port, location, distance, intensity, temperature
+    STRUCT_FORMAT = '<d 16s B H H H f f f f H H H H'  # timestamp, serial_port, location, distance, intensity, temperature, lux, gainMultiplier, integrationTime, cpl, visible, ch0, ch1, fullLuminosity
 
     def pack(self) -> bytes:
         return struct.pack(
@@ -42,19 +52,35 @@ class SensorData:
             self.location.value,
             self.distance,
             self.intensity,
-            self.temperature
+            self.temperature,
+            self.lux,
+            self.gainMultiplier,
+            self.integrationTime,
+            self.cpl,
+            self.visible,
+            self.ch0,
+            self.ch1,
+            self.fullLuminosity
         )
 
     @classmethod
     def unpack(cls, data: bytes) -> 'SensorData':
-        ts, port_bytes, loc, distance, intensity, temperature = struct.unpack(cls.STRUCT_FORMAT, data)
+        ts, port_bytes, loc, distance, intensity, temperature, lux, gainMultiplier, integrationTime, cpl, visible, ch0, ch1, fullLuminosity = struct.unpack(cls.STRUCT_FORMAT, data)
         return cls(
             timestamp=datetime.datetime.fromtimestamp(ts),
             serial_port=port_bytes.decode('utf-8').rstrip('\x00'),
             location=SENSORLOCATION.get_sensor_location(loc),
             distance=distance,
             intensity=intensity,
-            temperature=temperature
+            temperature=temperature,
+            lux=lux,
+            gainMultiplier=gainMultiplier,
+            integrationTime=integrationTime,
+            cpl=cpl,
+            visible=visible,
+            ch0=ch0,
+            ch1=ch1,
+            fullLuminosity=fullLuminosity
         )
 
     @classmethod
@@ -295,15 +321,24 @@ class SensorBinaryFileHandler:
     def export_to_csv(self, csv_filename: str):
         frames = self.load_frames()
         with open(csv_filename, 'w', newline='') as csvfile:
+            
             writer = csv.writer(csvfile)
-            # Header
-            writer.writerow([
-                'timestamp', 'scenario', 'numofexperiments', 'started', 'measured',
-                'sensor0_distance', 'sensor1_distance', 'sensor2_distance', 'sensor3_distance',
-                'expW1','expW2','expW3','expW4','expW5','expW6','expW7','expW8','expW9',
-                'algo_type', 'pred_weight', 'error','position'
-                # 필요시 더 추가 가능
-            ])
+            
+            header = ['timestamp', 'scenario', 'numofexperiments', 'started', 'measured']
+            
+            for i in range(4):
+                sensor_prefix = f'sensor{i}'
+                header.extend([
+                    f'{sensor_prefix}_distance', f'{sensor_prefix}_intensity', f'{sensor_prefix}_temperature',
+                    f'{sensor_prefix}_lux', f'{sensor_prefix}_gainMultiplier', f'{sensor_prefix}_integrationTime',
+                    f'{sensor_prefix}_cpl', f'{sensor_prefix}_visible', f'{sensor_prefix}_ch0',
+                    f'{sensor_prefix}_ch1', f'{sensor_prefix}_fullLuminosity'
+                ])
+            
+            header.extend(['expW1','expW2','expW3','expW4','expW5','expW6','expW7','expW8','expW9'])
+            header.extend(['algo_type', 'pred_weight', 'error','position'])
+            
+            writer.writerow(header)
 
             for frame in frames:
                 row = [
@@ -313,7 +348,15 @@ class SensorBinaryFileHandler:
                     frame.started,
                     frame.measured
                 ]
-                row.extend(sensor.distance for sensor in frame.sensors)
+                
+                for sensor in frame.sensors:
+                    row.extend([
+                        sensor.distance, sensor.intensity, sensor.temperature,
+                        sensor.lux, sensor.gainMultiplier, sensor.integrationTime,
+                        sensor.cpl, sensor.visible, sensor.ch0,
+                        sensor.ch1, sensor.fullLuminosity
+                    ])
+                
                 row.extend(frame.experiment.weights)
                 algo = frame.algorithms
                 row.extend([algo.algo_type.name, algo.predicted_weight, algo.error, algo.position])
@@ -336,36 +379,59 @@ class AlgorithmFileHandler(SensorBinaryFileHandler):
             self._buffer.append(frame)
 
 if __name__ == '__main__':
-    # now = datetime.datetime.now()
-    #
-    # # 여러 개의 SensorFrame 생성
-    # frames = []
-    # for i in range(3):  # 예: 3개 프레임
-    #     timestamp = (now + datetime.timedelta(seconds=i))
-    #     #print(timestamp, type(timestamp), timestamp.timestamp(), type(timestamp.timestamp()))
-    #     frame = SensorFrame(
-    #         timestamp=timestamp,
-    #         scenario=REVERSE_SCENARIO_TYPE_MAP['None'],
-    #         sensors=[
-    #             SensorData(timestamp, 'VCOM1', SENSORLOCATION.TOP_LEFT, 500 + i, 200 + i, 30 + i),
-    #             SensorData(timestamp, 'VCOM2',SENSORLOCATION.BOTTOM_LEFT, 510 + i, 210 + i, 31 + i),
-    #             SensorData(timestamp, 'VCOM3',SENSORLOCATION.TOP_RIGHT, 520 + i, 220 + i, 32 + i),
-    #             SensorData(timestamp, 'VCOM4',SENSORLOCATION.BOTTOM_RIGHT, 530 + i, 230 + i, 33 + i),
-    #         ],
-    #         experiment=ExperimentData([20,40,20,0,0,0,0,0,0]),
-    #         algorithms=[AlgorithmData(ALGORITHM_TYPE.COGMassEstimation, 20, 10, 1), AlgorithmData(ALGORITHM_TYPE.MLPPredictor, 20, 10, 1)]
-    #     )
-    #     frames.append(frame)
-    #
-    # # 파일에 저장
-    # handler = SensorBinaryFileHandler('sensor_log.bin')
-    # handler.save_frames(frames)
-    handler = AlgorithmFileHandler('COGMassEstimation_vertical_center_20250424.bin')
-    # 파일에서 불러오기
+    # 새로운 형식 테스트를 위한 샘플 데이터 생성
+    now = datetime.datetime.now()
+    
+    # 여러 개의 SensorFrame 생성 (새로운 11개 필드 포함)
+    frames = []
+    for i in range(3):  # 예: 3개 프레임
+        timestamp = (now + datetime.timedelta(seconds=i))
+        sensors = []
+        
+        # 4개 센서 데이터 생성 (11개 필드 모두 포함)
+        for j in range(4):
+            sensor_data = SensorData(
+                timestamp=timestamp,
+                serial_port=f'VCOM{j+1}',
+                location=SENSORLOCATION.get_sensor_location(j),
+                distance=500 + i + j*10,
+                intensity=200 + i + j*10,
+                temperature=30 + i,
+                lux=100.0 + i*50 + j*25,
+                gainMultiplier=1.0 + j*2,
+                integrationTime=50.0 + i*10,
+                cpl=1.0 + j*0.5,
+                visible=1000 + i*100 + j*200,
+                ch0=500 + i*50 + j*100,
+                ch1=200 + i*25 + j*50,
+                fullLuminosity=2000 + i*200 + j*300
+            )
+            sensors.append(sensor_data)
+        
+        frame = SensorFrame(
+            timestamp=timestamp,
+            scenario=REVERSE_SCENARIO_TYPE_MAP['None'],
+            sensors=sensors,
+            experiment=ExperimentData([20,40,20,0,0,0,0,0,0]),
+            algorithms=AlgorithmData(ALGORITHM_TYPE.COGMassEstimation, 20, 10, 1)
+        )
+        frames.append(frame)
+
+    # 새로운 형식으로 파일에 저장
+    print("new format data saved")
+    handler = AlgorithmFileHandler('raw_data_2025-06-25.bin')
+    handler.save_frames(frames)
+    
     loaded_frames = handler.load_frames()
-    handler.export_to_csv('COGMassEstimation_center_concentrated_20250423.csv')
+    
+    # CSV로 내보내기
+    print("CSV file created")
+    handler.export_to_csv('raw_data_2025-06-25.csv')
+    
     # 출력
+    print(f"\n{len(loaded_frames)} frames loaded")
     for idx, f in enumerate(loaded_frames):
-        print(f"\n[Frame {idx}] timestamp={f.timestamp}, expStarted={f.started}, isMeasured={f.measured}, scenario={f.get_scenario_name()}, experiment={f.experiment}, algorithms={f.algorithms}")
+        print(f"\n[Frame {idx}] timestamp={f.timestamp}, scenario={f.get_scenario_name()}")
         for s in f.sensors:
-            print(f"  - {type(s).__name__} @ {s.timestamp} @ {s.serial_port} @ {s.location.name}")
+            print(f"  - {s.serial_port} @ {s.location.name}: dist={s.distance}, temp={s.temperature}, lux={s.lux:.1f}")
+    

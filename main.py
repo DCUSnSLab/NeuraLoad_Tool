@@ -10,7 +10,7 @@ from experiment import Experiment
 from arduino_manager import SerialManager
 from experiment_v2 import ExperimentTab
 from weight_action import WeightTable
-
+from LightSensorTab import LightSensorTab
 
 def sync_callback(group):
     print("Synchronized group:")
@@ -44,12 +44,14 @@ class Main(QWidget):
         self.tab2 = AlgorithmMultiProcV2(serial_manager=self.serial_manager, wt=wtAlgo)
         self.tab3 = AlgorithmResimulation(serial_manager=self.serial_manager)
         self.tab4 = Analytics()
+        self.tab5 = LightSensorTab(serial_manager=self.serial_manager)
 
         self.tabs.addTab(self.tab1, '실험 데이터 수집')
         self.tabs.addTab(self.tab2, '실시간 알고리즘 테스트')
         self.tabs.addTab(self.tab3, '알고리즘 리시뮬레이션')
         self.tabs.addTab(self.tab4, '분석')
         self.tabs.addTab(self.tab0, 'Experiment_V2')
+        self.tabs.addTab(self.tab5, 'Light Sensor')
 
         vbox = QVBoxLayout()
         vbox.addWidget(self.tabs)

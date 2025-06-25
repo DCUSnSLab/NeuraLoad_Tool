@@ -7,7 +7,7 @@ from typing import Dict, Any, Optional
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-from tensorflow.keras.models import load_model
+#from tensorflow.keras.models import load_model
 from joblib import load as joblib_load
 
 # 상위 디렉토리 경로 설정
@@ -42,7 +42,7 @@ class KerasMLPPredictor(AlgorithmBase):
         scaler_abspath = os.path.join(os.path.dirname(os.path.abspath(__file__)), self.scaler_path)
 
         try:
-            self.model = load_model(model_abspath, compile=False)
+            #self.model = load_model(model_abspath, compile=False)
             self.scaler = joblib_load(scaler_abspath)
             # print("모델과 스케일러 로드 완료")
         except Exception as e:

@@ -11,6 +11,7 @@ import random
 import datetime
 from threading import Thread, Lock
 import time
+import signal
 
 from datainfo import SensorData, SENSORLOCATION, SensorFrame
 
@@ -66,6 +67,9 @@ class Sensor(QThread):
 
         #get first Data from sensor
         data = None
+        retry_count = 0
+        max_retries = 50  # 최대 5초 대기 (50 * 100ms)
+        
         self.msleep(100)
         while data is None:
             data = self.__getDatafromSerial()
@@ -150,7 +154,6 @@ class Sensor(QThread):
                 distance=distance,
                 intensity=strength,  # strength를 intensity로 매핑
                 temperature=int(temperature),  # 기존 코드에서 int로 처리
-                # 추가 데이터는 SensorData에 속성 추가 필요
                 lux=lux,
                 gainMultiplier=gainMultiplier,
                 integrationTime=integrationTime,
@@ -160,7 +163,6 @@ class Sensor(QThread):
                 ch1=ch1,
                 fullLuminosity=fullLuminosity
             )
-            self.databuf.put(sensor_data)
             return sensor_data
         except Exception as e:
             print(f"[오류] SensorData 생성 실패: {e}")
@@ -235,6 +237,16 @@ class SensorVirtual(Sensor):
             distance = random.randint(600 + (pidxGap * 10), 700 + (pidxGap * 10))
             intensity = random.randint(400 + (pidxGap * 10), 450 + (pidxGap * 10))
             temperature = random.randint(20, 40)
+            
+            # 시뮬레이션용 조도 센서 데이터
+            lux = random.uniform(100.0, 1000.0)
+            gainMultiplier = random.uniform(1.0, 16.0)
+            integrationTime = random.uniform(13.7, 402.0)
+            cpl = random.uniform(0.1, 10.0)
+            visible = random.randint(1000, 5000)
+            ch0 = random.randint(500, 3000)
+            ch1 = random.randint(200, 1500)
+            fullLuminosity = random.randint(1500, 8000)
 
             sdata = SensorData(
                 timestamp=timestamp,
@@ -242,7 +254,15 @@ class SensorVirtual(Sensor):
                 location=self.sensorLoc,
                 distance=distance,
                 intensity=intensity,
-                temperature=temperature
+                temperature=temperature,
+                lux=lux,
+                gainMultiplier=gainMultiplier,
+                integrationTime=integrationTime,
+                cpl=cpl,
+                visible=visible,
+                ch0=ch0,
+                ch1=ch1,
+                fullLuminosity=fullLuminosity
             )
 
             self.databuf.put(sdata)
@@ -377,14 +397,41 @@ def sync_callback(frame: SensorFrame):
     print("Synchronized group:")
     print(f"\ntimestamp={frame.timestamp}, scenario={frame.get_scenario_name()}")
     for data in frame.sensors:
-        print(f"{data.serial_port}: (Timestamp: {data.timestamp}, location: {data.location.name}, value: {data.distance}, sub1: {data.intensity}, sub2: {data.temperature})")
+        print(f"{data.serial_port}: (Timestamp: {data.timestamp}, location: {data.location.name}, value: {data.distance}, sub1: {data.intensity}, sub2: {data.temperature}, lux: {data.lux}, gainMultiplier: {data.gainMultiplier}, integrationTime: {data.integrationTime}, cpl: {data.cpl}, visible: {data.visible}, ch0: {data.ch0}, ch1: {data.ch1}, fullLuminosity: {data.fullLuminosity})")
     print("----")
 
 
+global_synchronizer = None
+
+def signal_handler(sig, frame):
+    """Ctrl+C 종료함수"""
+    
+    if global_synchronizer:
+        print("clean up sensor threads")
+        global_synchronizer.stop_threads()
+    
+    if QApplication.instance():
+        QApplication.instance().quit()
+    
+    os._exit(0)  # 강제 종료
+
 if __name__ == "__main__":
+    signal.signal(signal.SIGINT, signal_handler)
+    
     app = QApplication(sys.argv)
     synchronizer = SerialManager(debug_mode=True, slop=0.1, callback=sync_callback)
-    # synchronizer = SerialManager(debug_mode=True, slop=0.1)
+    global_synchronizer = synchronizer  # 전역 참조 저장
+    
+    timer = QTimer()
+    timer.timeout.connect(lambda: None)
+    timer.start(500)  # n마다 체크
+    
     synchronizer.start_threads()
-    print("SerialManager started.")
-    sys.exit(app.exec_())
+    
+    try:
+        app.exec_()
+    except KeyboardInterrupt:
+        signal_handler(None, None)
+    finally:
+        if global_synchronizer:
+            global_synchronizer.stop_threads()
