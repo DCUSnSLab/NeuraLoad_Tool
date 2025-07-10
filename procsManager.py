@@ -121,11 +121,10 @@ class ProcsManager:
                 self.removeResBuffer(name)
 
     def terminateAll(self):
-        for val in self.procs.values():
-            self._print(val.name, val.getPID())
-            val.terminate()
         for algo_buf in self.algo_buffers.values():
             self.removeSerialManagerBuffer(algo_buf)
+        for val in self.procs.values():
+            val.terminate()
         self.procs.clear()
         self.resbuf.clear()
         self.algo_buffers.clear()

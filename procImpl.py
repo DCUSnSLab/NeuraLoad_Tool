@@ -12,6 +12,7 @@ class processImpl(metaclass=ABCMeta):
         self.databuf = None
         self.manage = None
         self.resBuf = None
+        self.terminate_event = mp.Event()  # 자식 프로세스 종료 이벤트
 
     def _initialize_buffers(self):
         self.manage = mp.Manager()
@@ -47,6 +48,8 @@ class processImpl(metaclass=ABCMeta):
         self.process.join()
 
     def terminate(self):
+        self.terminate_event.set()  # 내부 루트에 종료 신호 전송
+        self.join()  # 종료될 때까지 기다림
         if self.process and self.process.is_alive():
             self.process.terminate()
         else:
@@ -55,7 +58,6 @@ class processImpl(metaclass=ABCMeta):
     def run(self):
         self._initialize_buffers()
         self.doProc()
-        # self.join()
         self.__done()
 
     def __done(self):
