@@ -129,10 +129,10 @@ class AlgorithmResimulation(QWidget):
     def changeToggle(self, status):
         if status:
             self.toggleBtn.setText("Step By Step ON")
-            self.all_btn.setEnabled(False)
+            self.algoLayout.all_btn.setEnabled(False)
         else:
             self.toggleBtn.setText("Step By Step OFF")
-            self.all_btn.setEnabled(True)
+            self.algoLayout.all_btn.setEnabled(True)
 
     def onCheckboxToggled(self, state):
         self.updateGraph()
@@ -354,7 +354,7 @@ class AlgorithmResimulation(QWidget):
                     print('select algorithm file -> ',cbx.text(), self.files[cbx.text()])
                     self.resimulManager.addProcess(self.files[cbx.text()])
 
-        self.resimulManager.startThread(callback=self.setBtnforRunAlgorithm,
+        self.resimulManager.startThread(callback=self.algoLayout.setBtnforRunAlgorithm,
                                         datacallback=self.setDataProcessed,
                                         statuscallback=self.setStatus,
                                         resimcompcallback=self.setResimComp)
@@ -370,10 +370,10 @@ class AlgorithmResimulation(QWidget):
     def setDataProcessed(self, progress, sf:SensorFrame, legacy_ad:AlgorithmData):
         self.progress_widget.set_value(progress)
 
-    def setBtnforRunAlgorithm(self):
-        self.algoLayout.stop_btn.setEnabled(True)
-        self.algoLayout.start_btn.setEnabled(False)
-        self.algoLayout.all_btn.setEnabled(False)
+    # def setBtnforRunAlgorithm(self):
+    #     self.algoLayout.stop_btn.setEnabled(True)
+    #     self.algoLayout.start_btn.setEnabled(False)
+    #     self.algoLayout.all_btn.setEnabled(False)
 
     def finishAllAlgorithms(self):
         self.resimulManager.terminateAll()

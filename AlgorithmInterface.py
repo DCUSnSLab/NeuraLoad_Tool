@@ -87,7 +87,7 @@ class AlgorithmBase(processImpl):
     def doProc(self):
         #print('init Algorithm..',self.name)
         self.initAlgorithm()
-        while True:
+        while not self.terminate_event.is_set():
             if not self.databuf.empty():
                 data:SensorFrame = self.databuf.get()#print('run algorithm->',self.name,' : ',self.databuf.get())
                 if data.isEoF is not True:

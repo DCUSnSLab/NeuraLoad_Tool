@@ -366,13 +366,13 @@ class AlgorithmMultiProcV2(QWidget):
                     print('select algorithm file -> ',cbx.text(), self.files[cbx.text()])
                     self.procmanager.addProcess(self.files[cbx.text()])
 
-        self.procmanager.startThread(callback=self.setBtnforRunAlgorithm)
+        self.procmanager.startThread(callback=self.algoLayout.setBtnforRunAlgorithm)
         # self.stop_btn.setEnabled(True)
 
-    def setBtnforRunAlgorithm(self):
-        self.algoLayout.stop_btn.setEnabled(True)
-        self.algoLayout.start_btn.setEnabled(False)
-        self.algoLayout.all_btn.setEnabled(False)
+    # def setBtnforRunAlgorithm(self):
+    #     self.algoLayout.stop_btn.setEnabled(True)
+    #     self.algoLayout.start_btn.setEnabled(False)
+    #     self.algoLayout.all_btn.setEnabled(False)
 
     def finishAllAlgorithms(self):
         self.procmanager.terminateAll()
