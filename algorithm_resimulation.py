@@ -129,10 +129,10 @@ class AlgorithmResimulation(QWidget):
     def changeToggle(self, status):
         if status:
             self.toggleBtn.setText("Step By Step ON")
-            self.all_btn.setEnabled(False)
+            self.algoLayout.all_btn.setEnabled(False)
         else:
             self.toggleBtn.setText("Step By Step OFF")
-            self.all_btn.setEnabled(True)
+            self.algoLayout.all_btn.setEnabled(True)
 
     def onCheckboxToggled(self, state):
         self.updateGraph()
