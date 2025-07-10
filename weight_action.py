@@ -119,3 +119,8 @@ class AlgorithmRunBox(QVBoxLayout):
 
     def getFileandCbx(self):
         return self.files, self.algorithm_checkbox
+
+    def setBtnforRunAlgorithm(self):
+        self.stop_btn.setEnabled(True)
+        self.start_btn.setEnabled(False)
+        self.all_btn.setEnabled(False)
