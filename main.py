@@ -9,6 +9,7 @@ from experiment import Experiment
 
 from arduino_manager import SerialManager
 from experiment_v2 import ExperimentTab
+from sensor_graph import SensorTable, SensorGraph
 from weight_action import WeightTable
 
 
@@ -42,9 +43,12 @@ class Main(QWidget):
         wtEx.addWeightTable(wtAlgo)
         wtAlgo.addWeightTable(wtEx)
 
+        sgEx = SensorGraph()
+        sgAlgo = SensorGraph()
+
         self.tab0 = ExperimentTab(dataManager=self.serial_manager)
-        self.tab1 = Experiment(serial_manager=self.serial_manager, wt=wtEx)
-        self.tab2 = AlgorithmMultiProcV2(parent=self, serial_manager=self.serial_manager, wt=wtAlgo)
+        self.tab1 = Experiment(serial_manager=self.serial_manager, wt=wtEx, sg=sgEx)
+        self.tab2 = AlgorithmMultiProcV2(parent=self, serial_manager=self.serial_manager, wt=wtAlgo, sg=sgAlgo)
         self.tab3 = AlgorithmResimulation(serial_manager=self.serial_manager)
         self.tab4 = Analytics()
 

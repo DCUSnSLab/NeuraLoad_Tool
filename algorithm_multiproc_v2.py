@@ -18,7 +18,7 @@ from collections import deque
 
 
 class AlgorithmMultiProcV2(QWidget):
-    def __init__(self, parent, serial_manager, wt):
+    def __init__(self, parent, serial_manager, wt, sg):
         super().__init__()
         self.procmanager = ProcsManager(serial_manager)
         self.procmanager.on_ready(self.isAlgorithmReady)
@@ -61,6 +61,8 @@ class AlgorithmMultiProcV2(QWidget):
         self.initial_active = False
 
         self.weight_table: WeightTable = wt
+        self.graph_change = sg.graph_change
+        self.graph_value = sg.graph_value
 
         self.isExperimentStarted = False
         self.experiment_count = 0
@@ -125,19 +127,19 @@ class AlgorithmMultiProcV2(QWidget):
 
         self.toggleExperimentMenu(False)
 
-        self.graph_change = pg.PlotWidget()
-        self.graph_change.setTitle("Sensor Change")
-        self.graph_change.setLabel("left", "Change")
-        self.graph_change.setLabel("bottom", "Time")
-        self.graph_change.addLegend(offset=(30, 30))
-        self.graph_change.setMinimumWidth(500)
-
-        self.graph_value = pg.PlotWidget()
-        self.graph_value.setTitle("Sensor Value")
-        self.graph_value.setLabel("left", "Value")
-        self.graph_value.setLabel("bottom", "Time")
-        self.graph_value.addLegend(offset=(30, 30))
-        self.graph_value.setMinimumWidth(500)
+        # self.graph_change = pg.PlotWidget()
+        # self.graph_change.setTitle("Sensor Change")
+        # self.graph_change.setLabel("left", "Change")
+        # self.graph_change.setLabel("bottom", "Time")
+        # self.graph_change.addLegend(offset=(30, 30))
+        # self.graph_change.setMinimumWidth(500)
+        #
+        # self.graph_value = pg.PlotWidget()
+        # self.graph_value.setTitle("Sensor Value")
+        # self.graph_value.setLabel("left", "Value")
+        # self.graph_value.setLabel("bottom", "Time")
+        # self.graph_value.addLegend(offset=(30, 30))
+        # self.graph_value.setMinimumWidth(500)
 
         headers = [
             loc.name.title().replace('_', '')

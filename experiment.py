@@ -14,10 +14,13 @@ from weight_action import WeightTable
 
 class Experiment(QWidget):
     send_data_signal = pyqtSignal(list)
-    def __init__(self, serial_manager, wt):
+    def __init__(self, serial_manager, wt, sg):
         super().__init__()
         # weigt Table
         self.weight_table = wt
+        self.graph_change = sg.graph_change
+        self.graph_value = sg.graph_value
+
         self.serial_manager = serial_manager
         self.GUIThread = None
         self.subscribers = []
@@ -123,19 +126,19 @@ class Experiment(QWidget):
         self.weight_btn_init = QPushButton('init', self)
         self.weight_btn_init.clicked.connect(self.weight_init)
 
-        self.graph_change = pg.PlotWidget()
-        self.graph_change.setTitle("Sensor Change")
-        self.graph_change.setLabel("left", "Change")
-        self.graph_change.setLabel("bottom", "Time")
-        self.graph_change.addLegend(offset=(30, 30))
-        self.graph_change.setMinimumWidth(500)
-
-        self.graph_value = pg.PlotWidget()
-        self.graph_value.setTitle("Sensor Value")
-        self.graph_value.setLabel("left", "Value")
-        self.graph_value.setLabel("bottom", "Time")
-        self.graph_value.addLegend(offset=(30, 30))
-        self.graph_value.setMinimumWidth(500)
+        # self.graph_change = pg.PlotWidget()
+        # self.graph_change.setTitle("Sensor Change")
+        # self.graph_change.setLabel("left", "Change")
+        # self.graph_change.setLabel("bottom", "Time")
+        # self.graph_change.addLegend(offset=(30, 30))
+        # self.graph_change.setMinimumWidth(500)
+        #
+        # self.graph_value = pg.PlotWidget()
+        # self.graph_value.setTitle("Sensor Value")
+        # self.graph_value.setLabel("left", "Value")
+        # self.graph_value.setLabel("bottom", "Time")
+        # self.graph_value.addLegend(offset=(30, 30))
+        # self.graph_value.setMinimumWidth(500)
 
         self.graph_label_max = QLabel('그래프 최대: ')
         self.graph_text_max = QLineEdit()
