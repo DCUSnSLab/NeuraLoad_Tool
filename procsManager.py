@@ -8,6 +8,9 @@ from Algorithm.COGPositionMassEstimation_v2 import COGPositionMassEstimation_v2
 from Algorithm.COGPositionMassEstimation_v3 import COGPositionMassEstimation_v3
 from Algorithm.COGPositionMassEstimation_v4 import COGPositionMassEstimation_v4
 from Algorithm.COGPositionMassEstimation_v5 import COGPositionMassEstimation_v5
+from Algorithm.COGPositionMassEstimation_v6 import COGPositionMassEstimation_v6
+from Algorithm.COGPositionMassEstimation_v7 import COGPositionMassEstimation_v7
+from Algorithm.COGPotingMassEstimation_v6 import COGPottingMassEstimation_v6
 import multiprocessing as mp
 
 from Algorithm.algorithmtype import ALGORITHM_TYPE
@@ -57,6 +60,12 @@ class ProcsManager:
             algo = COGPositionMassEstimation_v4(algoName.name)
         elif algoName == ALGORITHM_TYPE.COGPositionMassEstimation_v5:
             algo = COGPositionMassEstimation_v5(algoName.name)
+        elif algoName == ALGORITHM_TYPE.COGPositionMassEstimation_v6:
+            algo = COGPositionMassEstimation_v6(algoName.name)
+        elif algoName == ALGORITHM_TYPE.COGPositionMassEstimation_v7:
+            algo = COGPositionMassEstimation_v7(algoName.name)
+        elif algoName == ALGORITHM_TYPE.COGPottingMassEstimation_v6:
+            algo = COGPottingMassEstimation_v6(algoName.name)
         else:
             return
 
