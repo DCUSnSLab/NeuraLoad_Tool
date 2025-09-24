@@ -36,7 +36,7 @@ def get_arduino_ports(DEBUG_MODE=False):
 class Sensor(QThread):
     errorSignal = pyqtSignal(str)  #serialManager에 전달하는 시그널
 
-    def __init__(self, port, baudrate=9600):
+    def __init__(self, port, baudrate=115200):
         super().__init__()
         self.is_running = True
         self.is_paused = False
@@ -110,15 +110,18 @@ class Sensor(QThread):
             return None
 
         parts = data.split(',')
-        if len(parts) != 4:
+        if len(parts) != 7:
             print(f"[경고] 잘못된 데이터 형식: {data}")
             return None
 
         try:
             location = int(parts[0].strip())
-            distance = int(parts[1].strip())
-            intensity = int(parts[2].strip())
-            temperature = int(parts[3].strip())
+            distance = float(parts[1].strip())
+            intensity = float(parts[2].strip())
+            temperature = float(parts[3].strip())
+            lux = float(parts[4].strip())
+            ch0 = int(parts[5].strip())
+            ch1 = int(parts[6].strip())
         except ValueError as ve:
             print(f"[경고] 데이터 파싱 실패: {data} ({ve})")
             return None
@@ -138,7 +141,10 @@ class Sensor(QThread):
                 location=SENSORLOCATION.get_sensor_location(location),
                 distance=distance,
                 intensity=intensity,
-                temperature=temperature
+                temperature=temperature,
+                lux=lux,
+                ch0=ch0,
+                ch1=ch1
             )
             #print('-> sensor data : ', sensor_data)
             self.databuf.put(sensor_data)
@@ -203,6 +209,9 @@ class SensorVirtual(Sensor):
             distance = random.randint(600 + (pidxGap * 10), 700 + (pidxGap * 10))
             intensity = random.randint(400 + (pidxGap * 10), 450 + (pidxGap * 10))
             temperature = random.randint(20, 40)
+            lux = random.randint(600 + (pidxGap * 10), 700 + (pidxGap * 10))
+            ch0 = random.randint(1, 200)
+            ch1 = random.randint(1, 200)
 
             sdata = SensorData(
                 timestamp=timestamp,
@@ -210,11 +219,14 @@ class SensorVirtual(Sensor):
                 location=self.sensorLoc,
                 distance=distance,
                 intensity=intensity,
-                temperature=temperature
+                temperature=temperature,
+                lux=lux,
+                ch0=ch0,
+                ch1=ch1
             )
 
             self.databuf.put(sdata)
-            self.msleep(100)
+            self.msleep(10)
 
 
 class SerialManager(QObject):
@@ -312,8 +324,8 @@ class SerialManager(QObject):
             if not all(self.buffers[port] for port in self.ports):
                 return
 
-            #candidate_list = [self.buffers[port][0] for port in self.ports]
-            candidate_list = [0,0,0,0]
+            candidate_list = [self.buffers[port][0] for port in self.ports]
+            #candidate_list = [0,0,0,0]
             for port in self.ports:
                 bdata: SensorData = self.buffers[port][0]
                 idx = bdata.location.value
@@ -350,7 +362,7 @@ def sync_callback(frame: SensorFrame):
     print("Synchronized group:")
     print(f"\ntimestamp={frame.timestamp}, scenario={frame.get_scenario_name()}")
     for data in frame.sensors:
-        print(f"{data.serial_port}: (Timestamp: {data.timestamp}, location: {data.location.name}, value: {data.distance}, sub1: {data.intensity}, sub2: {data.temperature})")
+        print(f"{data.serial_port}: (Timestamp: {data.timestamp}, location: {data.location.name}, value: {data.distance}, sub1: {data.intensity}, sub2: {data.temperature}, lux: {data.lux})")
     print("----")
 
 

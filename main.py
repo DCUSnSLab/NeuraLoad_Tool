@@ -1,11 +1,11 @@
 import sys
 
 from PyQt5.QtWidgets import QApplication, QWidget, QTabWidget, QVBoxLayout, QMessageBox
-from algorithm_multiproc import AlgorithmMultiProc
 from algorithm_multiproc_v2 import AlgorithmMultiProcV2
 from algorithm_resimulation import AlgorithmResimulation
 from analytics import Analytics
 from experiment import Experiment
+from laser_light_sensor import LaserLightSensor
 
 from arduino_manager import SerialManager
 from experiment_v2 import ExperimentTab
@@ -42,17 +42,18 @@ class Main(QWidget):
         wtEx.addWeightTable(wtAlgo)
         wtAlgo.addWeightTable(wtEx)
 
-        self.tab0 = ExperimentTab(dataManager=self.serial_manager)
+        # self.tab0 = ExperimentTab(dataManager=self.serial_manager)
         self.tab1 = Experiment(serial_manager=self.serial_manager, wt=wtEx)
         self.tab2 = AlgorithmMultiProcV2(parent=self, serial_manager=self.serial_manager, wt=wtAlgo)
         self.tab3 = AlgorithmResimulation(serial_manager=self.serial_manager)
         self.tab4 = Analytics()
+        self.tab5 = LaserLightSensor(serial_manager=self.serial_manager)
 
         self.tabs.addTab(self.tab1, '실험 데이터 수집')
         self.tabs.addTab(self.tab2, '실시간 알고리즘 테스트')
         self.tabs.addTab(self.tab3, '알고리즘 리시뮬레이션')
         self.tabs.addTab(self.tab4, '알고리즘 분석')
-        self.tabs.addTab(self.tab0, 'Experiment_V2')
+        self.tabs.addTab(self.tab5, '레이저 조도센서 데이터')
 
         vbox = QVBoxLayout()
         vbox.addWidget(self.tabs)

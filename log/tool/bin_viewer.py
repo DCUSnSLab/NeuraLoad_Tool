@@ -5,9 +5,11 @@ from PyQt5.QtWidgets import (
     QApplication, QTableWidget, QTableWidgetItem, QVBoxLayout,
     QWidget, QPushButton, QFileDialog, QMessageBox
 )
+from setuptools.errors import ClassError
+
 
 def read_bin_file(file_path):
-    record_size = 52
+    record_size = 64
     records = []
 
     if not os.path.exists(file_path):
@@ -17,17 +19,19 @@ def read_bin_file(file_path):
     with open(file_path, 'rb') as f:
         while True:
             chunk = f.read(record_size)
+
             if len(chunk) < record_size:
                 break
 
-            timestamp_int = struct.unpack('<I', chunk[:4])[0]
+            timestamp_int = struct.unpack('<I', chunk[0:4])[0]
             weights = struct.unpack('<9h', chunk[4:22])
             direction = chunk[22:23].decode('utf-8')
             name = chunk[23:39].split(b'\x00', 1)[0].decode('utf-8')
-            values = struct.unpack('<fff', chunk[39:51])
-            state_flag = chunk[51:52].decode('utf-8')
+            laser_data = struct.unpack('<fff', chunk[39:51])
+            light_data = struct.unpack('<fii', chunk[51:63])
+            state_flag = chunk[63:64].decode('utf-8')
 
-            record = [timestamp_int, name, list(weights), direction] + list(values) + [state_flag]
+            record = [timestamp_int, name, list(weights), direction] + list(laser_data) + list(light_data) + [state_flag]
             records.append(record)
     return records
 
@@ -50,7 +54,7 @@ class BinViewer(QWidget):
 
     def open_file_dialog(self):
         # ./log 디렉토리를 기본 경로로 설정
-        base_dir = os.path.abspath("./log")
+        base_dir = os.path.abspath("../../log")
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "BIN 파일 선택",
@@ -66,7 +70,13 @@ class BinViewer(QWidget):
             self.populate_table(records)
 
     def populate_table(self, records):
-        headers = ["Timestamp", "Name", "Weights [W1~W9]", "Dir", "Val1", "Val2", "Val3", "State"]
+        headers = [
+            "Timestamp", "Name",
+            "Weights [W1~W9]", "Dir",
+            "Distance", "Intensity", "Temperature",
+            "lux", "ch0", "ch1",
+            "State"
+        ]
         self.table.clear()
         self.table.setRowCount(len(records))
         self.table.setColumnCount(len(headers))

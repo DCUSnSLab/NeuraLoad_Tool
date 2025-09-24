@@ -6,6 +6,11 @@ from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 import pyqtgraph as pg
 from collections import deque
+
+from numpy.lib.format import read_array
+from scipy.sparse import random_array
+from setuptools.errors import ClassError
+
 from GUIController import GUIController
 import traceback
 from datainfo import SENSORLOCATION
@@ -361,7 +366,7 @@ class Experiment(QWidget):
     def startGUIThread(self):
         print('start GUIThread')
         # 쓰레드에 SerialManager의 쓰레드도 전달
-        self.GUIThread = GUIController(self, self.serial_manager)
+        self.GUIThread = GUIController(self, self.serial_manager, 'Experiment')
         self.GUIThread.plot_updated.connect(self.updateGraph)
         self.GUIThread.start()
 
@@ -503,9 +508,12 @@ class Experiment(QWidget):
             timestamp_str = latest_point.timestamp.strftime("%H%M%S%f")[:-3]
             timestamp_int = int(timestamp_str)
 
-            value1 = float(latest_point.distance)
-            value2 = float(latest_point.intensity)
-            value3 = float(latest_point.temperature)
+            distance = float(latest_point.distance)
+            intensity = float(latest_point.intensity)
+            temperature = float(latest_point.temperature)
+            lux = float(latest_point.lux)
+            ch0 = int(latest_point.ch0)
+            ch1 = int(latest_point.ch1)
 
             weights = self.get_weights_from_table()
 
@@ -513,8 +521,9 @@ class Experiment(QWidget):
             weight_bin = struct.pack('<9h', *weights)
             name_bytes = name.encode('utf-8')[:16]
             name_bin = name_bytes + b'\x00' * (16 - len(name_bytes))
-            values_bin = struct.pack('<fff', value1, value2, value3)
-            record = struct.pack('<I', timestamp_int) + weight_bin + direction_byte + name_bin + values_bin + state_flag
+            laser_data_bin = struct.pack('<fff', distance, intensity, temperature)
+            light_data_bin = struct.pack('<fii', lux, ch0, ch1)
+            record = struct.pack('<I', timestamp_int) + weight_bin + direction_byte + name_bin + laser_data_bin + light_data_bin + state_flag
 
             with open(file_path, 'ab') as f:
                 f.write(record)
@@ -534,7 +543,7 @@ class Experiment(QWidget):
             self.is_experiment_active = True
             self.is_paused_global = False
             self.countdown_value = 5
-            
+
             # 내부 함수로 countdown 정의
             def countdown():
                 if self.countdown_value > 0:
@@ -612,19 +621,23 @@ class Experiment(QWidget):
                         timestamp_str = point.timestamp.strftime("%H%M%S%f")[:-3]
                         timestamp_int = int(timestamp_str)
 
-                        value1 = float(point.distance)
-                        value2 = float(point.intensity)
-                        value3 = float(point.temperature)
+                        distance = float(point.distance)
+                        intensity = float(point.intensity)
+                        temperature = float(point.temperature)
+                        lux = float(point.lux)
+                        ch0 = int(point.ch0)
+                        ch1 = int(point.ch1)
 
                         weight_data = struct.pack('<9h', *self.weight_a)
                         name_bytes = name.encode('utf-8')[:16]
                         name_data = name_bytes + b'\x00' * (16 - len(name_bytes))
-                        values_data = struct.pack('<fff', value1, value2, value3)
+                        laser_data = struct.pack('<fff', distance, intensity, temperature)
+                        light_data = struct.pack('<fii', lux, ch0, ch1)
 
                         binary_data = (
                                 struct.pack('<I', timestamp_int)
                                 + weight_data + direction + name_data
-                                + values_data + state_flag
+                                + laser_data + light_data + state_flag
                         )
                         f.write(binary_data)
                     except Exception as e:
@@ -698,7 +711,6 @@ class Experiment(QWidget):
         layout3.addLayout(graph_layout)
 
         self.setLayout(layout3)
-
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

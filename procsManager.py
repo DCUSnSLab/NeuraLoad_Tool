@@ -1,8 +1,6 @@
 from PyQt5.QtCore import QThread, pyqtSignal
 
 from Algorithm.COGMassEstimation_v2 import COGMassEstimation
-from Algorithm.MLPPredictor import KerasMLPPredictor
-from Algorithm.RandomForestPredictor import RandomForestPredictor
 from Algorithm.COGPositionMassEstimation import COGPositionMassEstimation
 from Algorithm.COGPositionMassEstimation_v2 import COGPositionMassEstimation_v2
 from Algorithm.COGPositionMassEstimation_v3 import COGPositionMassEstimation_v3
@@ -43,10 +41,6 @@ class ProcsManager:
     def addProcess(self, algoName, resimMode=False):
         if algoName == ALGORITHM_TYPE.COGMassEstimation:
             algo = COGMassEstimation(algoName.name)
-        elif algoName == ALGORITHM_TYPE.MLPPredictor:
-            algo = KerasMLPPredictor(algoName.name)
-        elif algoName == ALGORITHM_TYPE.RandomForestPredictor:
-            algo = RandomForestPredictor(algoName.name)
         elif algoName == ALGORITHM_TYPE.COGPositionMassEstimation:
             algo = COGPositionMassEstimation(algoName.name)
         elif algoName == ALGORITHM_TYPE.COGPositionMassEstimation_v2:

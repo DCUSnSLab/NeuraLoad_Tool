@@ -12,9 +12,9 @@ from Algorithm.algorithmtype import ALGORITHM_TYPE
 
 
 class SENSORLOCATION(Enum):
-    TOP_LEFT = 0
-    BOTTOM_LEFT = 1
-    TOP_RIGHT = 2
+    TOP_LEFT     = 0
+    BOTTOM_LEFT  = 1
+    TOP_RIGHT    = 2
     BOTTOM_RIGHT = 3
     NONE = 4
 
@@ -28,11 +28,17 @@ class SensorData:
     timestamp: datetime.datetime
     serial_port: str
     location: SENSORLOCATION
-    distance: int
-    intensity: int
-    temperature: int
+    distance: float       # Laser Sensor Data
+    intensity: float
+    temperature: float
+    lux: float          # Light Sensor Data
+    ch0: int
+    ch1: int
 
-    STRUCT_FORMAT = '<d 16s B H H H'  # timestamp, serial_port, location, distance, intensity, temperature
+    # timestamp, serial_port, location
+    # Laser Sensor Data : distance, intensity, temperature
+    # Light Sensor Data : lux, ch0, ch1
+    STRUCT_FORMAT = '<d 16s B d d d d H H'
 
     def pack(self) -> bytes:
         return struct.pack(
@@ -40,21 +46,32 @@ class SensorData:
             self.timestamp.timestamp(),
             self.serial_port.encode('utf-8').ljust(16, b'\x00'),
             self.location.value,
-            self.distance,
+            self.distance,  # Laser Sensor
             self.intensity,
-            self.temperature
+            self.temperature,
+            self.lux,       # Light Sensor
+            self.ch0,
+            self.ch1,
         )
 
     @classmethod
     def unpack(cls, data: bytes) -> 'SensorData':
-        ts, port_bytes, loc, distance, intensity, temperature = struct.unpack(cls.STRUCT_FORMAT, data)
+        (
+            ts, port_bytes, loc,
+            distance, intensity, temperature,
+            lux, ch0, ch1
+        ) = struct.unpack(cls.STRUCT_FORMAT, data)
+
         return cls(
             timestamp=datetime.datetime.fromtimestamp(ts),
             serial_port=port_bytes.decode('utf-8').rstrip('\x00'),
             location=SENSORLOCATION.get_sensor_location(loc),
-            distance=distance,
+            distance=distance, # Laser Sensor
             intensity=intensity,
-            temperature=temperature
+            temperature=temperature,
+            lux=lux, # Light Sensor
+            ch0=ch0,
+            ch1=ch1
         )
 
     @classmethod
@@ -319,6 +336,7 @@ class SensorBinaryFileHandler:
             writer.writerow([
                 'timestamp', 'scenario', 'numofexperiments', 'started', 'measured',
                 'sensor0_distance', 'sensor1_distance', 'sensor2_distance', 'sensor3_distance',
+                'sensor0_lux', 'sensor1_lux', 'sensor2_lux', 'sensor3_lux',
                 'expW1','expW2','expW3','expW4','expW5','expW6','expW7','expW8','expW9',
                 'algo_type', 'pred_weight', 'error','position','refV1','refV2','refV3','refV4',
                 'refV5','refV6','refV7','refV8','refV9'
@@ -418,14 +436,16 @@ class SensorBinaryFileHandler:
 
                 sensors = []
                 for i in range(4):
-                    distance = int(row[f'sensor{i}_distance'])
+                    distance = float(row[f'sensor{i}_distance'])
+                    lux = float(row[f'sensor{i}_lux'])
                     sensors.append(SensorData(
                         timestamp=timestamp,
                         serial_port='',
                         location=SENSORLOCATION(i),
                         distance=distance,
                         intensity=0,
-                        temperature=0
+                        temperature=0,
+                        lux=lux
                     ))
 
                 weights = [int(row[f'expW{i}']) for i in range(1, 10)]
@@ -520,10 +540,10 @@ if __name__ == '__main__':
     #
     #
 
-    handler = AlgorithmFileHandler('re_COGPositionMassEstimation_v5_COGPositionMassEstimation_v4_COGPositionMassEstimation_v4_v2_center_concentrated_20250531.bin')
+    handler = AlgorithmFileHandler('raw_data_2025-09-10.bin')
     # 파일에서 불러오기
     loaded_frames = handler.load_frames()
-    handler.export_to_csv('re_COGPositionMassEstimation_v5_COGPositionMassEstimation_v4_COGPositionMassEstimation_v4_v2_center_concentrated_20250531.csv')
+    handler.export_to_csv('raw_data_2025-09-10.csv')
     # 출력
     for idx, f in enumerate(loaded_frames):
         print(f"\n[Frame {idx}] timestamp={f.timestamp}, expStarted={f.started}, isMeasured={f.measured}, scenario={f.get_scenario_name()}, experiment={f.experiment}, algorithms={f.algorithms}")
