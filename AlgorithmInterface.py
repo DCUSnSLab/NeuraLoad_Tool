@@ -1,8 +1,6 @@
-from abc import ABC, abstractmethod
 import time
-from enum import Enum
+from abc import abstractmethod
 from typing import Dict, List, Any, Optional
-from time import sleep
 
 from Algorithm.RefValueGenerator import RefValueGenerator
 from datainfo import SensorFrame, AlgorithmData
@@ -34,7 +32,7 @@ class AlgorithmBase(processImpl):
         self.description = description
         self.model_path = model_path
         self.input_data = []
-        self.output_data = {'input':None, 'output':None}
+        self.output_data = {'input': None, 'output': None}
         self.execution_time = 0
         self.is_running = False
         self.isTerminated = False
@@ -44,7 +42,7 @@ class AlgorithmBase(processImpl):
         self.refValueGenerator = refValGen
 
     @abstractmethod
-    def runAlgo(self, algo_data:AlgorithmData) -> AlgorithmData:
+    def runAlgo(self, algo_data: AlgorithmData) -> AlgorithmData:
         """
         알고리즘 주요 처리 로직
 
@@ -85,17 +83,17 @@ class AlgorithmBase(processImpl):
         pass
 
     def doProc(self):
-        #print('init Algorithm..',self.name)
+        # print('init Algorithm..',self.name)
         self.initAlgorithm()
         while not self.terminate_event.is_set():
             if not self.databuf.empty():
-                data:SensorFrame = self.databuf.get()#print('run algorithm->',self.name,' : ',self.databuf.get())
+                data: SensorFrame = self.databuf.get()  # print('run algorithm->',self.name,' : ',self.databuf.get())
                 if data.isEoF is not True:
                     self.refValueGenerator.calRefValue(data)
                 res = self.execute(data)
                 self.resBuf.put(res)
-                #print('run algorithm->', self.name, ' : ', res)
-            #print('run algorithm->',self.name)
+                # print('run algorithm->', self.name, ' : ', res)
+            # print('run algorithm->',self.name)
             # sleep(0.1)
 
     def execute(self, input_data: Optional[SensorFrame] = None) -> Dict[str, Any]:
@@ -121,7 +119,7 @@ class AlgorithmBase(processImpl):
                 # 출력 데이터 설정
                 self.output_data['input'] = input_data
                 self.output_data['output'] = results
-                
+
                 self.execution_time = time.time() - start_time
 
                 # 실행 이력 업데이트
@@ -136,11 +134,11 @@ class AlgorithmBase(processImpl):
 
             except Exception as e:
                 raise {'error': f'알고리즘 실행 중 오류: {str(e)}'}
-                #raise
+                # raise
             finally:
                 self.is_running = False
 
-    def calReferenceValue(self, input:SensorFrame) -> List[int]:
+    def calReferenceValue(self, input: SensorFrame) -> List[int]:
         return [0] * 9
 
     def clear_data(self) -> None:

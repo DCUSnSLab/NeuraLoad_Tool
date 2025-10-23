@@ -1,6 +1,7 @@
-from typing import List
 from collections import deque
-from PyQt5.QtCore import QSize, Qt
+from typing import List
+
+from PyQt5.QtCore import QSize
 from PyQt5.QtGui import QFont
 from PyQt5.QtWidgets import *
 
@@ -18,7 +19,7 @@ class AlgorithmResimulation(QWidget):
         self.resimulManager = ResimulationManager(sm=serial_manager)
         self.serial_manager = serial_manager
 
-        self.files = dict() #Algorithm File List
+        self.files = dict()  # Algorithm File List
         self.algorithm_checkbox = []
         self.outputLabels = dict()
         self.filepath = None
@@ -65,11 +66,11 @@ class AlgorithmResimulation(QWidget):
         layout = QVBoxLayout()
         layout.addLayout(self.weight_layout)
 
-        #프로그래스바
+        # 프로그래스바
         self.progress_widget = ProgressWidget(title="Algorithm Progress")
         self.progress_widget.set_total(100)
 
-        #체크박스
+        # 체크박스
         self.view_only_measured_checkbox = QCheckBox("View Only Measured Data")
         self.view_only_measured_checkbox.setChecked(True)
         self.view_only_measured_checkbox.stateChanged.connect(self.onCheckboxToggled)
@@ -82,11 +83,11 @@ class AlgorithmResimulation(QWidget):
         self.sensor_data_type_combo.addItem("Filtered Sensor diff (from Moving Average Filter)")
         self.sensor_data_type_combo.currentIndexChanged.connect(self.onSensorDataTypeChanged)
 
-        #Graph Widget
+        # Graph Widget
         self.graph_widget = GraphWidget(title="Algorithm Output Graph")
         self.sensor_graph_widget = GraphWidget(title="Sensor Distance Graph")  # 새로 추가한 센서 그래프 위젯
         self.mae_graph_widget = BarGraphWidget(title="MAE Comparison")
-        #self.mse_graph_widget = BarGraphWidget(title="MSE Comparison")
+        # self.mse_graph_widget = BarGraphWidget(title="MSE Comparison")
         self.rmse_graph_widget = BarGraphWidget(title="RMSE Comparison")
         self.error_graph_widget = BarGraphWidget(title="Error Rate Comparison")
 
@@ -153,9 +154,11 @@ class AlgorithmResimulation(QWidget):
         self.updateGraph()
 
     def updateGraph(self):
-        self.makedData = self.makeLoadDatatoGraph(self.loadedData, isMeasured=self.view_only_measured_checkbox.isChecked())
+        self.makedData = self.makeLoadDatatoGraph(self.loadedData,
+                                                  isMeasured=self.view_only_measured_checkbox.isChecked())
         if self.ResimData is not None:
-            self.makedData['Resim Weight'] = self.makeResimDatatoGraph(self.ResimData, isMeasured=self.view_only_measured_checkbox.isChecked())
+            self.makedData['Resim Weight'] = self.makeResimDatatoGraph(self.ResimData,
+                                                                       isMeasured=self.view_only_measured_checkbox.isChecked())
         else:
             if 'Resim Weight' in self.makedData.keys():
                 del self.makedData['Resim Weight']
@@ -175,7 +178,7 @@ class AlgorithmResimulation(QWidget):
                 self.sensor_graph_widget.set_title("Sensor diff from Reference Value")
             elif is_diff_mode == 2 or is_diff_mode == 3:
                 sensor_data = self.makeSensorFilterToGraph(self.loadedData,
-                                                         isMeasured=self.view_only_measured_checkbox.isChecked())
+                                                           isMeasured=self.view_only_measured_checkbox.isChecked())
                 self.sensor_graph_widget.set_title("Filtered sensor diff (from reference Value)")
             else:
                 sensor_data = self.makeSensorDataToGraph(self.loadedData,
@@ -184,7 +187,7 @@ class AlgorithmResimulation(QWidget):
 
             self.sensor_graph_widget.set_data(sensor_data)
 
-    def makeResimDatatoGraph(self, data:List[SensorFrame], isMeasured=True):
+    def makeResimDatatoGraph(self, data: List[SensorFrame], isMeasured=True):
         algoweight = []
         for frame in data:
             if isMeasured is False or (isMeasured is True and frame.measured):
@@ -192,7 +195,7 @@ class AlgorithmResimulation(QWidget):
 
         return algoweight
 
-    def makeLoadDatatoGraph(self, data:List[SensorFrame], isMeasured=True):
+    def makeLoadDatatoGraph(self, data: List[SensorFrame], isMeasured=True):
         mdata = dict()
         wlist = []
         algoweight = []
@@ -252,7 +255,7 @@ class AlgorithmResimulation(QWidget):
                             ref_value = frame.algorithms.referenceValue[ref_index]
                             if ref_value != 0:
                                 diff = ref_value - sensor.distance
-                                if ref_index in [1,3]:
+                                if ref_index in [1, 3]:
                                     diff *= 0.45
                                 sensor_dict[location_name].append(diff)
                         else:
@@ -260,8 +263,7 @@ class AlgorithmResimulation(QWidget):
                             sensor_dict[location_name].append(0)
                     else:
                         # 알고리즘 데이터가 없는 경우 0으로 처리
-                        sensor_dict[location_name].append(0)
-                    # print(sensor_dict[location_name])
+                        sensor_dict[location_name].append(0)  # print(sensor_dict[location_name])
         return sensor_dict
 
     def makeSensorFilterToGraph(self, data: List[SensorFrame], isMeasured=True):
@@ -291,7 +293,7 @@ class AlgorithmResimulation(QWidget):
                             ref_value = frame.algorithms.referenceValue[ref_index]
                             if ref_value != 0:
                                 diff = ref_value - sensor.distance
-                                if ref_index in [1,3]:
+                                if ref_index in [1, 3]:
                                     diff *= 0.45
                                 sensor_dict[location_name].append(diff)
                         else:
@@ -326,7 +328,6 @@ class AlgorithmResimulation(QWidget):
 
         return sensor_dict
 
-
     def updateLabel(self):
         resbuf = self.procmanager.getResultBufs()
         for bname, val in resbuf.items():
@@ -351,23 +352,21 @@ class AlgorithmResimulation(QWidget):
             if cbx.isChecked():
                 print('run - ', cbx.text())
                 if cbx.text() in self.files:
-                    print('select algorithm file -> ',cbx.text(), self.files[cbx.text()])
+                    print('select algorithm file -> ', cbx.text(), self.files[cbx.text()])
                     self.resimulManager.addProcess(self.files[cbx.text()])
 
         self.resimulManager.startThread(callback=self.algoLayout.setBtnforRunAlgorithm,
-                                        datacallback=self.setDataProcessed,
-                                        statuscallback=self.setStatus,
+                                        datacallback=self.setDataProcessed, statuscallback=self.setStatus,
                                         resimcompcallback=self.setResimComp)
 
-
-    def setResimComp(self, data:List[SensorFrame]):
+    def setResimComp(self, data: List[SensorFrame]):
         self.ResimData = data
         self.updateGraph()
 
     def setStatus(self, status):
         self.progress_widget.set_status(status)
 
-    def setDataProcessed(self, progress, sf:SensorFrame, legacy_ad:AlgorithmData):
+    def setDataProcessed(self, progress, sf: SensorFrame, legacy_ad: AlgorithmData):
         self.progress_widget.set_value(progress)
 
     # def setBtnforRunAlgorithm(self):

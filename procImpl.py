@@ -4,8 +4,9 @@ import multiprocessing.managers
 import os
 from abc import *
 
+
 class processImpl(metaclass=ABCMeta):
-    def __init__(self,name):
+    def __init__(self, name):
         self.name = name
         self.process = None
         self.readySig = None
@@ -33,7 +34,7 @@ class processImpl(metaclass=ABCMeta):
         self.readySig = event
         self.readyQue = queue  # PM한테 전송할 큐
 
-    def start(self, proc:multiprocessing.context.Process):
+    def start(self, proc: multiprocessing.context.Process):
         self.process = proc
         self.process.start()
         self._print('Process started')
@@ -73,7 +74,7 @@ class processImpl(metaclass=ABCMeta):
         return self.databuf.get()
 
     def _print(self, data):
-        print('[%d-%s] - %s'%(self.getPID(), self.name, data))
+        print('[%d-%s] - %s' % (self.getPID(), self.name, data))
 
     @abstractmethod
     def doProc(self):

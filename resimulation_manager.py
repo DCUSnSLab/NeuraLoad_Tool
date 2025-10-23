@@ -1,11 +1,12 @@
+import multiprocessing as mp
 from pathlib import Path
 
 from PyQt5.QtCore import QThread, pyqtSignal
 
 from Algorithm.algorithmtype import ALGORITHM_TYPE
-from datainfo import SensorBinaryFileHandler, SensorFrame, AlgorithmFileHandler, AlgorithmData
+from datainfo import SensorBinaryFileHandler, SensorFrame, AlgorithmData
 from procsManager import ProcsManager
-import multiprocessing as mp
+
 
 class ResimulThread(QThread):
     finishSignal = pyqtSignal()
@@ -20,8 +21,7 @@ class ResimulThread(QThread):
         self.manager.on_Status(self.on_statuscallback)
         self.manager.on_ResimComp(self.on_ResimCompleteCallback)
 
-
-    def on_dataCallback(self, i, sf:SensorFrame, legacy_ad:AlgorithmData = None):
+    def on_dataCallback(self, i, sf: SensorFrame, legacy_ad: AlgorithmData = None):
         self.datacallback.emit(i, sf, legacy_ad)
 
     def on_statuscallback(self, str):
@@ -33,6 +33,7 @@ class ResimulThread(QThread):
     def run(self):
         self.manager._start()
         self.finishSignal.emit()
+
 
 class ResimulationManager(ProcsManager):
     def __init__(self, sm):
@@ -46,7 +47,8 @@ class ResimulationManager(ProcsManager):
         self.statusHandler = []
         self.ResimCompHandler = []
 
-    def startThread(self, callback=None, datacallback=None, statuscallback=None, resimcompcallback=None):  # callback은 스레드가 작업을 끝내고 실행하는 함수(버튼 활성화)
+    def startThread(self, callback=None, datacallback=None, statuscallback=None,
+                    resimcompcallback=None):  # callback은 스레드가 작업을 끝내고 실행하는 함수(버튼 활성화)
         self.thread = ResimulThread(self)
         if callback:
             self.thread.finishSignal.connect(callback)
@@ -130,14 +132,13 @@ class ResimulationManager(ProcsManager):
                 SensorBinaryFileHandler(filename).save_frames(datas)
         print("End")
 
-
     def refBuftoList(self, val, algo_name, datasize):
         val_list = []
         i = 1
         while True:
-            data =val.get()
-            sf:SensorFrame = data['input']
-            ad:AlgorithmData = data['output']
+            data = val.get()
+            sf: SensorFrame = data['input']
+            ad: AlgorithmData = data['output']
             legacy_ad = sf.algorithms
             if sf.isEoF:
                 break
@@ -145,10 +146,10 @@ class ResimulationManager(ProcsManager):
             sf.algorithms = ad
             val_list.append(sf)
 
-            #cal percentage
-            per = i/datasize*100
+            # cal percentage
+            per = i / datasize * 100
             self._DataProcessed(int(per), sf, legacy_ad)
-            i+=1
+            i += 1
         return val_list
 
     def on_ResimComp(self, handle):
@@ -161,7 +162,7 @@ class ResimulationManager(ProcsManager):
     def on_DataProcessed(self, handle):
         self.DataEventHandler.append(handle)
 
-    def _DataProcessed(self, i, sf:SensorFrame, legacy_ad:AlgorithmData = None):
+    def _DataProcessed(self, i, sf: SensorFrame, legacy_ad: AlgorithmData = None):
         for handler in self.DataEventHandler:
             handler(i, sf, legacy_ad)
 

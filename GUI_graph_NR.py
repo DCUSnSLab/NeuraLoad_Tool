@@ -1,6 +1,5 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout
 import pyqtgraph as pg
-import numpy as np
+from PyQt5.QtWidgets import QWidget, QVBoxLayout
 
 
 class GraphWidget(QWidget):
@@ -159,4 +158,3 @@ class GraphWidget(QWidget):
         """그래프 보기를 데이터의 전체 범위로 재설정"""
         if self.current_range:
             self.viewbox.setRange(xRange=self.current_range[0], yRange=self.current_range[1], padding=0)
-

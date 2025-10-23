@@ -1,6 +1,7 @@
-from PyQt5.QtWidgets import QWidget, QVBoxLayout
 import pyqtgraph as pg
+from PyQt5.QtWidgets import QWidget, QVBoxLayout
 from pyqtgraph import PlotWidget
+
 
 class BarGraphWidget(QWidget):
     def __init__(self, title="Error Metrics", parent=None):

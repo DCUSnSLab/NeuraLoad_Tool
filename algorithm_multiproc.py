@@ -1,5 +1,5 @@
-import os
 import datetime
+import os
 
 from PyQt5.QtCore import *
 from PyQt5.QtGui import QFont
@@ -7,13 +7,14 @@ from PyQt5.QtWidgets import *
 
 from procsManager import ProcsManager
 
+
 class AlgorithmMultiProc(QWidget):
     def __init__(self, serial_manager, wt):
         super().__init__()
         self.procmanager = ProcsManager(serial_manager)
         self.serial_manager = serial_manager
 
-        self.files = dict() #Algorithm File List
+        self.files = dict()  # Algorithm File List
         self.algorithm_checkbox = []
         self.outputLabels = dict()
 
@@ -143,7 +144,7 @@ class AlgorithmMultiProc(QWidget):
     def clear_layout(self, layout):
         self.outputLabels.clear()
         while layout.count():
-            print('delete layout - ',layout)
+            print('delete layout - ', layout)
             item = layout.takeAt(0)
             widget = item.widget()
             if widget is not None:
@@ -151,6 +152,7 @@ class AlgorithmMultiProc(QWidget):
             # layout 안에 또 다른 layout이 있을 수 있으므로 재귀적으로 처리
             elif item.layout() is not None:
                 self.clear_layout(item.layout())
+
     def loadAlgorithmCbx(self):
         self.files = self.algofile.loadAlgorithmFromFile()
         for file_name in self.files:
@@ -174,7 +176,7 @@ class AlgorithmMultiProc(QWidget):
             if cbx.isChecked():
                 print('run - ', cbx.text())
                 if cbx.text() in self.files:
-                    print('select algorithm file -> ',cbx.text(), self.files[cbx.text()])
+                    print('select algorithm file -> ', cbx.text(), self.files[cbx.text()])
                     self.procmanager.addProcess(cbx.text())
 
         self.procmanager.startThread(callback=lambda: self.stop_btn.setEnabled(True))
@@ -183,8 +185,8 @@ class AlgorithmMultiProc(QWidget):
     def finishAllAlgorithms(self):
         self.procmanager.terminate()
         for weight in self.outputLabels:
-                label = self.outputLabels[weight]
-                label.setText('-')
+            label = self.outputLabels[weight]
+            label.setText('-')
 
         self.stop_btn.setEnabled(False)
 
@@ -211,13 +213,13 @@ class AlgorithmMultiProc(QWidget):
 
     # 오차율 계산
     def error_rate_cal(self, algo_weight):
-        if  self.real_weight and algo_weight is not None:
+        if self.real_weight and algo_weight is not None:
             self.rate = ((abs(self.real_weight) - abs(algo_weight)) / self.real_weight) * 100
 
-    #알고리즘 데이터 저장
+    # 알고리즘 데이터 저장
     def data_save(self, bname, data):
         os.makedirs('algorithms_result', exist_ok=True)
-        filename = datetime.datetime.now().strftime(bname+'_%y%m%d.txt')
+        filename = datetime.datetime.now().strftime(bname + '_%y%m%d.txt')
         data_file = open(os.path.join('algorithms_result', filename), 'a', encoding='utf-8')
 
         timestamp = datetime.datetime.now().strftime('%H%M%S')

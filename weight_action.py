@@ -1,5 +1,6 @@
-from PyQt5.QtWidgets import QTableWidgetItem, QWidget, QTableWidget, QVBoxLayout, QLabel, QCheckBox, QPushButton, QGroupBox
 from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QTableWidgetItem, QWidget, QTableWidget, QVBoxLayout, QLabel, QCheckBox, QPushButton, \
+    QGroupBox
 
 from Algorithm.algorithmtype import ALGORITHM_TYPE
 
@@ -7,11 +8,11 @@ from Algorithm.algorithmtype import ALGORITHM_TYPE
 class WeightTable(QVBoxLayout):
     def __init__(self):
         super().__init__()
-        self.elements = [None,None,None,None,None,None,None,None,None]
+        self.elements = [None, None, None, None, None, None, None, None, None]
         self.weights = [0] * 9
 
-        #set Table
-        self.boxwidget = QTableWidget(3,3)
+        # set Table
+        self.boxwidget = QTableWidget(3, 3)
 
         self.wtables = []
         self.boxwidget.setMinimumHeight(200)
@@ -28,12 +29,11 @@ class WeightTable(QVBoxLayout):
         self.count = 0
         self.boxwidget.cellChanged.connect(lambda row, col: self.onCellChanged(row, col))
 
-        #set Title
+        # set Title
         self.title_label = QLabel('Weight Table')
 
         self.addWidget(self.title_label)
         self.addWidget(self.boxwidget)
-
 
     def setElement(self, index, value):
         row, col = divmod(index, 3)
@@ -73,11 +73,13 @@ class WeightTable(QVBoxLayout):
     def getWeights(self):
         return self.weights
 
+
 class AlgorithmRunBox(QVBoxLayout):
     """
     알고리즘을 실행하기 위한 버튼과 체크 박스 UI
     실시간 알고리즘 테스트와 리시뮬레이션 기능이 동일한 UI를 가지기때문에 만듦
     """
+
     def __init__(self):
         super().__init__()
         self.files = dict()  # Algorithm File List

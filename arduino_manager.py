@@ -1,16 +1,15 @@
-import os
-import copy
+import datetime
+import random
 import re
+import sys
+import time
 from queue import Queue, Empty
+from threading import Thread, Lock
+
 import serial
 import serial.tools.list_ports
-from PyQt5.QtCore import QThread, QObject, pyqtSignal, QCoreApplication, QTimer
+from PyQt5.QtCore import QThread, QObject, pyqtSignal
 from PyQt5.QtWidgets import QApplication
-import sys
-import random
-import datetime
-from threading import Thread, Lock
-import time
 
 from datainfo import SensorData, SENSORLOCATION, SensorFrame
 
@@ -33,8 +32,9 @@ def get_arduino_ports(DEBUG_MODE=False):
     ]
     return ports
 
+
 class Sensor(QThread):
-    errorSignal = pyqtSignal(str)  #serialManager에 전달하는 시그널
+    errorSignal = pyqtSignal(str)  # serialManager에 전달하는 시그널
 
     def __init__(self, port, baudrate=115200):
         super().__init__()
@@ -64,18 +64,18 @@ class Sensor(QThread):
             self.errorSignal.emit(f"port {self.port} open fail: {e}")
             return
 
-        #get first Data from sensor
+        # get first Data from sensor
         data = None
         self.msleep(100)
         while data is None:
             data = self.__getDatafromSerial()
             self.msleep(1)
 
-        #set sensor location
+        # set sensor location
         if self._setSensorLoc(data) is True:
             self.sensorInitted = True
 
-        #set sensor reference value
+        # set sensor reference value
         self.refValue = data.distance
 
     def _setSensorLoc(self, data: 'SensorData'):
@@ -85,14 +85,13 @@ class Sensor(QThread):
         else:
             return False
 
-
     def run(self):
         while self.sensorInitted is True and self.is_running is True:
             try:
                 if not self.is_paused and self.serial.in_waiting > 0:
-                        resData = self.__getDatafromSerial()
-                        if resData is not None:
-                            self.databuf.put(resData)
+                    resData = self.__getDatafromSerial()
+                    if resData is not None:
+                        self.databuf.put(resData)
                 self.msleep(1)
             except serial.SerialException:
                 print('센서 연결 끊김')
@@ -134,7 +133,7 @@ class Sensor(QThread):
         timestamp = datetime.datetime.now()
 
         try:
-            #print('Sensor port : ',self.port, location)
+            # print('Sensor port : ',self.port, location)
             sensor_data = SensorData(
                 timestamp=timestamp,
                 serial_port=self.port,
@@ -146,7 +145,7 @@ class Sensor(QThread):
                 ch0=ch0,
                 ch1=ch1
             )
-            #print('-> sensor data : ', sensor_data)
+            # print('-> sensor data : ', sensor_data)
             self.databuf.put(sensor_data)
             return sensor_data
         except Exception as e:
@@ -238,6 +237,7 @@ class SerialManager(QObject):
     """
 
     errorSignal = pyqtSignal(str)  # Sensor에서 발생하는 에러 메시지를 main에 전송하기 위한 시그널
+
     def __init__(self, debug_mode, slop=0.1, callback=None):
         super().__init__()  # QObject상속을 위한 호출 (pyqtSignal사용을 위해 QObject상속)
         self.debug_mode = debug_mode
@@ -275,7 +275,7 @@ class SerialManager(QObject):
             sensor.start()
             self.sensors.append(sensor)
 
-        #sort by sensor location value
+        # sort by sensor location value
         self.sensors.sort(key=lambda s: s.sensorLoc.value)
 
         # 별도의 폴링 스레드에서 센서 스레드의 데이터를 버퍼에 저장
@@ -325,7 +325,7 @@ class SerialManager(QObject):
                 return
 
             candidate_list = [self.buffers[port][0] for port in self.ports]
-            #candidate_list = [0,0,0,0]
+            # candidate_list = [0,0,0,0]
             for port in self.ports:
                 bdata: SensorData = self.buffers[port][0]
                 idx = bdata.location.value
@@ -358,11 +358,13 @@ class SerialManager(QObject):
     def getSensors(self):
         return self.sensors
 
+
 def sync_callback(frame: SensorFrame):
     print("Synchronized group:")
     print(f"\ntimestamp={frame.timestamp}, scenario={frame.get_scenario_name()}")
     for data in frame.sensors:
-        print(f"{data.serial_port}: (Timestamp: {data.timestamp}, location: {data.location.name}, value: {data.distance}, sub1: {data.intensity}, sub2: {data.temperature}, lux: {data.lux})")
+        print(
+            f"{data.serial_port}: (Timestamp: {data.timestamp}, location: {data.location.name}, value: {data.distance}, sub1: {data.intensity}, sub2: {data.temperature}, lux: {data.lux})")
     print("----")
 
 

@@ -1,8 +1,10 @@
+from typing import List
+
 from PyQt5.QtWidgets import *
 
 from GUI_MAEGraph import BarGraphWidget
 from GUI_graph_NR import GraphWidget
-from datainfo import SensorBinaryFileHandler
+from datainfo import SensorFrame, SensorBinaryFileHandler
 
 
 class AnalyticsAlgoOrganize(QWidget):
@@ -13,12 +15,12 @@ class AnalyticsAlgoOrganize(QWidget):
         self.ResimData = None
 
         self.open_file()
+        self.graph_init()
+        self.update_graph()
 
     def open_file(self):
         for i in range(len(self.file_name)):
             self.load_data = SensorBinaryFileHandler(self.file_name[i]).load_frames()
-            self.graph_init()
-            self.update_graph()
 
     def data_select(self, load_data, isMeasured=True):
         mdata = dict()
@@ -58,12 +60,33 @@ class AnalyticsAlgoOrganize(QWidget):
     def onCheckboxToggled(self, state):
         self.update_graph()
 
+    def makeSensorDataToGraph(self, data: List[SensorFrame], isMeasured=True):
+        # 센서 데이터를 저장할 딕셔너리 초기화
+        sensor_dict = {}
+
+        # 첫 번째 프레임의 센서 위치를 사용해 딕셔너리 키 생성
+        if data and len(data) > 0:
+            first_frame = data[0]
+            for sensor in first_frame.sensors:
+                location_name = sensor.location.name
+                sensor_dict[location_name] = []
+
+        # 각 프레임에서 센서 데이터 추출
+        for frame in data:
+            if isMeasured is False or (isMeasured is True and frame.measured):
+                # 각 센서 위치별로 distance 값 추출
+                for sensor in frame.sensors:
+                    location_name = sensor.location.name
+                    sensor_dict[location_name].append(sensor.distance)
+
+        return sensor_dict
+
     def update_graph(self):
-        self.makedData = self.data_select(self.load_data,
-                                                  isMeasured=self.view_only_measured_checkbox.isChecked())
+        self.makedData = self.makeSensorDataToGraph(self.load_data,
+                                                    isMeasured=self.view_only_measured_checkbox.isChecked())
         if self.ResimData is not None:
-            self.makedData['Resim Weight'] = self.data_select(self.ResimData,
-                                                                       isMeasured=self.view_only_measured_checkbox.isChecked())
+            sensor_data = self.makeSensorDataToGraph(self.load_data,
+                                                     isMeasured=self.view_only_measured_checkbox.isChecked())
         else:
             if 'Resim Weight' in self.makedData.keys():
                 del self.makedData['Resim Weight']
