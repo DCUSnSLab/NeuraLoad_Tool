@@ -1,13 +1,14 @@
-import os
-from dataclasses import dataclass
-from enum import Enum
-from typing import List, BinaryIO
-import struct
+import csv
 import datetime
+import os
+import struct
 import threading
 import time
 from collections import deque
-import csv
+from dataclasses import dataclass
+from enum import Enum
+from typing import List
+
 from Algorithm.algorithmtype import ALGORITHM_TYPE
 
 
@@ -28,10 +29,10 @@ class SensorData:
     timestamp: datetime.datetime
     serial_port: str
     location: SENSORLOCATION
-    distance: float       # Laser Sensor Data
+    distance: float  # Laser Sensor Data
     intensity: float
     temperature: float
-    lux: float          # Light Sensor Data
+    lux: float  # Light Sensor Data
     ch0: int
     ch1: int
 
@@ -49,7 +50,7 @@ class SensorData:
             self.distance,  # Laser Sensor
             self.intensity,
             self.temperature,
-            self.lux,       # Light Sensor
+            self.lux,  # Light Sensor
             self.ch0,
             self.ch1,
         )
@@ -66,10 +67,10 @@ class SensorData:
             timestamp=datetime.datetime.fromtimestamp(ts),
             serial_port=port_bytes.decode('utf-8').rstrip('\x00'),
             location=SENSORLOCATION.get_sensor_location(loc),
-            distance=distance, # Laser Sensor
+            distance=distance,  # Laser Sensor
             intensity=intensity,
             temperature=temperature,
-            lux=lux, # Light Sensor
+            lux=lux,  # Light Sensor
             ch0=ch0,
             ch1=ch1
         )
@@ -80,7 +81,6 @@ class SensorData:
 
     def getSensorLoc(self):
         return self.location
-
 
 
 @dataclass
@@ -117,7 +117,7 @@ class AlgorithmData():
                  predicted_weight: int = 0,
                  error: int = 0,
                  position: int = -1,
-                 refVal: List[int] = [0]*4):
+                 refVal: List[int] = [0] * 4):
         self.algo_type = algo_type
         self.predicted_weight = predicted_weight
         self.error = error
@@ -127,7 +127,8 @@ class AlgorithmData():
     STRUCT_FORMAT_ALGO = '<B h h H 4h'
 
     def pack(self) -> bytes:
-        return struct.pack(self.STRUCT_FORMAT_ALGO, self.algo_type.value, int(self.predicted_weight), self.error, self.position, *self.referenceValue)
+        return struct.pack(self.STRUCT_FORMAT_ALGO, self.algo_type.value, int(self.predicted_weight), self.error,
+                           self.position, *self.referenceValue)
 
     @classmethod
     def unpack(cls, data: bytes) -> 'AlgorithmData':
@@ -174,7 +175,7 @@ SCENARIO_TYPE_MAP = {
     },
     5: {"name": "asymmetric_right",
         "description": "우측 비대칭 적재"
-    }
+        }
 }
 
 REVERSE_SCENARIO_TYPE_MAP = {
@@ -184,13 +185,14 @@ REVERSE_SCENARIO_DESC_MAP = {
     v["description"]: k for k, v in SCENARIO_TYPE_MAP.items()
 }
 
+
 @dataclass
 class SensorFrame:
     timestamp: datetime.datetime  # UNIX timestamp (int)
     sensors: List[SensorData]
     scenario: int  # Experiment Scenario
     NofExperiments: int
-    started: bool   # 실험 시작 여부
+    started: bool  # 실험 시작 여부
     measured: bool  # 측정 시작 여부
     experiment: ExperimentData
     algorithms: AlgorithmData
@@ -258,7 +260,8 @@ class SensorFrame:
 
         algorithms = AlgorithmData.unpack(f.read(AlgorithmData.get_total_size()))
 
-        return cls(datetime.datetime.fromtimestamp(timestamp), sensors, scenario, NofExperiments, started, measured, experiment, algorithms)
+        return cls(datetime.datetime.fromtimestamp(timestamp), sensors, scenario, NofExperiments, started, measured,
+                   experiment, algorithms)
 
 
 class SensorBinaryFileHandler:
@@ -297,14 +300,14 @@ class SensorBinaryFileHandler:
         if self._thread:
             self._thread.join()
 
-    def _setMetaData(self, src: SensorFrame, dest:SensorFrame):
+    def _setMetaData(self, src: SensorFrame, dest: SensorFrame):
         dest.scenario = src.scenario
         dest.NofExperiments = src.NofExperiments
         dest.started = src.started
         dest.measured = src.measured
         dest.experiment = src.experiment
 
-    def setExperimentInfo(self, isExperimentStarted = None):
+    def setExperimentInfo(self, isExperimentStarted=None):
         if isExperimentStarted is not None:
             self._metaData.started = isExperimentStarted
 
@@ -337,9 +340,9 @@ class SensorBinaryFileHandler:
                 'timestamp', 'scenario', 'numofexperiments', 'started', 'measured',
                 'sensor0_distance', 'sensor1_distance', 'sensor2_distance', 'sensor3_distance',
                 'sensor0_lux', 'sensor1_lux', 'sensor2_lux', 'sensor3_lux',
-                'expW1','expW2','expW3','expW4','expW5','expW6','expW7','expW8','expW9',
-                'algo_type', 'pred_weight', 'error','position','refV1','refV2','refV3','refV4',
-                'refV5','refV6','refV7','refV8','refV9'
+                'expW1', 'expW2', 'expW3', 'expW4', 'expW5', 'expW6', 'expW7', 'expW8', 'expW9',
+                'algo_type', 'pred_weight', 'error', 'position', 'refV1', 'refV2', 'refV3', 'refV4',
+                'refV5', 'refV6', 'refV7', 'refV8', 'refV9'
                 # 필요시 더 추가 가능
             ])
 
@@ -357,6 +360,7 @@ class SensorBinaryFileHandler:
                 row.extend([algo.algo_type.name, algo.predicted_weight, algo.error, algo.position])
                 row.extend(algo.referenceValue)
                 writer.writerow(row)
+
     #
     # def import_from_csv(self, csv_filename: str) -> List[SensorFrame]:
     #     frames = []
@@ -480,11 +484,12 @@ class SensorBinaryFileHandler:
         handler = SensorBinaryFileHandler(bin_filename)
         handler.save_frames(frames)
 
+
 class AlgorithmFileHandler(SensorBinaryFileHandler):
     def __init__(self, filename: str):
         super().__init__(filename)
 
-    def setExperimentInfo(self, isExperimentStarted = None, isMeasureStarted = None):
+    def setExperimentInfo(self, isExperimentStarted=None, isMeasureStarted=None):
         if isExperimentStarted is not None:
             self._metaData.started = isExperimentStarted
 
@@ -495,6 +500,7 @@ class AlgorithmFileHandler(SensorBinaryFileHandler):
         self._setMetaData(self._metaData, frame)
         with self._lock:
             self._buffer.append(frame)
+
 
 if __name__ == '__main__':
     # now = datetime.datetime.now()
@@ -546,7 +552,8 @@ if __name__ == '__main__':
     handler.export_to_csv('raw_data_2025-09-10.csv')
     # 출력
     for idx, f in enumerate(loaded_frames):
-        print(f"\n[Frame {idx}] timestamp={f.timestamp}, expStarted={f.started}, isMeasured={f.measured}, scenario={f.get_scenario_name()}, experiment={f.experiment}, algorithms={f.algorithms}")
+        print(
+            f"\n[Frame {idx}] timestamp={f.timestamp}, expStarted={f.started}, isMeasured={f.measured}, scenario={f.get_scenario_name()}, experiment={f.experiment}, algorithms={f.algorithms}")
         for s in f.sensors:
             print(f"  - {type(s).__name__} @ {s.timestamp} @ {s.serial_port} @ {s.location.name}")
 

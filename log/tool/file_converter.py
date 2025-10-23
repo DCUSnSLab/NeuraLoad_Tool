@@ -1,8 +1,8 @@
-import sys
-import os
-import struct
-import json
 import ast
+import json
+import struct
+import sys
+
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QLabel,
     QFileDialog, QMessageBox, QComboBox, QHBoxLayout
@@ -77,7 +77,7 @@ class FileConverter(QWidget):
         with open(txt_path, 'r') as txt_file, open(bin_path, 'wb') as bin_file:
             for line in txt_file:
                 parts = line.strip().split('\t')
-                if len(parts) < 10:
+                if len(parts) < 11:
                     continue
                 timestamp_str = parts[0].replace('_', '')
                 timestamp_int = int(timestamp_str)
@@ -86,20 +86,22 @@ class FileConverter(QWidget):
                     continue
                 direction = parts[2].encode('utf-8')
                 name = parts[3].encode('utf-8')[:16].ljust(16, b'\x00')
-                distance = float(parts[4])
-                intensity = float(parts[5])
-                temperature = float(parts[6])
-                lux = float(parts[7])
-                ch0 = int(parts[8])
-                ch1 = int(parts[9])
-                state = parts[10].encode('utf-8') if len(parts) > 15 else b't'
+                location = int(parts[4])
+                distance = float(parts[5])
+                intensity = float(parts[6])
+                temperature = float(parts[7])
+                lux = float(parts[8])
+                ch0 = int(parts[9])
+                ch1 = int(parts[10])
+                state = parts[11].encode('utf-8') if len(parts) > 11 else b't'
 
                 packed = struct.pack(
-                    '<I9h1s16sffffii1s',
+                    '<I9h1s16sBffffHH1s',
                     timestamp_int,
                     *weights,
                     direction,
                     name,
+                    location,
                     distance,
                     intensity,
                     temperature,
@@ -120,7 +122,7 @@ class FileConverter(QWidget):
         if not json_path:
             return
 
-        record_size = 64
+        record_size = 61
         records = []
         with open(bin_path, 'rb') as f:
             while True:
@@ -133,15 +135,17 @@ class FileConverter(QWidget):
                 weights = struct.unpack('<9h', chunk[4:22])
                 direction = chunk[22:23].decode('utf-8')
                 name = chunk[23:39].split(b'\x00', 1)[0].decode('utf-8')
-                laser_data = struct.unpack('<fff', chunk[39:51])
-                light_data = struct.unpack('<fii', chunk[51:63])
-                state = chunk[63:64].decode('utf-8')
+                location = struct.unpack('<B', chunk[39:40])[0]
+                laser_data = struct.unpack('<fff', chunk[40:52])
+                light_data = struct.unpack('<fHH', chunk[52:60])
+                state = chunk[60:61].decode('utf-8')
 
                 records.append({
                     "timestamp": timestamp_str,
                     "weights": list(weights),
                     "direction": direction,
                     "name": name,
+                    "location": location,
                     "distance": laser_data[0],
                     "intensity": laser_data[1],
                     "temperature": laser_data[2],
@@ -167,7 +171,7 @@ class FileConverter(QWidget):
         with open(json_path, 'r', encoding='utf-8') as json_file, open(txt_path, 'w') as txt_file:
             data = json.load(json_file)
             for item in data:
-                line = f"{item['timestamp']}\t{item['weights']}\t{item['direction']}\t{item['name']}\t{item['distance']}\t{item['intensive']}\t{item['temperature']}\t{item['lux']}\t{item['ch0']}\t{item['ch1']}\t{item['state']}\n"
+                line = f"{item['timestamp']}\t{item['weights']}\t{item['direction']}\t{item['name']}\t{item['location']}\t{item['distance']}\t{item['intensity']}\t{item['temperature']}\t{item['lux']}\t{item['ch0']}\t{item['ch1']}\t{item['state']}\n"
                 txt_file.write(line)
 
         QMessageBox.information(self, "완료", "JSON → TXT 변환 완료!")
@@ -180,7 +184,7 @@ class FileConverter(QWidget):
         if not txt_path:
             return
 
-        record_size = 64
+        record_size = 61
         with open(bin_path, 'rb') as f, open(txt_path, 'w') as txt_file:
             while True:
                 chunk = f.read(record_size)
@@ -191,11 +195,12 @@ class FileConverter(QWidget):
                 weights = struct.unpack('<9h', chunk[4:22])
                 direction = chunk[22:23].decode('utf-8')
                 name = chunk[23:39].split(b'\x00', 1)[0].decode('utf-8')
-                laser_data = struct.unpack('<fff', chunk[39:51])
-                light_data = struct.unpack('<fii', chunk[51:63])
-                state = chunk[63:64].decode('utf-8')
+                location = struct.unpack('<B', chunk[39:40])[0]
+                laser_data = struct.unpack('<fff', chunk[40:52])
+                light_data = struct.unpack('<fHH', chunk[52:60])
+                state = chunk[60:61].decode('utf-8')
 
-                line = f"{timestamp}\t{list(weights)}\t{direction}\t{name}\t{laser_data[0]}\t{laser_data[1]}\t{laser_data[2]}\t{light_data[0]}\t{light_data[1]}\t{light_data[2]}\t{state}\n"
+                line = f"{timestamp}\t{list(weights)}\t{direction}\t{name}\t{location}\t{laser_data[0]}\t{laser_data[1]}\t{laser_data[2]}\t{light_data[0]}\t{light_data[1]}\t{light_data[2]}\t{state}\n"
                 txt_file.write(line)
 
         QMessageBox.information(self, "완료", "BIN → TXT 변환 완료!")
@@ -215,6 +220,7 @@ class FileConverter(QWidget):
                 weights = item['weights']
                 direction = item['direction'].encode('utf-8')
                 name = item['name'].encode('utf-8')[:16].ljust(16, b'\x00')
+                location = int(item['location'])
                 distance = float(item['distance'])
                 intensity = float(item['intensity'])
                 temperature = float(item['temperature'])
@@ -224,11 +230,12 @@ class FileConverter(QWidget):
                 state = item['state'].encode('utf-8')
 
                 packed = struct.pack(
-                    '<I9h1s16sffffii1s',
+                    '<I9h1s16sBffffHH1s',
                     timestamp_int,
                     *weights,
                     direction,
                     name,
+                    location,
                     distance,
                     intensity,
                     temperature,
@@ -253,19 +260,20 @@ class FileConverter(QWidget):
         with open(txt_path, 'r') as txt_file:
             for line in txt_file:
                 parts = line.strip().split('\t')
-                if len(parts) < 10:
+                if len(parts) < 11:
                     continue
                 timestamp = parts[0].replace('_', '')
                 weights = ast.literal_eval(parts[1])
                 direction = parts[2]
                 name = parts[3]
-                distance = float(parts[4])
-                intensity = float(parts[5])
-                temperature = float(parts[6])
-                lux = float(parts[7])
-                ch0 = int(parts[8])
-                ch1 = int(parts[9])
-                state = parts[10].encode('utf-8') if len(parts) > 15 else b't'
+                location = int(parts[4])
+                distance = float(parts[5])
+                intensity = float(parts[6])
+                temperature = float(parts[7])
+                lux = float(parts[8])
+                ch0 = int(parts[9])
+                ch1 = int(parts[10])
+                state = parts[11] if len(parts) > 11 else 't'
 
                 records.append({
                     "timestamp": timestamp,

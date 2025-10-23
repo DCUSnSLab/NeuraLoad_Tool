@@ -1,15 +1,15 @@
-import struct
 import os
+import struct
 import sys
+
 from PyQt5.QtWidgets import (
     QApplication, QTableWidget, QTableWidgetItem, QVBoxLayout,
     QWidget, QPushButton, QFileDialog, QMessageBox
 )
-from setuptools.errors import ClassError
 
 
 def read_bin_file(file_path):
-    record_size = 64
+    record_size = 61
     records = []
 
     if not os.path.exists(file_path):
@@ -27,13 +27,15 @@ def read_bin_file(file_path):
             weights = struct.unpack('<9h', chunk[4:22])
             direction = chunk[22:23].decode('utf-8')
             name = chunk[23:39].split(b'\x00', 1)[0].decode('utf-8')
-            laser_data = struct.unpack('<fff', chunk[39:51])
-            light_data = struct.unpack('<fii', chunk[51:63])
-            state_flag = chunk[63:64].decode('utf-8')
+            location = struct.unpack('<B', chunk[39:40])[0]
+            laser_data = struct.unpack('<fff', chunk[40:52])
+            light_data = struct.unpack('<fHH', chunk[52:60])
+            state_flag = chunk[60:61].decode('utf-8')
 
-            record = [timestamp_int, name, list(weights), direction] + list(laser_data) + list(light_data) + [state_flag]
+            record = [timestamp_int, name, location, list(weights), direction] + list(laser_data) + list(light_data) + [state_flag]
             records.append(record)
     return records
+
 
 class BinViewer(QWidget):
     def __init__(self):
@@ -71,7 +73,7 @@ class BinViewer(QWidget):
 
     def populate_table(self, records):
         headers = [
-            "Timestamp", "Name",
+            "Timestamp", "Name", "location",
             "Weights [W1~W9]", "Dir",
             "Distance", "Intensity", "Temperature",
             "lux", "ch0", "ch1",
@@ -86,6 +88,7 @@ class BinViewer(QWidget):
             for col_idx, value in enumerate(record):
                 display_value = str(value) if isinstance(value, list) else str(value)
                 self.table.setItem(row_idx, col_idx, QTableWidgetItem(display_value))
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

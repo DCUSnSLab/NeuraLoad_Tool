@@ -1,4 +1,3 @@
-import os
 import datetime
 
 from PyQt5.QtCore import *
@@ -20,7 +19,7 @@ class AlgorithmMultiProcV2(QWidget):
 
         parent.on_AppExit(self.AppExithandle)
 
-        self.files = dict() #Algorithm File List
+        self.files = dict()  # Algorithm File List
         self.algorithm_checkbox = []
         self.outputLabels = dict()
 
@@ -43,7 +42,7 @@ class AlgorithmMultiProcV2(QWidget):
         self.algoLayout.stop_btn.clicked.connect(self.finishAllAlgorithms)
         self.files, self.algorithm_checkbox = self.algoLayout.getFileandCbx()
 
-        #weight Presentation layout
+        # weight Presentation layout
         self.weight_layout = QVBoxLayout()
         self.weight_layout.addStretch()
         self.weight_layout.setSpacing(10)
@@ -135,7 +134,7 @@ class AlgorithmMultiProcV2(QWidget):
                 self.weight_layout.addLayout(layout)
                 self.outputLabels[cbx.text()] = dataLabel
 
-    def toggleExperimentMenu(self, Enabled:bool=True):
+    def toggleExperimentMenu(self, Enabled: bool = True):
         self.exFileLabel.setEnabled(Enabled)
         self.cbx_scenario.setEnabled(Enabled)
         self.experimentCountLine.setEnabled(Enabled)
@@ -150,7 +149,7 @@ class AlgorithmMultiProcV2(QWidget):
         for algo_name, val in resbuf.items():
             if not val.empty():
                 data = val.get()
-                #print(algo_name, data)
+                # print(algo_name, data)
                 self.updateAlgorithmFile(algo_name, data)
 
                 self.updateLabel(algo_name, data['output'])
@@ -165,8 +164,8 @@ class AlgorithmMultiProcV2(QWidget):
             frame: SensorFrame = data['input']
             output: AlgorithmData = data['output']
             frame.algorithms = output
-            #print('file handler : ',self.filehandler, 'algoname : ',algo_name)
-            fh:AlgorithmFileHandler = self.filehandler[algo_name]
+            # print('file handler : ',self.filehandler, 'algoname : ',algo_name)
+            fh: AlgorithmFileHandler = self.filehandler[algo_name]
             fh.add_frame(frame)
 
             if frame.measured:
@@ -179,11 +178,10 @@ class AlgorithmMultiProcV2(QWidget):
             # if fh is not None and fh.isRunning():
             #     self.filehandler
 
-
     def clear_layout(self, layout):
         self.outputLabels.clear()
         while layout.count():
-            print('delete layout - ',layout)
+            print('delete layout - ', layout)
             item = layout.takeAt(0)
             widget = item.widget()
             if widget is not None:
@@ -295,7 +293,7 @@ class AlgorithmMultiProcV2(QWidget):
             self.experimentList.scrollToBottom()
             self.predictionBuffer.clear()
 
-    #실험을 완전 종료하고 새로운 실험을 시작(파일을 새로 만들고 싶을 때) 실행
+    # 실험을 완전 종료하고 새로운 실험을 시작(파일을 새로 만들고 싶을 때) 실행
     def on_finish_measure(self):
         self.experiment_count = 0
         self.experimentCountLine.setText("0")
@@ -305,25 +303,24 @@ class AlgorithmMultiProcV2(QWidget):
         self.measure_metaData = None
         self.isExperimentStarted = False
 
-    #파일 핸들러 등록
+    # 파일 핸들러 등록
     def setFileHandle(self, isStartButton: bool, meta: {} = None):
-        print('before = ',self.filehandler)
+        print('before = ', self.filehandler)
         if isStartButton:
             for sel_algo in self.algorithm_checkbox:
                 if sel_algo.isChecked():
-                    fh = AlgorithmFileHandler(sel_algo.text()+meta['filename'])
+                    fh = AlgorithmFileHandler(sel_algo.text() + meta['filename'])
                     self.filehandler[sel_algo.text()] = fh
-        else: #is Finished
+        else:  # is Finished
             for fh in self.filehandler.values():
                 fh.stop_auto_save()
             self.filehandler.clear()
 
+        print('after = ', self.filehandler)
 
-        print('after = ',self.filehandler)
-
-    #측정 시작시 실험 데이터 초기화 및 파일핸들러 시작(이미 시작되어 있으면 패스)
+    # 측정 시작시 실험 데이터 초기화 및 파일핸들러 시작(이미 시작되어 있으면 패스)
     def startExperiment(self, meta):
-        #set Meta
+        # set Meta
         self.isExperimentStarted = True
         self.measure_metaData = SensorFrame(timestamp=None,
                                             sensors=None,
@@ -339,7 +336,7 @@ class AlgorithmMultiProcV2(QWidget):
                 fh.start_auto_save(meta=self.measure_metaData)
         print('start Experiment!!!')
 
-    #실험을 시작한 후 다음 실험을 위해 대기
+    # 실험을 시작한 후 다음 실험을 위해 대기
     def stopExperiment(self):
         for fh in self.filehandler.values():
             fh.setExperimentInfo(isExperimentStarted=False, isMeasureStarted=False)
@@ -363,7 +360,7 @@ class AlgorithmMultiProcV2(QWidget):
             if cbx.isChecked():
                 print('run - ', cbx.text())
                 if cbx.text() in self.files:
-                    print('select algorithm file -> ',cbx.text(), self.files[cbx.text()])
+                    print('select algorithm file -> ', cbx.text(), self.files[cbx.text()])
                     self.procmanager.addProcess(self.files[cbx.text()])
 
         self.procmanager.startThread(callback=self.algoLayout.setBtnforRunAlgorithm)

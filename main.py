@@ -1,22 +1,23 @@
 import sys
 
 from PyQt5.QtWidgets import QApplication, QWidget, QTabWidget, QVBoxLayout, QMessageBox
+
 from algorithm_multiproc_v2 import AlgorithmMultiProcV2
 from algorithm_resimulation import AlgorithmResimulation
 from analytics import Analytics
-from experiment import Experiment
-from laser_light_sensor import LaserLightSensor
-
 from arduino_manager import SerialManager
-from experiment_v2 import ExperimentTab
+from experiment import Experiment, finalize_inprogress_files
+from laser_light_sensor_live import LaserLightSensorLive
 from weight_action import WeightTable
 
 
 def sync_callback(group):
     print("Synchronized group:")
     for data in group:
-        print(f"{data.serialport}: (Timestamp: {data.timestamp}, port_index: {data.port_index}, value: {data.value}, sub1: {data.sub1}, sub2: {data.sub2})")
+        print(
+            f"{data.serialport}: (Timestamp: {data.timestamp}, port_index: {data.port_index}, value: {data.value}, sub1: {data.sub1}, sub2: {data.sub2})")
     print("----")
+
 
 class Main(QWidget):
     def __init__(self):
@@ -34,7 +35,7 @@ class Main(QWidget):
         self.serial_manager.errorSignal.connect(self.showErrorMassage)
         self.serial_manager.start_threads()
 
-        #submit exit handler
+        # submit exit handler
 
         wtEx = WeightTable()
         wtAlgo = WeightTable()
@@ -46,8 +47,8 @@ class Main(QWidget):
         self.tab1 = Experiment(serial_manager=self.serial_manager, wt=wtEx)
         self.tab2 = AlgorithmMultiProcV2(parent=self, serial_manager=self.serial_manager, wt=wtAlgo)
         self.tab3 = AlgorithmResimulation(serial_manager=self.serial_manager)
-        self.tab4 = Analytics()
-        self.tab5 = LaserLightSensor(serial_manager=self.serial_manager)
+        self.tab4 = Analytics(self.tab1)
+        self.tab5 = LaserLightSensorLive(serial_manager=self.serial_manager)
 
         self.tabs.addTab(self.tab1, '실험 데이터 수집')
         self.tabs.addTab(self.tab2, '실시간 알고리즘 테스트')
@@ -85,15 +86,17 @@ class Main(QWidget):
 
         if reply == QMessageBox.Yes:
             print("프로그램 종료 중: 시리얼 스레드 정리 등 정리 작업 수행")
-            #등록된 모든 핸들러에게 종료 시그널 전송
+            # 등록된 모든 핸들러에게 종료 시그널 전송
             self._AppExit()
             if self.serial_manager:
                 self.serial_manager.stop_threads()  # 필요한 정리 작업이 있다면 이처럼 호출
 
+            finalize_inprogress_files()
 
             event.accept()
         else:
             event.ignore()
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

@@ -1,20 +1,43 @@
 import datetime
 import os
-import sys
 import struct
-from PyQt5.QtCore import *
-from PyQt5.QtWidgets import *
-import pyqtgraph as pg
+import sys
+import traceback
 from collections import deque
 
-from numpy.lib.format import read_array
-from scipy.sparse import random_array
-from setuptools.errors import ClassError
+import pyqtgraph as pg
+from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
 
 from GUIController import GUIController
-import traceback
 from datainfo import SENSORLOCATION
-from weight_action import WeightTable
+
+
+def finalize_inprogress_files():
+    os.makedirs("log", exist_ok=True)
+    log_dir = "log"
+
+    # log 폴더 내 모든 .bin.inprogress 파일 찾기
+    inprogress_files = [f for f in os.listdir(log_dir) if f.endswith(".bin.inprogress")]
+
+    if not inprogress_files:
+        print("임시 파일이 없습니다.")
+        return
+
+    for inprogress_filename in inprogress_files:
+        try:
+            # .bin.inprogress -> .bin 파일명으로 변경
+            base_filename = inprogress_filename[:-len(".inprogress")]
+            inprogress_file_path = os.path.join(log_dir, inprogress_filename)
+            final_file_path = os.path.join(log_dir, base_filename)
+
+            with open(final_file_path, "ab") as f_final, open(inprogress_file_path, "rb") as f_inprogress:
+                f_final.write(f_inprogress.read())
+
+            os.remove(inprogress_file_path)
+            print(f"병합 완료 및 임시 파일 삭제: {inprogress_filename}")
+        except Exception as e:
+            print(f"파일 처리 중 오류 발생: {inprogress_filename}, 오류: {e}")
 
 
 class Experiment(QWidget):
@@ -41,15 +64,16 @@ class Experiment(QWidget):
         self.port_column_index = {}
         self.port_location = {}
         self.port_colors = {
-            'TopLeft': 'b',
-            'BottomLeft': 'r',
-            'TopRight': 'g',
+            'TopLeft'    : 'skyblue',
+            'BottomLeft' : 'r',
+            'TopRight'   : 'g',
             'BottomRight': 'orange',
             'IMU': 'yellow',
             'etc': 'purple'
         }
         self.plot_curve = {}
         self.plot_data = {}
+        self.save_buffer = {}
         self.plot_curve_change = {}
         self.plot_change = {}
 
@@ -67,9 +91,13 @@ class Experiment(QWidget):
         self.initializePortData()
         self.startGUIThread()
 
+        # 임시저장 파일 처리
+        finalize_inprogress_files()
+
         self.auto_save_timer = QTimer()
         self.auto_save_timer.timeout.connect(self.auto_save)
         self.auto_save_timer.start(1000)
+        print(f'자동 저장 임시 파일 생성: {datetime.datetime.now().strftime("raw_data_%Y-%m-%d.bin.inprogress")}')
 
     def add_subscriber(self, subscriber):
         self.subscribers.append(subscriber)
@@ -98,7 +126,6 @@ class Experiment(QWidget):
         self.sensor_table.setMaximumWidth(1000)
         self.sensor_table.setMinimumWidth(500)
 
-
         self.stop_btn = QPushButton('실험 시작', self)
         self.stop_btn.setCheckable(True)
         self.stop_btn.clicked.connect(self.toggle_btn)
@@ -122,7 +149,6 @@ class Experiment(QWidget):
 
         self.weight_btn_m = QPushButton('-', self)
         self.weight_btn_m.clicked.connect(self.weightM)
-
 
         self.weight_btn_init = QPushButton('init', self)
         self.weight_btn_init.clicked.connect(self.weight_init)
@@ -161,7 +187,7 @@ class Experiment(QWidget):
 
             # 콤보 박스 변경 시 호출
             cmb.currentTextChanged.connect(
-                lambda new_loc, p=port, hdrs=headers:(
+                lambda new_loc, p=port, hdrs=headers: (
                     self.port_index.__setitem__(p, hdrs.index(new_loc)),
                     self.update_sensor_graph(p, new_loc)
                 )
@@ -304,13 +330,13 @@ class Experiment(QWidget):
         else:
             self.all_weight_output.setText(str(weight))
 
-        weight_location = [0]* 9
+        weight_location = [0] * 9
         for i in range(len(self.weight_a)):
             if self.weight_a[i] > 0:
                 weight_location[i] = 1
         all_weight_location = [i for i in weight_location]
 
-        one_indices = [i+1 for i, val in enumerate(all_weight_location) if val == 1]
+        one_indices = [i + 1 for i, val in enumerate(all_weight_location) if val == 1]
 
         if sum(one_indices) == 0:
             self.weight_position_output.setText("0")
@@ -344,6 +370,7 @@ class Experiment(QWidget):
 
             self.plot_data[port] = deque(maxlen=300)
             self.plot_change[port] = deque(maxlen=300)
+            self.save_buffer[port] = deque()
 
             # 기본 색상 설정
             default_color = 'gray'
@@ -508,6 +535,8 @@ class Experiment(QWidget):
             timestamp_str = latest_point.timestamp.strftime("%H%M%S%f")[:-3]
             timestamp_int = int(timestamp_str)
 
+            location = int(latest_point.location)
+
             distance = float(latest_point.distance)
             intensity = float(latest_point.intensity)
             temperature = float(latest_point.temperature)
@@ -521,9 +550,11 @@ class Experiment(QWidget):
             weight_bin = struct.pack('<9h', *weights)
             name_bytes = name.encode('utf-8')[:16]
             name_bin = name_bytes + b'\x00' * (16 - len(name_bytes))
+            sensor_location = struct.pack('<B', location)
             laser_data_bin = struct.pack('<fff', distance, intensity, temperature)
-            light_data_bin = struct.pack('<fii', lux, ch0, ch1)
-            record = struct.pack('<I', timestamp_int) + weight_bin + direction_byte + name_bin + laser_data_bin + light_data_bin + state_flag
+            light_data_bin = struct.pack('<fHH', lux, ch0, ch1)
+            record = struct.pack('<I',
+                                 timestamp_int) + weight_bin + direction_byte + name_bin + sensor_location + laser_data_bin + light_data_bin + state_flag
 
             with open(file_path, 'ab') as f:
                 f.write(record)
@@ -591,16 +622,21 @@ class Experiment(QWidget):
 
     def auto_save(self):
         os.makedirs("log", exist_ok=True)
-        filename = datetime.datetime.now().strftime("raw_data_%Y-%m-%d.bin")
+        filename = datetime.datetime.now().strftime("raw_data_%Y-%m-%d.bin.inprogress")
         file_path = os.path.join("log", filename)
         with open(file_path, "ab") as f:
             for port in self.ports:
                 if port not in self.port_index:
                     continue
 
-                data = list(self.plot_data.get(port, []))
-                if not data:
+                # 저장할 데이터가 없으면 건너뜀
+                if not self.save_buffer.get(port):
                     continue
+
+                # 이번에 저장할 데이터들을 임시 리스트로 복사
+                data_to_save = list(self.save_buffer[port])
+                # 원본 저장 버퍼는 비움
+                self.save_buffer[port].clear()
 
                 name = self.port_location.get(port, port)
                 state_flag = b'f' if self.is_paused_global else b't'
@@ -616,27 +652,27 @@ class Experiment(QWidget):
                     direction = self.last_direction.encode() if isinstance(self.last_direction, str) else b'N'
                 self.weight_total = total
 
-                for point in data:
+                # 복사해둔 데이터만 파일에 씀
+                for point in data_to_save:
                     try:
                         timestamp_str = point.timestamp.strftime("%H%M%S%f")[:-3]
                         timestamp_int = int(timestamp_str)
-
+                        location = point.location.value
                         distance = float(point.distance)
                         intensity = float(point.intensity)
                         temperature = float(point.temperature)
                         lux = float(point.lux)
                         ch0 = int(point.ch0)
                         ch1 = int(point.ch1)
-
                         weight_data = struct.pack('<9h', *self.weight_a)
                         name_bytes = name.encode('utf-8')[:16]
                         name_data = name_bytes + b'\x00' * (16 - len(name_bytes))
+                        sensor_location = struct.pack('<B', location)
                         laser_data = struct.pack('<fff', distance, intensity, temperature)
-                        light_data = struct.pack('<fii', lux, ch0, ch1)
-
+                        light_data = struct.pack('<fHH', lux, ch0, ch1)
                         binary_data = (
                                 struct.pack('<I', timestamp_int)
-                                + weight_data + direction + name_data
+                                + weight_data + direction + name_data + sensor_location
                                 + laser_data + light_data + state_flag
                         )
                         f.write(binary_data)
@@ -711,6 +747,7 @@ class Experiment(QWidget):
         layout3.addLayout(graph_layout)
 
         self.setLayout(layout3)
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

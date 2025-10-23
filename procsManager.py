@@ -1,3 +1,5 @@
+import multiprocessing as mp
+
 from PyQt5.QtCore import QThread, pyqtSignal
 
 from Algorithm.COGMassEstimation_v2 import COGMassEstimation
@@ -6,8 +8,6 @@ from Algorithm.COGPositionMassEstimation_v2 import COGPositionMassEstimation_v2
 from Algorithm.COGPositionMassEstimation_v3 import COGPositionMassEstimation_v3
 from Algorithm.COGPositionMassEstimation_v4 import COGPositionMassEstimation_v4
 from Algorithm.COGPositionMassEstimation_v5 import COGPositionMassEstimation_v5
-import multiprocessing as mp
-
 from Algorithm.algorithmtype import ALGORITHM_TYPE
 
 
@@ -21,6 +21,7 @@ class ProcsManagerThread(QThread):
     def run(self):
         self.manager._start()
         self.finishSignal.emit()
+
 
 class ProcsManager:
     def __init__(self, sm):
@@ -127,4 +128,4 @@ class ProcsManager:
         pass
 
     def _print(self, name, pid):
-        print('[%d] - %s'%(pid, name))
+        print('[%d] - %s' % (pid, name))
