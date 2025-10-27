@@ -1,4 +1,5 @@
 import ast
+import csv
 import json
 import struct
 import sys
@@ -12,7 +13,7 @@ from PyQt5.QtWidgets import (
 class FileConverter(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("TXT-BIN-JSON 변환기")
+        self.setWindowTitle("TXT-(BIN-CSV)-JSON 변환기")
         self.setGeometry(300, 300, 420, 200)
 
         layout = QVBoxLayout()
@@ -21,7 +22,7 @@ class FileConverter(QWidget):
         input_layout = QHBoxLayout()
         input_layout.addWidget(QLabel("입력 형식:"))
         self.input_combo = QComboBox()
-        self.input_combo.addItems(["txt", "bin", "json"])
+        self.input_combo.addItems(["txt", "bin", "json", "csv"])
         input_layout.addWidget(self.input_combo)
         layout.addLayout(input_layout)
 
@@ -29,7 +30,7 @@ class FileConverter(QWidget):
         output_layout = QHBoxLayout()
         output_layout.addWidget(QLabel("출력 형식:"))
         self.output_combo = QComboBox()
-        self.output_combo.addItems(["txt", "bin", "json"])
+        self.output_combo.addItems(["txt", "bin", "json", "csv"])
         output_layout.addWidget(self.output_combo)
         layout.addLayout(output_layout)
 
@@ -61,6 +62,10 @@ class FileConverter(QWidget):
                 self.json_to_bin()
             elif input_type == "txt" and output_type == "json":
                 self.txt_to_json()
+            elif input_type == "bin" and output_type == "csv":
+                self.bin_to_csv()
+            elif input_type == "csv" and output_type == "bin":
+                self.csv_to_bin()
             else:
                 QMessageBox.warning(self, "지원되지 않는 조합", f"{input_type} → {output_type} 변환은 아직 지원하지 않습니다.")
         except Exception as e:
@@ -293,6 +298,122 @@ class FileConverter(QWidget):
             json.dump(records, json_file, indent=4, ensure_ascii=False)
 
         QMessageBox.information(self, "완료", "TXT → JSON 변환 완료!")
+
+    def bin_to_csv(self):
+        bin_path, _ = QFileDialog.getOpenFileName(self, "BIN 파일 선택", "", "Binary Files (*.bin)")
+        if not bin_path:
+            return
+        csv_path, _ = QFileDialog.getSaveFileName(self, "저장할 CSV 파일", "", "Text Files (*.csv)")
+        if not csv_path:
+            return
+
+        record_size = 61
+        with open(bin_path, 'rb') as f, open(csv_path, 'w', newline='') as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerow([
+                'timestamp', 'weights', 'direction', 'name', 'location',
+                'laser_data[0]', 'laser_data[1]', 'laser_data[2]',
+                'light_data[0]', 'light_data[1]', 'light_data[2]', 'state'
+            ])
+
+            while True:
+                chunk = f.read(record_size)
+                if len(chunk) < record_size:
+                    break
+
+                timestamp = struct.unpack('<I', chunk[:4])[0]
+                weights = struct.unpack('<9h', chunk[4:22])
+                direction = chunk[22:23].decode('utf-8')
+                name = chunk[23:39].split(b'\x00', 1)[0].decode('utf-8')
+                location = struct.unpack('<B', chunk[39:40])[0]
+                laser_data = struct.unpack('<fff', chunk[40:52])
+                light_data = struct.unpack('<fHH', chunk[52:60])
+                state = chunk[60:61].decode('utf-8')
+
+                # 리스트는 문자열로 묶어서 한 칸에 들어가게
+                writer.writerow([
+                    timestamp,
+                    str(list(weights)),  # 리스트를 하나의 문자열로
+                    direction,
+                    name,
+                    location,
+                    *laser_data,
+                    *light_data,
+                    state
+                ])
+
+        QMessageBox.information(self, "완료", "BIN → CSV 변환 완료!")
+
+    def csv_to_bin(self):
+        csv_path, _ = QFileDialog.getOpenFileName(self, "CSV 파일 선택", "", "CSV Files (*.csv)")
+        if not csv_path:
+            return
+
+        bin_path, _ = QFileDialog.getSaveFileName(self, "저장할 BIN 파일", "", "Binary Files (*.bin)")
+        if not bin_path:
+            return
+
+        record_size = 61
+        with open(csv_path, 'r', newline='') as csv_file, open(bin_path, 'wb') as bin_file:
+            reader = csv.DictReader(csv_file)
+
+            for row in reader:
+                try:
+                    timestamp = int(row['timestamp'])
+
+                    # weights: 문자열 → 리스트
+                    # 예: "[123, 456, 789]" 또는 "123;456;789"
+                    weights_str = row['weights'].strip()
+                    if weights_str.startswith('['):  # 리스트 문자열
+                        weights = [int(x) for x in weights_str.strip('[]').split(',')]
+                    else:  # 세미콜론 구분
+                        weights = [int(x) for x in weights_str.split(';')]
+
+                    # 9개가 안 되면 0으로 채움
+                    weights = (weights + [0] * 9)[:9]
+
+                    direction = row['direction'][0].encode('utf-8')
+
+                    # name은 16바이트로 고정, 남는 공간은 \x00으로 채움
+                    name_bytes = row['name'].encode('utf-8')
+                    name_bytes = name_bytes[:16] + b'\x00' * (16 - len(name_bytes))
+
+                    location = int(row['location'])
+
+                    laser_data = [
+                        float(row['laser_data[0]']),
+                        float(row['laser_data[1]']),
+                        float(row['laser_data[2]'])
+                    ]
+
+                    light_data = [
+                        float(row['light_data[0]']),
+                        int(row['light_data[1]']),
+                        int(row['light_data[2]'])
+                    ]
+
+                    state = row['state'][0].encode('utf-8')
+
+                    # struct로 패킹
+                    packed = struct.pack(
+                        '<I9h1s16sBfff fHH1s'.replace(' ', ''),  # 공백 제거
+                        timestamp,
+                        *weights,
+                        direction,
+                        name_bytes,
+                        location,
+                        *laser_data,
+                        *light_data,
+                        state
+                    )
+
+                    assert len(packed) == record_size, f"Record size mismatch: {len(packed)} bytes"
+                    bin_file.write(packed)
+
+                except Exception as e:
+                    print(f"⚠️ Error in row {reader.line_num}: {e}")
+
+        QMessageBox.information(self, "완료", "CSV → BIN 변환 완료!")
 
 
 if __name__ == '__main__':

@@ -384,7 +384,7 @@ class ScatterPlotWidget(QWidget):
         self.standard_line = self.scatter_widget.addLine(x=self.standard_line_value, pen=pg.mkPen('y', width=1))
 
     def onMouseMoved(self, pos):
-        """마우스 이동 이벤트 핸들러"""
+        """마우스 이동 이벤트 핸들러 (2차원 산점도용: distance vs lux/ch1)"""
         if not self.scatter_widget.sceneBoundingRect().contains(pos):
             return
 
@@ -400,16 +400,36 @@ class ScatterPlotWidget(QWidget):
         # 데이터가 있을 때
         if self.data is not None and len(self.data) > 0:
             distances = self.data['distance'].to_numpy()
+            lux_values = self.data['lux'].to_numpy()
+            ir_values = self.data['ch1'].to_numpy()
 
-            # 마우스 위치에서 가장 가까운 x값 찾기
-            idx = (np.abs(distances - x)).argmin()
+            # 마우스 위치에 가장 가까운 점 찾기 (lux, IR 모두 비교)
+            # 우선 lux 기준
+            distances_2d = np.sqrt((distances - x) ** 2 + (lux_values - y) ** 2)
+            idx_lux = np.argmin(distances_2d)
+            d_lux = distances_2d[idx_lux]
+
+            # 그리고 IR 기준
+            distances_2d_ir = np.sqrt((distances - x) ** 2 + (ir_values - y) ** 2)
+            idx_ir = np.argmin(distances_2d_ir)
+            d_ir = distances_2d_ir[idx_ir]
+
+            # lux, IR 중 더 가까운 점 선택
+            if d_lux < d_ir:
+                idx = idx_lux
+                y_type = 'lux'
+            else:
+                idx = idx_ir
+                y_type = 'ch1'
+
             row = self.data.iloc[idx]
 
-            # 표시할 항목 구성
+            # 표시할 텍스트 구성
             text = (
                 f'Distance: {row["distance"]:.2f}\n'
                 f'Light (lux): {row["lux"]:.2f}\n'
-                f'IR (ch1): {row["ch1"]}'
+                f'IR (ch1): {row["ch1"]}\n'
+                f'(Nearest: {y_type})'
             )
 
             self.value_text.setText(text)

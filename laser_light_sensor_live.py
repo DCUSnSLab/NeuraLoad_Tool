@@ -183,7 +183,7 @@ class LiveSensorGraph(QWidget):
 
         # 왼쪽 축 (Laser) 라인 생성
         self.laser_line = self.plot.plot(
-            pen=pg.mkPen(self.color, width=1),
+            pen=pg.mkPen(self.color, width=2),
             name="Laser"
         )
         self.plot.vb.setYRange(0, 800)  # Laser 거리 범위 설정
@@ -212,7 +212,7 @@ class LiveSensorGraph(QWidget):
         # 기준선 추가
         self.standard_line = self.plot.addLine(
             y=self.standard_line_value,
-            pen=pg.mkPen('y', width=2)
+            pen=pg.mkPen('y', width=1)
         )
 
         # 뷰 크기 변경 시 오른쪽 ViewBox 갱신 이벤트 연결
