@@ -1,92 +1,273 @@
 #include "COGMassEstimation.h"
-#include <string.h> // memset
-#include <math.h>   // fabs
+#include <string.h>
+#include <math.h>
 #include <stdio.h>
 
-const double loadingBoxWidth = 1630.0;
-const double loadingBoxLength = 2860.0;
+int reset_algo_flag = 0;
+const float loadingBoxWidth = 1630.0f;
+const float loadingBoxLength = 2860.0f;
 
-const double sensorCoords[SENSOR_COUNT][2] = {
-    {373.1, 1.0},
-    {201.0, 2516.9},
-    {1256.9, 1.0},
-    {1429.0, 2516.9}
+const float sensorCoords[SENSOR_COUNT][2] = {
+    {373.1f, 1.0f},
+    {201.0f, 2516.9f},
+    {1256.9f, 1.0f},
+    {1429.0f, 2516.9f}
 };
 
 const int locations[LOCATION_COUNT] = {1,2,3,4,5,6,7,8,9};
-const double sensorWeights[SENSOR_COUNT] = {1.0, 0.45, 1.0, 0.45};
-const double initCenter[3] = {815.0, 1430.0, 0.0};
+const float sensorWeights[SENSOR_COUNT] = {1.0f, 0.45f, 1.0f, 0.45f};
+const float initCenter[3] = {815.0f, 1430.0f, 0.0f};
+const float xCenters[LOCATION_COUNT] = {794.3329811f, 813.9314133f, 833.8338401f, 791.8779953f, 812.5496202f, 830.3194796f, 795.4399509f, 814.2261959f, 834.6214622f};
+const float yCenters[LOCATION_COUNT] = {1416.042594f, 1416.207189f, 1415.538152f, 1431.776203f, 1429.261099f, 1430.5897f, 1447.795189f, 1446.468957f, 1447.492051f};
+const float zCenters[LOCATION_COUNT] = {13.9859375f, 15.51666667f, 14.2640625f, 16.65625f, 16.3f, 15.884375f, 15.31041667f, 15.61875f, 15.29375f};
+const float coefficient[LOCATION_COUNT] = {34.305925f, 31.019686f, 33.7840643f, 28.4172494f, 28.3819276f, 29.24740398f, 29.14227469f, 25.70094819f, 29.02068168f};
 
-const double xCenters[LOCATION_COUNT] = {794.3329811, 813.9314133, 833.8338401, 791.8779953, 812.5496202, 830.3194796, 795.4399509, 814.2261959, 834.6214622};
-const double yCenters[LOCATION_COUNT] = {1416.042594, 1416.207189, 1415.538152, 1431.776203, 1429.261099, 1430.5897, 1447.795189, 1446.468957, 1447.492051};
-const double zCenters[LOCATION_COUNT] = {13.9859375, 15.51666667, 14.2640625, 16.65625, 16.3, 15.884375, 15.31041667, 15.61875, 15.29375};
-const double coefficient[LOCATION_COUNT] = {34.305925, 31.019686, 33.7840643, 28.4172494, 28.3819276, 29.24740398, 29.14227469, 25.70094819, 29.02068168};
+static LoadingState current_state = STATE_IDLE;
+static float peak_value = 0.0f;
+static float average_delta = 0.0f;
+static float baseline_value = 0.0f;
+static float valley_value = 0.0f;
+static bool cpt_estimation = false;
+static bool init_complete_flag = false;
+int init_values[SENSOR_COUNT] = {0};
+static int sample_count = 0;
+static float init_sums[SENSOR_COUNT] = {0};
+static int init_count = 0;
 
-int calculate_initial_values(const double samples[][SENSOR_COUNT], int sample_count, int init_values[SENSOR_COUNT]) {
-    if(sample_count <= 0) return 0;
-    double sums[SENSOR_COUNT] = {0};
-    for(int i=0; i<sample_count; i++) {
-        for(int j=0; j<SENSOR_COUNT; j++) {
-            sums[j] += samples[i][j];
-        }
+const char* get_loading_state_string(LoadingState state) {
+    switch(state) {
+        case STATE_IDLE: return "IDLE";
+        case STATE_INIT: return "INIT";
+        case STATE_READY: return "READY";
+        case STATE_LOADING: return "LOADING";
+        case STATE_UNLOADING: return "UNLOADING";
+        case STATE_STABILIZING: return "STABILIZING";
+        case STATE_WEIGHTING: return "WEIGHTING";
+        default: return "UNKNOWN";
     }
-    for(int j=0; j<SENSOR_COUNT; j++) {
-        init_values[j] = (int)(sums[j] / sample_count);
+}
+
+int check_sensor_status(const int sensor_values[SENSOR_COUNT]) {
+    for (int i = 0; i < SENSOR_COUNT; i++) {
+        if (sensor_values[i] <= 0 || sensor_values[i] > 1000) {
+            return 0;
+        }
     }
     return 1;
 }
 
-void apply_moving_average_filter(double value_buffer[SENSOR_COUNT][WINDOW_SIZE], int buffer_counts[SENSOR_COUNT], int buffer_index, const double current_values[SENSOR_COUNT], double filtered_values[SENSOR_COUNT]) {
+int calculate_initial_values(const int sensor_values[SENSOR_COUNT], int init_values[SENSOR_COUNT]) {
+    extern int reset_algo_flag;
+    if (reset_algo_flag) {
+        memset(init_sums, 0, sizeof(init_sums));
+        init_count = 0;
+        reset_algo_flag = 0;
+    }
+
+    if (init_count >= INIT_SAMPLE_COUNT) return 1;
+
+    for (int i = 0; i < SENSOR_COUNT; i++) {
+        init_sums[i] += sensor_values[i];
+    }
+    init_count++;
+
+    if (init_count == INIT_SAMPLE_COUNT) {
+        for (int i = 0; i < SENSOR_COUNT; i++) {
+            init_values[i] = (int)(init_sums[i] / INIT_SAMPLE_COUNT);
+        }
+        return 1;
+    }
+
+    return 0;
+}
+
+float get_peak_value(void) {
+    return peak_value;
+}
+
+float get_baseline_value(void) {
+    return baseline_value;
+}
+
+float get_average_delta(void) {
+    return average_delta;
+}
+
+LoadingState detect_loading_state(const int sensor_values[SENSOR_COUNT], const int init_values[SENSOR_COUNT]) {
+    static int stability_counter = 0;
+    static LoadingState last_state = STATE_IDLE;
+
+    if (reset_algo_flag) {
+        current_state = STATE_IDLE;
+        peak_value = 0.0f;
+        average_delta = 0.0f;
+        stability_counter = 0;
+        cpt_estimation = 0;
+        last_state = STATE_IDLE;
+    }
+
+    float current_total_delta = 0.0f;
+    for (int i = 0; i < SENSOR_COUNT; i++) {
+        if (init_values[i] != 0) {
+            current_total_delta += (float)init_values[i] - (float)sensor_values[i];
+        }
+    }
+
+    if (SENSOR_COUNT > 0) {
+        average_delta = current_total_delta;
+    }
+
+    switch (current_state) {
+        case STATE_IDLE:
+            peak_value = 0;
+            current_state = STATE_INIT;
+            break;
+
+        case STATE_INIT:
+            if (init_complete_flag) {
+                current_state = STATE_READY;
+                init_complete_flag = 0;
+            }
+            break;
+
+        case STATE_READY:
+            if (current_total_delta >= baseline_value + LOADING_THRESHOLD) {
+                current_state = STATE_LOADING;
+                peak_value = current_total_delta;
+                last_state = STATE_LOADING;
+                stability_counter = 0;
+            } else if (current_total_delta <= baseline_value - LOADING_THRESHOLD) {
+                current_state = STATE_UNLOADING;
+                valley_value = current_total_delta;
+                last_state = STATE_UNLOADING;
+                stability_counter = 0;
+            }
+            break;
+
+        case STATE_LOADING:
+            last_state = STATE_LOADING;
+            if (current_total_delta >= peak_value) {
+                peak_value = current_total_delta;
+                stability_counter = 0;
+            } else {
+                current_state = STATE_STABILIZING;
+                stability_counter = 0;
+            }
+            break;
+
+        case STATE_UNLOADING:
+            last_state = STATE_UNLOADING;
+            if (current_total_delta <= valley_value) {
+                valley_value = current_total_delta;
+                stability_counter = 0;
+            } else {
+                current_state = STATE_STABILIZING;
+                stability_counter = 0;
+            }
+            break;
+
+        case STATE_STABILIZING:
+            if (last_state == STATE_LOADING) {
+                if (current_total_delta >= peak_value) {
+                    current_state = STATE_LOADING;
+                    peak_value = current_total_delta;
+                    stability_counter = 0;
+                }
+                else {
+                    stability_counter++;
+                }
+            }
+            else if (last_state == STATE_UNLOADING) {
+                if (current_total_delta <= valley_value) {
+                    current_state = STATE_UNLOADING;
+                    valley_value = current_total_delta;
+                    stability_counter = 0;
+                }
+                else {
+                    stability_counter++;
+                }
+            }
+
+            if (stability_counter >= COUNTS_TO_STABLE) {
+                current_state = STATE_WEIGHTING;
+                stability_counter = 0;
+            }
+            break;
+
+        case STATE_WEIGHTING:
+            if(cpt_estimation) {
+                current_state = STATE_READY;
+                cpt_estimation = false;
+                baseline_value = current_total_delta;
+                peak_value = baseline_value;
+                valley_value = baseline_value;
+                stability_counter = 0;
+            }
+            else {
+                if (current_total_delta >= peak_value + LOADING_THRESHOLD) {
+                    current_state = STATE_LOADING;
+                    peak_value = current_total_delta;
+                    last_state = STATE_LOADING;
+                    stability_counter = 0;
+                    sample_count = 0;
+                }
+                else if (current_total_delta <= valley_value - LOADING_THRESHOLD) {
+                    current_state = STATE_UNLOADING;
+                    valley_value = current_total_delta;
+                    last_state = STATE_UNLOADING;
+                    stability_counter = 0;
+                    sample_count = 0;
+                }
+            }
+            break;
+    }
+    return current_state;
+}
+
+LoadingState get_current_state() {
+    return current_state;
+}
+
+void compute_deltas(const float current_values[SENSOR_COUNT], const int init_values[SENSOR_COUNT], float deltas[SENSOR_COUNT]) {
     for(int i=0; i<SENSOR_COUNT; i++) {
+        deltas[i] = (float)init_values[i] - current_values[i];
+    }
+}
+
+void apply_moving_average_filter(float value_buffer[SENSOR_COUNT][WINDOW_SIZE], int buffer_counts[SENSOR_COUNT], int buffer_index, const int current_values[SENSOR_COUNT], float filtered_values[SENSOR_COUNT]) {
+    for (int i = 0; i < SENSOR_COUNT; i++) {
         value_buffer[i][buffer_index] = current_values[i];
-        if(buffer_counts[i] < WINDOW_SIZE) buffer_counts[i]++;
-        double sum = 0.0;
-        for(int k=0; k<buffer_counts[i]; k++) {
+        if (buffer_counts[i] < WINDOW_SIZE) buffer_counts[i]++;
+        float sum = 0.0f;
+        for (int k = 0; k < buffer_counts[i]; k++) {
             sum += value_buffer[i][k];
         }
         filtered_values[i] = sum / buffer_counts[i];
     }
 }
 
-
-void compute_deltas(const double current_values[SENSOR_COUNT], const int init_values[SENSOR_COUNT], double deltas[SENSOR_COUNT]) {
-    for(int i=0; i<SENSOR_COUNT; i++) {
-        deltas[i] = (double)init_values[i] - current_values[i];
-    }
-}
-
-int preprocess_data(const double sensor_values[SENSOR_COUNT], const int init_values[SENSOR_COUNT], double value_buffer[SENSOR_COUNT][WINDOW_SIZE], int buffer_counts[SENSOR_COUNT], int buffer_index, double deltas[SENSOR_COUNT]) {
-    double filtered[SENSOR_COUNT] = {0};
+int preprocess_data(const int sensor_values[SENSOR_COUNT], const int init_values[SENSOR_COUNT], float value_buffer[SENSOR_COUNT][WINDOW_SIZE], int buffer_counts[SENSOR_COUNT], int buffer_index, float deltas[SENSOR_COUNT]) {
+    float filtered[SENSOR_COUNT] = {0};
     apply_moving_average_filter(value_buffer, buffer_counts, buffer_index, sensor_values, filtered);
-
-    for (int i = 0; i < SENSOR_COUNT; i++) {
-        printf("%.9f ", filtered[i]);
-    }
-    printf("\n");
-
     compute_deltas(filtered, init_values, deltas);
-
-
     buffer_index = (buffer_index + 1) % WINDOW_SIZE;
-
     return buffer_index;
 }
 
-void calculate_cog(const double deltas[SENSOR_COUNT], double* xCenter, double* yCenter, double* zCenter) {
-    double weightDeltas[SENSOR_COUNT];
+void calculate_cog(const float deltas[SENSOR_COUNT], float* xCenter, float* yCenter, float* zCenter) {
+    float weightDeltas[SENSOR_COUNT];
     for (int i = 0; i < SENSOR_COUNT; i++) {
         weightDeltas[i] = deltas[i] * sensorWeights[i];
     }
-    double roll = ((weightDeltas[0] - weightDeltas[2]) + (weightDeltas[1] - weightDeltas[3])) / (((sensorCoords[3][0] - sensorCoords[1][0]) + (sensorCoords[2][0] - sensorCoords[0][0])) / 2.0);
-    double pitch = ((weightDeltas[0] - weightDeltas[1]) + (weightDeltas[2] - weightDeltas[3])) / (((sensorCoords[3][1] - sensorCoords[2][1]) + (sensorCoords[1][1] - sensorCoords[0][1])) / 2.0);
-    *xCenter = (loadingBoxWidth / 2.0) - roll * (loadingBoxWidth / 2.0);
-    *yCenter = (loadingBoxLength / 2.0) - pitch * (loadingBoxLength / 2.0);
-    *zCenter = (deltas[0] + deltas[1] + deltas[2] + deltas[3]) / 4.0;
-    // printf("[%lf, %lf, %lf, %lf]\n", deltas[0], deltas[1], deltas[2], deltas[3]);
+    float roll = ((weightDeltas[0] - weightDeltas[2]) + (weightDeltas[1] - weightDeltas[3])) / (((sensorCoords[3][0] - sensorCoords[1][0]) + (sensorCoords[2][0] - sensorCoords[0][0])) / 2.0f);
+    float pitch = ((weightDeltas[0] - weightDeltas[1]) + (weightDeltas[2] - weightDeltas[3])) / (((sensorCoords[3][1] - sensorCoords[2][1]) + (sensorCoords[1][1] - sensorCoords[0][1])) / 2.0f);
+    *xCenter = (loadingBoxWidth / 2.0f) - roll * (loadingBoxWidth / 2.0f);
+    *yCenter = (loadingBoxLength / 2.0f) - pitch * (loadingBoxLength / 2.0f);
+    *zCenter = (weightDeltas[0] + weightDeltas[1] + weightDeltas[2] + weightDeltas[3]) / 4.0f;
 }
 
-void estimate_location(double xCenter, double yCenter, int* loc1, int* loc2, double* ratio1, double* ratio2) {
-    double point[2] = {xCenter, yCenter};
+void estimate_location(float xCenter, float yCenter, int* loc1, int* loc2, float* ratio1, float* ratio2) {
+    float point[2] = {xCenter, yCenter};
     int non_center_indices[LOCATION_COUNT - 1];
     int count = 0;
 
@@ -94,13 +275,13 @@ void estimate_location(double xCenter, double yCenter, int* loc1, int* loc2, dou
         if (locations[i] != 5) non_center_indices[count++] = i;
     }
 
-    double min_dist = 1e30;
+    float min_dist = 1e30f;
     int min_idx = -1;
     for (int i = 0; i < count; i++) {
         int idx = non_center_indices[i];
-        double dx = point[0] - xCenters[idx];
-        double dy = point[1] - yCenters[idx];
-        double dist = sqrt(dx * dx + dy * dy);
+        float dx = point[0] - xCenters[idx];
+        float dy = point[1] - yCenters[idx];
+        float dist = sqrtf(dx * dx + dy * dy);
         if (dist < min_dist) {
             min_dist = dist;
             min_idx = idx;
@@ -110,20 +291,12 @@ void estimate_location(double xCenter, double yCenter, int* loc1, int* loc2, dou
     int closest_loc = locations[min_idx];
 
     int neighbors_map[][2] = {
-        {2, 4}, // 1
-        {1, 3}, // 2
-        {2, 6}, // 3
-        {1, 7}, // 4
-        {0, 0}, // 5 없음
-        {3, 9}, // 6
-        {4, 8}, // 7
-        {7, 9}, // 8
-        {6, 8}  // 9
+        {2, 4}, {1, 3}, {2, 6}, {1, 7}, {0, 0},
+        {3, 9}, {4, 8}, {7, 9}, {6, 8}
     };
 
     int* adj = neighbors_map[closest_loc - 1];
-
-    double dist2 = 1e30;
+    float dist2 = 1e30f;
     int loc2_idx = -1;
     int loc2_val = 0;
 
@@ -138,9 +311,9 @@ void estimate_location(double xCenter, double yCenter, int* loc1, int* loc2, dou
             }
         }
         if (adj_idx == -1) continue;
-        double dx = point[0] - xCenters[adj_idx];
-        double dy = point[1] - yCenters[adj_idx];
-        double dist = sqrt(dx * dx + dy * dy);
+        float dx = point[0] - xCenters[adj_idx];
+        float dy = point[1] - yCenters[adj_idx];
+        float dist = sqrtf(dx * dx + dy * dy);
         if (dist < dist2) {
             dist2 = dist;
             loc2_idx = adj_idx;
@@ -151,16 +324,16 @@ void estimate_location(double xCenter, double yCenter, int* loc1, int* loc2, dou
     *loc1 = closest_loc;
     *loc2 = loc2_val;
 
-    if (min_dist + dist2 == 0.0) {
-        *ratio1 = 0.5;
-        *ratio2 = 0.5;
+    if (min_dist + dist2 == 0.0f) {
+        *ratio1 = 0.5f;
+        *ratio2 = 0.5f;
     } else {
         *ratio1 = dist2 / (min_dist + dist2);
         *ratio2 = min_dist / (min_dist + dist2);
     }
 }
 
-double cal_distance_location(int location, double xCenter, double yCenter) {
+float cal_distance_location(int location, float xCenter, float yCenter) {
     int idx = -1;
     for(int i=0; i<LOCATION_COUNT; i++) {
         if(locations[i] == location) {
@@ -168,55 +341,55 @@ double cal_distance_location(int location, double xCenter, double yCenter) {
             break;
         }
     }
-    if(idx == -1) return -1.0;
+    if(idx == -1) return -1.0f;
 
-    double a = (yCenters[idx] - initCenter[1]) / (xCenters[idx] - initCenter[0]);
-    double b = -1.0;
-    double c = a * initCenter[0] - initCenter[1];
+    float a = (yCenters[idx] - initCenter[1]) / (xCenters[idx] - initCenter[0]);
+    float b = -1.0f;
+    float c = a * initCenter[0] - initCenter[1];
 
-    return fabs(a * xCenter + b * yCenter + c) / sqrt(a*a + b*b);
+    float distance = fabsf(a * xCenter + b * yCenter + c) / sqrtf(a*a + b*b);
+    distance = roundf(distance * 1e6f) / 1e6f;
+
+    return distance;
 }
 
+int estimate_weight(float zCenter, int i1, int i2, float ratio1, float ratio2) {
+    if(zCenter <= 0.0f) return 0;
+    float loc1_weight = coefficient[i1] * zCenter;
+    float loc2_weight = coefficient[i2] * zCenter;
 
-int estimate_weight(double zCenter, int i1, int i2, double ratio1, double ratio2) {
-    if(zCenter <= 0.0) return 0;
-    double loc1_weight = coefficient[i1] * zCenter;
-    double loc2_weight = coefficient[i2] * zCenter;
+    float threshold1 = zCenters[i1] / 5.0f;
+    float threshold15 = threshold1 * 1.5f;
+    float threshold2 = zCenters[i2] / 5.0f;
+    float threshold25 = threshold2 * 1.5f;
 
-    double threshold1 = zCenters[i1] / 5.0;
-    double threshold15 = threshold1 * 1.5;
-    double threshold2 = zCenters[i2] / 5.0;
-    double threshold25 = threshold2 * 1.5;
+    float coeff1, coeff2;
 
-    double coeff1, coeff2;
+    if(zCenter <= threshold1) coeff1 = 1.4f;
+    else if(zCenter <= threshold15) coeff1 = 1.2f;
+    else coeff1 = 1.0f;
 
-    if(zCenter <= threshold1) coeff1 = 1.4;
-    else if(zCenter <= threshold15) coeff1 = 1.2;
-    else coeff1 = 1.0;
+    if(zCenter <= threshold2) coeff2 = 1.4f;
+    else if(zCenter <= threshold25) coeff2 = 1.2f;
+    else coeff2 = 1.0f;
 
-    if(zCenter <= threshold2) coeff2 = 1.4;
-    else if(zCenter <= threshold25) coeff2 = 1.2;
-    else coeff2 = 1.0;
-
-    double weight1 = coeff1 * loc1_weight * ratio2;
-    double weight2 = coeff2 * loc2_weight * ratio1;
-    printf("weight1: %lf, weight2: %lf, coeff1: %lf, coeff2: %lf, i1: %d, i2: %d, coefficient[i1]: %lf, coefficient[i2]: %lf, zCenter: %lf\n", weight1, weight2, coeff1, coeff2, i1, i2, coefficient[i1], coefficient[i2], zCenter);
+    float weight1 = coeff1 * loc1_weight * ratio2;
+    float weight2 = coeff2 * loc2_weight * ratio1;
     return (int)(weight1 + weight2);
 }
 
-// 위치 및 무게 최종 추정 함수
-void estimate_location_weight(double xCenter, double yCenter, double zCenter, int* combined_loc, int* weight) {
+void estimate_location_weight(float xCenter, float yCenter, float zCenter, int* combined_loc, int* weight) {
     int loc1, loc2;
-    double ratio1, ratio2;
+    float ratio1, ratio2;
     estimate_location(xCenter, yCenter, &loc1, &loc2, &ratio1, &ratio2);
 
-    double dist1 = cal_distance_location(loc1, xCenter, yCenter);
-    double dist2 = cal_distance_location(loc2, xCenter, yCenter);
+    float dist1 = cal_distance_location(loc1, xCenter, yCenter);
+    float dist2 = cal_distance_location(loc2, xCenter, yCenter);
 
-    double total_dist = dist1 + dist2;
-    if(total_dist == 0.0) {
-        ratio1 = 0.5;
-        ratio2 = 0.5;
+    float total_dist = dist1 + dist2;
+    if(total_dist == 0.0f) {
+        ratio1 = 0.5f;
+        ratio2 = 0.5f;
     } else {
         ratio1 = dist2 / total_dist;
         ratio2 = dist1 / total_dist;
@@ -224,4 +397,90 @@ void estimate_location_weight(double xCenter, double yCenter, double zCenter, in
 
     *weight = estimate_weight(zCenter, loc1 - 1, loc2 - 1, ratio1, ratio2);
     *combined_loc = loc1 * 10 + loc2;
+}
+
+void reset_algorithm() {
+    reset_algo_flag = 1;
+    memset(init_sums, 0, sizeof(init_sums));
+    init_count = 0;
+}
+
+int run_algo(const int sensor_values[SENSOR_COUNT]) {
+    static float value_buffer[SENSOR_COUNT][WINDOW_SIZE] = {0};
+    static int buffer_counts[SENSOR_COUNT] = {0};
+    static int buffer_index = 0;
+    static int initialized = 0;
+    static LoadingState current_loading_state = STATE_IDLE;
+
+    static int weight_samples[WEIGHT_SAMPLES] = {0};
+
+    static int final_average_weight = 0;
+    static bool is_collection_complete = false;
+
+    if (reset_algo_flag) {
+        initialized = 0;
+        sample_count = 0;
+        final_average_weight = 0;
+        is_collection_complete = false;
+        memset(weight_samples, 0, sizeof(weight_samples));
+        init_count = 0;
+        current_loading_state = STATE_IDLE;
+        reset_algo_flag = 1;
+    }
+
+    if (!check_sensor_status(sensor_values)) {
+        return -1;
+    }
+
+    current_loading_state = detect_loading_state(sensor_values, init_values);
+
+    switch (current_loading_state) {
+        case STATE_READY:
+            sample_count = 0;
+            memset(weight_samples, 0, sizeof(weight_samples));
+            break;
+        case STATE_INIT:
+            if (!initialized) {
+                if (calculate_initial_values(sensor_values, init_values)) {
+                    initialized = 1;
+                    init_complete_flag = true;
+                }
+            }
+            break;
+
+        case STATE_WEIGHTING:
+            if (is_collection_complete) {
+                cpt_estimation = true;
+                is_collection_complete = false;
+                return final_average_weight;
+            }
+
+            float deltas[SENSOR_COUNT];
+            buffer_index = preprocess_data(sensor_values, init_values, value_buffer, buffer_counts, buffer_index, deltas);
+
+            float xCenter, yCenter, zCenter;
+            calculate_cog(deltas, &xCenter, &yCenter, &zCenter);
+
+            int combined_loc = 0;
+            int current_weight = 0;
+            estimate_location_weight(xCenter, yCenter, zCenter, &combined_loc, &current_weight);
+
+            if (sample_count < WEIGHT_SAMPLES) {
+                weight_samples[sample_count++] = current_weight;
+            }
+
+            if (sample_count >= WEIGHT_SAMPLES) {
+                float sum = 0.0f;
+
+                for (int i = 0; i < sample_count; i++) {
+                    sum += weight_samples[i];
+                }
+                final_average_weight = (int)(sum / sample_count);
+
+                is_collection_complete = true;
+                return final_average_weight;
+            }
+            break;
+    }
+    return 0+final_average_weight;
 }
